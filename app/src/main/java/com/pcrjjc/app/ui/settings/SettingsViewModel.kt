@@ -2,6 +2,7 @@ package com.pcrjjc.app.ui.settings
   
 import android.content.Context  
 import android.content.Intent  
+import android.os.Build  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
 import com.pcrjjc.app.data.local.dao.BindDao  
@@ -53,7 +54,13 @@ class SettingsViewModel @Inject constructor(
         }  
     }  
   
-    fun updateBindNotice(bind: PcrBind, jjcNotice: Boolean? = null, pjjcNotice: Boolean? = null, upNotice: Boolean? = null, onlineNotice: Int? = null) {  
+    fun updateBindNotice(  
+        bind: PcrBind,  
+        jjcNotice: Boolean? = null,  
+        pjjcNotice: Boolean? = null,  
+        upNotice: Boolean? = null,  
+        onlineNotice: Int? = null  
+    ) {  
         viewModelScope.launch {  
             val updated = bind.copy(  
                 jjcNotice = jjcNotice ?: bind.jjcNotice,  
@@ -67,14 +74,16 @@ class SettingsViewModel @Inject constructor(
   
     private fun startMonitoring() {  
         val interval = _uiState.value.pollingIntervalSeconds  
-        val intent = Intent(context, RankMonitorService::class.java).apply {  
-            putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  
+        val intent = Intent(context, RankMonitorService::class.java)  
+        intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
+            context.startForegroundService(intent)  
+        } else {  
+            context.startService(intent)  
         }  
-        context.startForegroundService(intent)  
     }  
   
     private fun stopMonitoring() {  
-        val intent = Intent(context, RankMonitorService::class.java)  
-        context.stopService(intent)  
+        context.stopService(Intent(context, RankMonitorService::class.java))  
     }  
 }

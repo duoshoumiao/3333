@@ -12,9 +12,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.security.MessageDigest  
 import java.util.concurrent.TimeUnit  
   
-/**  
- * CN server PCR client corresponding to pcrjjc2/client/pcrclient.py  
- */  
 class PcrClient(  
     private val biliAuth: BiliAuth,  
     private val httpClient: OkHttpClient = OkHttpClient.Builder()  
@@ -129,7 +126,6 @@ class PcrClient(
   
                     val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()  
   
-                    // Update viewer_id from response  
                     dataHeaders["viewer_id"]?.let {  
                         val vid = (it as? Number)?.toLong() ?: it.toString().toLongOrNull()  
                         if (vid != null) {  
@@ -145,12 +141,10 @@ class PcrClient(
                         headers["SID"] = md5.digest().joinToString("") { "%02x".format(it) }  
                     }  
   
-                    // Update REQUEST-ID  
                     dataHeaders["request_id"]?.let {  
                         headers["REQUEST-ID"] = it.toString()  
                     }  
   
-                    // Update version from store_url  
                     val storeUrl = dataHeaders["store_url"]?.toString()  
                     if (storeUrl != null) {  
                         val match = Regex("_v?(\\d+\\.\\d+\\.\\d+).*?_").find(storeUrl)  

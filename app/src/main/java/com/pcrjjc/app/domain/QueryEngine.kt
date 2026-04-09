@@ -5,14 +5,9 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.data.remote.ApiException  
 import com.pcrjjc.app.data.remote.PcrClient  
 import com.pcrjjc.app.data.remote.TwPcrClient  
-import kotlinx.coroutines.channels.Channel  
 import kotlinx.coroutines.coroutineScope  
 import kotlinx.coroutines.launch  
   
-/**  
- * Query engine corresponding to pcrjjc2/query.py  
- * Uses Kotlin Channel for task scheduling  
- */  
 class QueryEngine {  
   
     companion object {  
@@ -30,9 +25,6 @@ class QueryEngine {
         val fullResponse: Map<String, Any?>  
     )  
   
-    /**  
-     * Query profile for a single bind using the appropriate client  
-     */  
     @Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
         client: Any,  
@@ -57,18 +49,17 @@ class QueryEngine {
   
             val userInfo = res["user_info"] as? Map<String, Any?>  
             if (userInfo == null) {  
-                // Try re-login and retry  
                 when (client) {  
                     is PcrClient -> client.login()  
                     is TwPcrClient -> client.login()  
                 }  
                 val retryRes = when (client) {  
                     is PcrClient -> client.callApi(  
-                        "/profile/get_profile",  
+                        "/profile/get_profile",                              // ← 修复: 补上 apiUrl  
                         mutableMapOf("target_viewer_id" to bind.pcrid)  
                     )  
                     is TwPcrClient -> client.callApi(  
-                        "/profile/get_profile",  
+                        "/profile/get_profile",                              // ← 修复: 补上 apiUrl  
                         mutableMapOf("target_viewer_id" to bind.pcrid)  
                     )  
                     else -> return null  
@@ -87,9 +78,6 @@ class QueryEngine {
         }  
     }  
   
-    /**  
-     * Query all binds for a platform  
-     */  
     suspend fun queryAll(  
         binds: List<PcrBind>,  
         client: Any,  

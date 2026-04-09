@@ -1,11 +1,17 @@
 package com.pcrjjc.app.service  
   
+import android.Manifest  
 import android.app.Notification  
 import android.app.Service  
 import android.content.Intent  
+import android.content.pm.PackageManager  
+import android.content.pm.ServiceInfo  
+import android.os.Build  
 import android.os.IBinder  
 import android.util.Log  
 import androidx.core.app.NotificationCompat  
+import androidx.core.app.ServiceCompat  
+import androidx.core.content.ContextCompat  
 import com.pcrjjc.app.PcrJjcApp  
 import com.pcrjjc.app.R  
 import com.pcrjjc.app.data.local.dao.AccountDao  
@@ -24,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob  
 import kotlinx.coroutines.cancel  
 import kotlinx.coroutines.delay  
+import kotlinx.coroutines.isActive  
 import kotlinx.coroutines.launch  
 import javax.inject.Inject  
   
@@ -48,49 +55,87 @@ class RankMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
         val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 30) ?: 30  
   
-        val notification = createNotification(intervalSeconds)  
-        startForeground(NOTIFICATION_ID, notification)  
+        // Check notification permission on Android 13+  
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
+            if (ContextCompat.checkSelfPermission(  
+                    this, Manifest.permission.POST_NOTIFICATIONS  
+                ) != PackageManager.PERMISSION_GRANTED  
+            ) {  
+                Log.w(TAG, "通知权限未授予，停止前台服务")  
+                stopSelf()  
+                return START_NOT_STICKY  
+            }  
+        }  
   
-        // 重启轮询（间隔可能变了）  
+        // Start foreground  
+        val notification = createNotification(intervalSeconds)  
+        try {  
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {  
+                ServiceCompat.startForeground(  
+                    this, NOTIFICATION_ID, notification,  
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC  
+                )  
+            } else {  
+                startForeground(NOTIFICATION_ID, notification)  
+            }  
+        } catch (e: Exception) {  
+            Log.e(TAG, "启动前台服务失败", e)  
+            stopSelf()  
+            return START_NOT_STICKY  
+        }  
+  
+        // Cancel previous polling job and start new one  
         pollingJob?.cancel()  
         pollingJob = serviceScope.launch {  
+            Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao)  
+            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao)  
   
-            while (true) {  
+            while (isActive) {  
                 try {  
                     val accounts = accountDao.getAllAccountsSync()  
-                    for (account in accounts) {  
-                        try {  
-                            val binds = bindDao.getBindsByPlatformSync(account.platform)  
-                            if (binds.isEmpty()) continue  
+                    if (accounts.isEmpty()) {  
+                        Log.w(TAG, "No accounts configured, waiting...")  
+                    } else {  
+                        for (account in accounts) {  
+                            if (!isActive) break  
+                            try {  
+                                val binds = bindDao.getBindsByPlatformSync(account.platform)  
+                                if (binds.isEmpty()) continue  
   
-                            val client: Any = when (account.platform) {  
-                                Platform.TW_SERVER.id -> {  
-                                    val twPlatform = account.viewerId.toLong() / 1000000000  
-                                    val twClient = TwPcrClient(  
-                                        account.account, account.password,  
-                                        account.viewerId, twPlatform.toInt()  
-                                    )  
-                                    twClient.login()  
-                                    twClient  
+                                val client: Any = when (account.platform) {  
+                                    Platform.TW_SERVER.id -> {  
+                                        val twPlatform = account.viewerId.toLong() / 1000000000  
+                                        val twClient = TwPcrClient(  
+                                            account.account,  
+                                            account.password,  
+                                            account.viewerId,  
+                                            twPlatform.toInt()  
+                                        )  
+                                        twClient.login()  
+                                        twClient  
+                                    }  
+                                    else -> {  
+                                        val biliAuth = BiliAuth(  
+                                            account.account,  
+                                            account.password,  
+                                            account.platform  
+                                        )  
+                                        val pcrClient = PcrClient(biliAuth)  
+                                        pcrClient.login()  
+                                        pcrClient  
+                                    }  
                                 }  
-                                else -> {  
-                                    val biliAuth = BiliAuth(account.account, account.password, account.platform)  
-                                    val pcrClient = PcrClient(biliAuth)  
-                                    pcrClient.login()  
-                                    pcrClient  
-                                }  
-                            }  
   
-                            queryEngine.queryAll(binds, client) { result ->  
-                                rankMonitor.processResult(result)  
+                                queryEngine.queryAll(binds, client) { result ->  
+                                    rankMonitor.processResult(result)  
+                                }  
+                            } catch (e: Exception) {  
+                                Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                             }  
-                        } catch (e: Exception) {  
-                            Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                         }  
+                        rankMonitor.flushHistories()  
                     }  
-                    rankMonitor.flushHistories()  
                 } catch (e: Exception) {  
                     Log.e(TAG, "Polling cycle failed: ${e.message}", e)  
                 }  
