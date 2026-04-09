@@ -117,11 +117,11 @@ class QueryViewModel @Inject constructor(
                         errorMessage = "查询失败"
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "查询出错: ${e.message}"
-                )
+            } catch (e: Throwable) {  
+                _uiState.value = _uiState.value.copy(  
+                    isLoading = false,  
+                    errorMessage = "查询出错: ${e.message}"  
+                )  
             }
         }
     }
