@@ -52,6 +52,10 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(binds = binds)  
             }  
         }  
+        // 如果上次退出时监控是开启的，自动恢复监控  
+        if (_uiState.value.isMonitoringEnabled) {  
+            startMonitoring()  
+        }  
     }  
   
     fun setPollingInterval(seconds: Long) {  
