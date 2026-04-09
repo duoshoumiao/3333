@@ -46,3 +46,5 @@ class SettingsDataStore(private val context: Context) {
   
     suspend fun isMonitoringEnabledSync(): Boolean {  
         return context.dataStore.data.first()[KEY_MONITORING_ENABLED] ?: false  
+    }  
+}
