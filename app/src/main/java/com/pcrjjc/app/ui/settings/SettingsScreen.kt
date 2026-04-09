@@ -1,4 +1,3 @@
-// app/src/main/java/com/pcrjjc/app/ui/settings/SettingsScreen.kt  
 package com.pcrjjc.app.ui.settings  
   
 import android.Manifest  
