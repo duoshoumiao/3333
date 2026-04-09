@@ -43,7 +43,7 @@ class PcrClient(
         }
     }
 
-    var viewerId: Long = 0
+    var viewerId: Long = null
     private var uid: String = ""
     private var accessKey: String = ""
     private val callLock = Mutex()
