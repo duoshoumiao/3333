@@ -40,7 +40,6 @@ class TwPcrClient(
     }
 
     private val headers = mutableMapOf(
-        "Accept-Encoding" to "gzip",
         "User-Agent" to "Dalvik/2.1.0 (Linux, U, Android 5.1.1, PCRT00 Build/LMY48Z)",
         "Content-Type" to "application/octet-stream",
         "Expect" to "100-continue",
