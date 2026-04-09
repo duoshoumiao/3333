@@ -1,6 +1,5 @@
 package com.pcrjjc.app.ui.query  
   
-import android.util.Log  
 import androidx.lifecycle.SavedStateHandle  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
@@ -41,10 +40,6 @@ class QueryViewModel @Inject constructor(
     private val clientManager: ClientManager  
 ) : ViewModel() {  
   
-    companion object {  
-        private const val TAG = "QueryViewModel"  
-    }  
-  
     private val bindId: Int = savedStateHandle["bindId"] ?: 0  
     private val _uiState = MutableStateFlow(QueryUiState())  
     val uiState: StateFlow<QueryUiState> = _uiState  
@@ -55,17 +50,10 @@ class QueryViewModel @Inject constructor(
   
     private fun loadBind() {  
         viewModelScope.launch {  
-            try {  
-                val bind = bindDao.getBindById(bindId)  
-                _uiState.value = _uiState.value.copy(bind = bind)  
-                if (bind != null) {  
-                    query(bind)  
-                }  
-            } catch (e: Exception) {  
-                Log.e(TAG, "Failed to load bind: ${e.message}", e)  
-                _uiState.value = _uiState.value.copy(  
-                    errorMessage = "加载绑定信息失败: ${e.message}"  
-                )  
+            val bind = bindDao.getBindById(bindId)  
+            _uiState.value = _uiState.value.copy(bind = bind)  
+            if (bind != null) {  
+                query(bind)  
             }  
         }  
     }  
@@ -112,8 +100,7 @@ class QueryViewModel @Inject constructor(
                     )  
                 }  
             } catch (e: Throwable) {  
-                Log.e(TAG, "Query failed: ${e.message}", e)  
-                // 清除缓存的客户端，下次重新登录  
+                // 清除缓存的 client，下次重试时会重新登录  
                 try {  
                     val accounts = accountDao.getAccountsByPlatform(bind.platform)  
                     if (accounts.isNotEmpty()) {  

@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject  
   
 data class SettingsUiState(  
-    val pollingIntervalSeconds: Long = 1,  
-    val isMonitoringEnabled: Boolean = true,  
+    val pollingIntervalSeconds: Long = 30,  
+    val isMonitoringEnabled: Boolean = false,  
     val binds: List<PcrBind> = emptyList()  
 )  
   
@@ -33,7 +33,11 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState  
   
     init {  
-        // Restore persisted settings  
+        viewModelScope.launch {  
+            bindDao.getAllBinds().collect { binds ->  
+                _uiState.value = _uiState.value.copy(binds = binds)  
+            }  
+        }  
         viewModelScope.launch {  
             settingsDataStore.pollingIntervalFlow.collect { interval ->  
                 _uiState.value = _uiState.value.copy(pollingIntervalSeconds = interval)  
@@ -42,34 +46,21 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {  
             settingsDataStore.isMonitoringEnabledFlow.collect { enabled ->  
                 _uiState.value = _uiState.value.copy(isMonitoringEnabled = enabled)  
-            }  
-        }  
-        viewModelScope.launch {  
-            bindDao.getAllBinds().collect { binds ->  
-                _uiState.value = _uiState.value.copy(binds = binds)  
+                // 恢复监控状态：如果持久化的值是开启的，自动启动服务  
+                if (enabled) {  
+                    startMonitoring()  
+                }  
             }  
         }  
     }  
   
-    /**  
-     * Only update the displayed value in UI (called during Slider drag).  
-     * Does NOT restart the service.  
-     */  
-    fun setPollingIntervalPreview(seconds: Long) {  
-        _uiState.value = _uiState.value.copy(pollingIntervalSeconds = seconds)  
-    }  
-  
-    /**  
-     * Commit the polling interval: persist to DataStore and restart service if needed.  
-     * Called when the user releases the Slider.  
-     */  
-    fun commitPollingInterval(seconds: Long) {  
+    fun setPollingInterval(seconds: Long) {  
         _uiState.value = _uiState.value.copy(pollingIntervalSeconds = seconds)  
         viewModelScope.launch {  
             settingsDataStore.setPollingInterval(seconds)  
-            if (_uiState.value.isMonitoringEnabled) {  
-                startMonitoring()  
-            }  
+        }  
+        if (_uiState.value.isMonitoringEnabled) {  
+            startMonitoring()  
         }  
     }  
   
@@ -77,11 +68,11 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isMonitoringEnabled = enabled)  
         viewModelScope.launch {  
             settingsDataStore.setMonitoringEnabled(enabled)  
-            if (enabled) {  
-                startMonitoring()  
-            } else {  
-                stopMonitoring()  
-            }  
+        }  
+        if (enabled) {  
+            startMonitoring()  
+        } else {  
+            stopMonitoring()  
         }  
     }  
   

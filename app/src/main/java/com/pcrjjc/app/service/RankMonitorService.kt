@@ -14,17 +14,12 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat  
 import com.pcrjjc.app.PcrJjcApp  
 import com.pcrjjc.app.R  
-import com.pcrjjc.app.data.local.SettingsDataStore  
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
-import com.pcrjjc.app.data.local.dao.RankCacheDao  
-import com.pcrjjc.app.data.remote.BiliAuth  
-import com.pcrjjc.app.data.remote.PcrClient  
-import com.pcrjjc.app.data.remote.TwPcrClient  
+import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
-import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.AndroidEntryPoint  
 import kotlinx.coroutines.CoroutineScope  
 import kotlinx.coroutines.Dispatchers  
@@ -34,7 +29,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay  
 import kotlinx.coroutines.isActive  
 import kotlinx.coroutines.launch  
-import kotlinx.coroutines.runBlocking  
 import javax.inject.Inject  
   
 @AndroidEntryPoint  
@@ -49,8 +43,7 @@ class RankMonitorService : Service() {
     @Inject lateinit var accountDao: AccountDao  
     @Inject lateinit var bindDao: BindDao  
     @Inject lateinit var historyDao: HistoryDao  
-    @Inject lateinit var rankCacheDao: RankCacheDao  
-    @Inject lateinit var settingsDataStore: SettingsDataStore  
+    @Inject lateinit var clientManager: ClientManager  
   
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)  
     private var pollingJob: Job? = null  
@@ -58,12 +51,7 @@ class RankMonitorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null  
   
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
-        // 优先从 intent 读取间隔；如果 intent 为 null（系统重启），从 DataStore 读取  
-        val intervalSeconds: Long = if (intent != null) {  
-            intent.getLongExtra(EXTRA_INTERVAL_SECONDS, 30)  
-        } else {  
-            runBlocking { settingsDataStore.getPollingIntervalSync() }  
-        }  
+        val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 30) ?: 30  
   
         // Check notification permission on Android 13+  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
@@ -99,14 +87,7 @@ class RankMonitorService : Service() {
         pollingJob = serviceScope.launch {  
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(  
-                this@RankMonitorService, historyDao, bindDao, rankCacheDao  
-            )  
-            // 从数据库加载上次的排名缓存  
-            rankMonitor.loadCacheFromDb()  
-  
-            // 缓存已登录的 client，避免每次轮询都重新登录  
-            val clientCache = mutableMapOf<Int, Any>() // platform -> client  
+            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao)  
   
             while (isActive) {  
                 try {  
@@ -120,23 +101,15 @@ class RankMonitorService : Service() {
                                 val binds = bindDao.getBindsByPlatformSync(account.platform)  
                                 if (binds.isEmpty()) continue  
   
-                                // 复用已登录的 client，登录失败时重新创建  
-                                val client = clientCache.getOrPut(account.platform) {  
-                                    createAndLoginClient(account)  
-                                }  
+                                val client = clientManager.getClient(account)  
   
-                                try {  
-                                    queryEngine.queryAll(binds, client) { result ->  
-                                        rankMonitor.processResult(result)  
-                                    }  
-                                } catch (e: Exception) {  
-                                    // 查询失败，可能是 session 过期，清除缓存下次重新登录  
-                                    Log.w(TAG, "Query failed, will re-login next cycle: ${e.message}")  
-                                    clientCache.remove(account.platform)  
+                                queryEngine.queryAll(binds, client) { result ->  
+                                    rankMonitor.processResult(result)  
                                 }  
                             } catch (e: Exception) {  
                                 Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
-                                clientCache.remove(account.platform)  
+                                // 清除缓存的 client，下次轮询会重新登录  
+                                clientManager.clearClient(account.id)  
                             }  
                         }  
                         rankMonitor.flushHistories()  
@@ -150,30 +123,6 @@ class RankMonitorService : Service() {
         }  
   
         return START_STICKY  
-    }  
-  
-    private suspend fun createAndLoginClient(  
-        account: com.pcrjjc.app.data.local.entity.Account  
-    ): Any {  
-        return when (account.platform) {  
-            Platform.TW_SERVER.id -> {  
-                val twPlatform = account.viewerId.toLong() / 1000000000  
-                val twClient = TwPcrClient(  
-                    account.account, account.password,  
-                    account.viewerId, twPlatform.toInt()  
-                )  
-                twClient.login()  
-                twClient  
-            }  
-            else -> {  
-                val biliAuth = BiliAuth(  
-                    account.account, account.password, account.platform  
-                )  
-                val pcrClient = PcrClient(biliAuth)  
-                pcrClient.login()  
-                pcrClient  
-            }  
-        }  
     }  
   
     override fun onDestroy() {  
