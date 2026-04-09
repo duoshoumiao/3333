@@ -1,5 +1,10 @@
 package com.pcrjjc.app.ui.settings  
   
+import android.Manifest  
+import android.content.pm.PackageManager  
+import android.os.Build  
+import androidx.activity.compose.rememberLauncherForActivityResult  
+import androidx.activity.result.contract.ActivityResultContracts  
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Column  
 import androidx.compose.foundation.layout.Row  
@@ -21,16 +26,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Slider  
+import androidx.compose.material3.SnackbarHost  
+import androidx.compose.material3.SnackbarHostState  
 import androidx.compose.material3.Switch  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TopAppBar  
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
+import androidx.compose.runtime.remember  
+import androidx.compose.runtime.rememberCoroutineScope  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.unit.dp  
+import androidx.core.content.ContextCompat  
 import androidx.hilt.navigation.compose.hiltViewModel  
+import kotlinx.coroutines.launch  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -39,6 +51,21 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit  
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
+    val context = LocalContext.current  
+    val snackbarHostState = remember { SnackbarHostState() }  
+    val scope = rememberCoroutineScope()  
+  
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(  
+        contract = ActivityResultContracts.RequestPermission()  
+    ) { isGranted ->  
+        if (isGranted) {  
+            viewModel.toggleMonitoring(true)  
+        } else {  
+            scope.launch {  
+                snackbarHostState.showSnackbar("需要通知权限才能启用排名监控")  
+            }  
+        }  
+    }  
   
     Scaffold(  
         topBar = {  
@@ -50,7 +77,8 @@ fun SettingsScreen(
                     }  
                 }  
             )  
-        }  
+        },  
+        snackbarHost = { SnackbarHost(snackbarHostState) }  
     ) { paddingValues ->  
         Column(  
             modifier = Modifier  
@@ -74,7 +102,21 @@ fun SettingsScreen(
                         Text("启用排名监控", style = MaterialTheme.typography.titleMedium)  
                         Switch(  
                             checked = uiState.isMonitoringEnabled,  
-                            onCheckedChange = { viewModel.toggleMonitoring(it) }  
+                            onCheckedChange = { enabled ->  
+                                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
+                                    if (ContextCompat.checkSelfPermission(  
+                                            context,  
+                                            Manifest.permission.POST_NOTIFICATIONS  
+                                        ) != PackageManager.PERMISSION_GRANTED  
+                                    ) {  
+                                        notificationPermissionLauncher.launch(  
+                                            Manifest.permission.POST_NOTIFICATIONS  
+                                        )  
+                                        return@Switch  
+                                    }  
+                                }  
+                                viewModel.toggleMonitoring(enabled)  
+                            }  
                         )  
                     }  
                     Spacer(modifier = Modifier.height(8.dp))  
@@ -95,17 +137,17 @@ fun SettingsScreen(
                     Text("轮询间隔", style = MaterialTheme.typography.titleMedium)  
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text(  
-                        text = "${uiState.pollingIntervalSeconds} 秒",  
+                        text = "${uiState.pollingIntervalMinutes} 分钟",  
                         style = MaterialTheme.typography.bodyLarge  
                     )  
                     Slider(  
-                        value = uiState.pollingIntervalSeconds.toFloat(),  
+                        value = uiState.pollingIntervalMinutes.toFloat(),  
                         onValueChange = { viewModel.setPollingInterval(it.toLong()) },  
-                        valueRange = 1f..60f,  
-                        steps = 58  
+                        valueRange = 15f..120f,  
+                        steps = 6  
                     )  
                     Text(  
-                        text = "使用前台服务轮询，支持1秒级间隔",  
+                        text = "最小间隔15分钟（WorkManager限制）",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
