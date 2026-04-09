@@ -40,7 +40,7 @@ class PcrClient(
         }  
     }  
   
-    var viewerId: Long? = null  
+    var viewerId: Long? = null                    // ← 修复: Long? 而非 Long  
     private var uid: String = ""  
     private var accessKey: String = ""  
     private val callLock = Mutex()  
@@ -133,7 +133,7 @@ class PcrClient(
                         }  
                     }  
   
-                    // Update SID  
+                    // Update SID                          ← 修复: 只保留一个 val sid  
                     val sid = dataHeaders["sid"]?.toString()  
                     if (!sid.isNullOrEmpty()) {  
                         val md5 = MessageDigest.getInstance("MD5")  

@@ -5,6 +5,7 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.data.remote.ApiException  
 import com.pcrjjc.app.data.remote.PcrClient  
 import com.pcrjjc.app.data.remote.TwPcrClient  
+import kotlinx.coroutines.channels.Channel  
 import kotlinx.coroutines.coroutineScope  
 import kotlinx.coroutines.launch  
   
@@ -55,11 +56,11 @@ class QueryEngine {
                 }  
                 val retryRes = when (client) {  
                     is PcrClient -> client.callApi(  
-                        "/profile/get_profile",                              // ← 修复: 补上 apiUrl  
+                        "/profile/get_profile",                              // ← 修复  
                         mutableMapOf("target_viewer_id" to bind.pcrid)  
                     )  
                     is TwPcrClient -> client.callApi(  
-                        "/profile/get_profile",                              // ← 修复: 补上 apiUrl  
+                        "/profile/get_profile",                              // ← 修复  
                         mutableMapOf("target_viewer_id" to bind.pcrid)  
                     )  
                     else -> return null  

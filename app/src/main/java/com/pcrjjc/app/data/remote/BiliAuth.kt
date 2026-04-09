@@ -220,46 +220,46 @@ class BiliAuth(
             .url("https://pcrd.tencentbot.top/geetest_renew?captcha_type=1&challenge=$challenge&gt=$gt&userid=$userId&gs=1")  
             .addHeader("Content-Type", "application/json")  
             .addHeader("User-Agent", "pcrjjc2/1.0.0")  
-            .build()
-
-        val response = client.newCall(request).execute()
-        val json = JSONObject(response.body?.string() ?: "{}")
-        val uuid = json.getString("uuid")
-
-        for (i in 0 until 10) {
-            val checkRequest = Request.Builder()
-                .url("https://pcrd.tencentbot.top/check/$uuid")
-                .addHeader("Content-Type", "application/json")
-                .addHeader("User-Agent", "pcrjjc2/1.0.0")
-                .build()
-
-            val checkResponse = client.newCall(checkRequest).execute()
-            val checkJson = JSONObject(checkResponse.body?.string() ?: "{}")
-
-            if (checkJson.has("queue_num")) {
-                val waitTime = minOf(checkJson.getInt("queue_num"), 3) * 10000L
-                Thread.sleep(waitTime)
-                continue
-            }
-
-            val info = checkJson.get("info")
-            if (info is JSONObject && info.has("validate")) {
-                return Triple(
-                    info.getString("challenge"),
-                    info.getString("gt_user_id"),
-                    info.getString("validate")
-                )
-            }
-
-            if (info is String && (info == "fail" || info == "url invalid")) {
-                throw Exception("Auto captcha failed")
-            }
-
-            if (info is String && info == "in running") {
-                Thread.sleep(5000)
-            }
-        }
-
-        throw Exception("Auto captcha failed after multiple attempts")
-    }
+            .build()  
+  
+        val response = client.newCall(request).execute()  
+        val json = JSONObject(response.body?.string() ?: "{}")  
+        val uuid = json.getString("uuid")  
+  
+        for (i in 0 until 10) {  
+            val checkRequest = Request.Builder()  
+                .url("https://pcrd.tencentbot.top/check/$uuid")  
+                .addHeader("Content-Type", "application/json")  
+                .addHeader("User-Agent", "pcrjjc2/1.0.0")  
+                .build()  
+  
+            val checkResponse = client.newCall(checkRequest).execute()  
+            val checkJson = JSONObject(checkResponse.body?.string() ?: "{}")  
+  
+            if (checkJson.has("queue_num")) {  
+                val waitTime = minOf(checkJson.getInt("queue_num"), 3) * 10000L  
+                Thread.sleep(waitTime)  
+                continue  
+            }  
+  
+            val info = checkJson.get("info")  
+            if (info is JSONObject && info.has("validate")) {  
+                return Triple(  
+                    info.getString("challenge"),  
+                    info.getString("gt_user_id"),  
+                    info.getString("validate")  
+                )  
+            }  
+  
+            if (info is String && (info == "fail" || info == "url invalid")) {  
+                throw Exception("Auto captcha failed")  
+            }  
+  
+            if (info is String && info == "in running") {  
+                Thread.sleep(5000)  
+            }  
+        }  
+  
+        throw Exception("Auto captcha failed after multiple attempts")  
+    }  
 }
