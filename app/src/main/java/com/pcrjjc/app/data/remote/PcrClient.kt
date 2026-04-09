@@ -43,7 +43,7 @@ class PcrClient(
         }  
     }  
   
-    var viewerId: Long? = null
+    var viewerId: Long? = null  
     private var uid: String = ""  
     private var accessKey: String = ""  
     private val callLock = Mutex()  
@@ -93,7 +93,7 @@ class PcrClient(
             var lastException: Exception? = null  
             for (attempt in 0 until maxRetries) {  
                 try {  
-                    if (viewerId != 0L) {  
+                    if (viewerId != null) {  
                         request["viewer_id"] = if (crypted) {  
                             Base64.encodeToString(  
                                 CryptoUtils.encrypt(viewerId.toString(), key),  
@@ -138,6 +138,8 @@ class PcrClient(
                         }  
                     }  
   
+                    // Update SID  
+                    val sid = dataHeaders["sid"]?.toString()  
                     if (!sid.isNullOrEmpty()) {  
                         val md5 = MessageDigest.getInstance("MD5")  
                         md5.update((sid + "c!SID!n").toByteArray(Charsets.UTF_8))  
@@ -209,6 +211,7 @@ class PcrClient(
         Log.i(TAG, "using manifest ver = $ver")  
         headers["MANIFEST-VER"] = ver  
   
+        // check_dangerous: sdk_login  
         val lres = callApi(  
             "/tool/sdk_login",  
             mutableMapOf(  
@@ -227,6 +230,7 @@ class PcrClient(
             throw ApiException("服务器在维护", 503)  
         }  
   
+        // check_gamestart  
         val gameStart = callApi(  
             "/check/game_start",  
             mutableMapOf(  
