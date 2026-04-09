@@ -137,17 +137,17 @@ fun SettingsScreen(
                     Text("轮询间隔", style = MaterialTheme.typography.titleMedium)  
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text(  
-                        text = "${uiState.pollingIntervalMinutes} 分钟",  
+                        text = "${uiState.pollingIntervalSeconds} 秒",  
                         style = MaterialTheme.typography.bodyLarge  
                     )  
                     Slider(  
-                        value = uiState.pollingIntervalMinutes.toFloat(),  
+                        value = uiState.pollingIntervalSeconds.toFloat(),  
                         onValueChange = { viewModel.setPollingInterval(it.toLong()) },  
-                        valueRange = 15f..120f,  
-                        steps = 6  
+                        valueRange = 1f..300f,  
+                        steps = 0  
                     )  
                     Text(  
-                        text = "最小间隔15分钟（WorkManager限制）",  
+                        text = "最小间隔1秒（使用前台服务轮询）",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
