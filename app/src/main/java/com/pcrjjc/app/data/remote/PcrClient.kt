@@ -49,7 +49,6 @@ class PcrClient(
     private val callLock = Mutex()
 
     private val headers = mutableMapOf(
-        "Accept-Encoding" to "gzip",
         "User-Agent" to "Dalvik/2.1.0 (Linux, U, Android 5.1.1, PCRT00 Build/LMY48Z)",
         "X-Unity-Version" to "2018.4.30f1",
         "APP-VER" to "11.7.1",
