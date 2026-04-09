@@ -20,7 +20,9 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {  
   
     private val requestPermissionLauncher =  
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }  
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _: Boolean ->  
+            // 用户授权或拒绝后的回调，这里无需额外处理  
+        }  
   
     override fun onCreate(savedInstanceState: Bundle?) {  
         super.onCreate(savedInstanceState)  
@@ -40,7 +42,8 @@ class MainActivity : ComponentActivity() {
     private fun requestNotificationPermission() {  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
             if (ContextCompat.checkSelfPermission(  
-                    this, Manifest.permission.POST_NOTIFICATIONS  
+                    this,  
+                    Manifest.permission.POST_NOTIFICATIONS  
                 ) != PackageManager.PERMISSION_GRANTED  
             ) {  
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)  
