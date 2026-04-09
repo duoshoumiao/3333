@@ -100,7 +100,6 @@ class QueryViewModel @Inject constructor(
                     )  
                 }  
             } catch (e: Throwable) {  
-                // 清除缓存的 client，下次重试时会重新登录  
                 try {  
                     val accounts = accountDao.getAccountsByPlatform(bind.platform)  
                     if (accounts.isNotEmpty()) {  

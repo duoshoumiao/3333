@@ -142,22 +142,15 @@ fun SettingsScreen(
                     )  
                     Slider(  
                         value = uiState.pollingIntervalSeconds.toFloat(),  
-                        onValueChange = {  
-                            // 拖动过程中只更新 UI 显示，不重启 Service  
-                            viewModel.setPollingIntervalPreview(it.toLong())  
-                        },  
-                        onValueChangeFinished = {  
-                            // 松手后才持久化并重启 Service  
-                            viewModel.commitPollingInterval(uiState.pollingIntervalSeconds)  
-                        },  
-                        valueRange = 10f..300f,  
-                        steps = 28  // (300-10)/10 - 1 = 28, 每10秒一档  
+                        onValueChange = { viewModel.setPollingInterval(it.toLong()) },  
+                        valueRange = 1f..300f,  
+                        steps = 0  
                     )  
                     Text(  
-                        text = "最小间隔10秒（使用前台服务轮询）",  
+                        text = "最小间隔1秒（使用前台服务轮询）",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )    
+                    )  
                 }  
             }  
   

@@ -108,7 +108,6 @@ class RankMonitorService : Service() {
                                 }  
                             } catch (e: Exception) {  
                                 Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
-                                // 清除缓存的 client，下次轮询会重新登录  
                                 clientManager.clearClient(account.id)  
                             }  
                         }  

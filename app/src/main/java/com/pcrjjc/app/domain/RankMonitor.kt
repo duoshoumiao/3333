@@ -8,18 +8,15 @@ import com.pcrjjc.app.PcrJjcApp
 import com.pcrjjc.app.R  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
-import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import com.pcrjjc.app.data.local.entity.JjcHistory  
 import com.pcrjjc.app.data.local.entity.PcrBind  
-import com.pcrjjc.app.data.local.entity.RankCache  
 import com.pcrjjc.app.util.NoticeType  
 import java.util.concurrent.ConcurrentHashMap  
   
 class RankMonitor(  
     private val context: Context,  
     private val historyDao: HistoryDao,  
-    private val bindDao: BindDao,  
-    private val rankCacheDao: RankCacheDao  
+    private val bindDao: BindDao  
 ) {  
     companion object {  
         private const val TAG = "RankMonitor"  
@@ -28,23 +25,6 @@ class RankMonitor(
   
     private val cache = ConcurrentHashMap<Pair<Long, Int>, IntArray>()  
     private val pendingHistories = mutableListOf<JjcHistory>()  
-    private var dbCacheLoaded = false  
-  
-    /** Load persisted rank cache from database into memory. */  
-    suspend fun loadCacheFromDb() {  
-        if (dbCacheLoaded) return  
-        try {  
-            val all = rankCacheDao.getAll()  
-            for (rc in all) {  
-                cache[Pair(rc.pcrid, rc.platform)] =  
-                    intArrayOf(rc.arenaRank, rc.grandArenaRank, rc.lastLoginTime)  
-            }  
-            Log.i(TAG, "Loaded ${all.size} rank cache entries from database")  
-        } catch (e: Exception) {  
-            Log.e(TAG, "Failed to load rank cache from db: ${e.message}", e)  
-        }  
-        dbCacheLoaded = true  
-    }  
   
     suspend fun processResult(result: QueryEngine.QueryResult) {  
         val bind = result.bind  
@@ -60,12 +40,10 @@ class RankMonitor(
         val previous = cache[cacheKey]  
         if (previous == null) {  
             cache[cacheKey] = current  
-            persistCache(bind.pcrid, bind.platform, current)  
             return  
         }  
   
         cache[cacheKey] = current  
-        persistCache(bind.pcrid, bind.platform, current)  
   
         if (current[0] != previous[0]) {  
             handleRankChange(current[0], previous[0], bind, NoticeType.JJC)  
@@ -75,22 +53,6 @@ class RankMonitor(
         }  
         if (current[2] != previous[2]) {  
             handleRankChange(current[2], previous[2], bind, NoticeType.ONLINE)  
-        }  
-    }  
-  
-    private suspend fun persistCache(pcrid: Long, platform: Int, values: IntArray) {  
-        try {  
-            rankCacheDao.upsert(  
-                RankCache(  
-                    pcrid = pcrid,  
-                    platform = platform,  
-                    arenaRank = values[0],  
-                    grandArenaRank = values[1],  
-                    lastLoginTime = values[2]  
-                )  
-            )  
-        } catch (e: Exception) {  
-            Log.e(TAG, "Failed to persist rank cache: ${e.message}", e)  
         }  
     }  
   

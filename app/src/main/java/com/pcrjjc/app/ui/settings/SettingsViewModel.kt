@@ -46,10 +46,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {  
             settingsDataStore.isMonitoringEnabledFlow.collect { enabled ->  
                 _uiState.value = _uiState.value.copy(isMonitoringEnabled = enabled)  
-                // 恢复监控状态：如果持久化的值是开启的，自动启动服务  
-                if (enabled) {  
-                    startMonitoring()  
-                }  
             }  
         }  
     }  
