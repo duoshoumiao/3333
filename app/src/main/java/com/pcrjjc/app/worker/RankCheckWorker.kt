@@ -8,12 +8,20 @@ import androidx.work.WorkerParameters
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
-import com.pcrjjc.app.domain.ClientManager  
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
+import com.pcrjjc.app.data.remote.BiliAuth  
+import com.pcrjjc.app.data.remote.PcrClient  
+import com.pcrjjc.app.data.remote.TwPcrClient  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
+import com.pcrjjc.app.util.Platform  
 import dagger.assisted.Assisted  
 import dagger.assisted.AssistedInject  
   
+/**  
+ * WorkManager worker for periodic rank checking  
+ * Corresponds to query_loop() in pcrjjc2/utils.py  
+ */  
 @HiltWorker  
 class RankCheckWorker @AssistedInject constructor(  
     @Assisted appContext: Context,  
@@ -21,7 +29,7 @@ class RankCheckWorker @AssistedInject constructor(
     private val accountDao: AccountDao,  
     private val bindDao: BindDao,  
     private val historyDao: HistoryDao,  
-    private val clientManager: ClientManager  
+    private val rankCacheDao: RankCacheDao  
 ) : CoroutineWorker(appContext, workerParams) {  
   
     companion object {  
@@ -40,24 +48,44 @@ class RankCheckWorker @AssistedInject constructor(
             }  
   
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao)  
+            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao)  
+            // Load persisted cache from database so we have previous ranks to compare against  
+            rankMonitor.loadCacheFromDb()  
   
             for (account in accounts) {  
                 try {  
                     val binds = bindDao.getBindsByPlatformSync(account.platform)  
                     if (binds.isEmpty()) continue  
   
-                    val client = clientManager.getClient(account)  
+                    val client: Any = when (account.platform) {  
+                        Platform.TW_SERVER.id -> {  
+                            val twPlatform = account.viewerId.toLong() / 1000000000  
+                            val twClient = TwPcrClient(  
+                                account.account,  
+                                account.password,  
+                                account.viewerId,  
+                                twPlatform.toInt()  
+                            )  
+                            twClient.login()  
+                            twClient  
+                        }  
+                        else -> {  
+                            val biliAuth = BiliAuth(account.account, account.password, account.platform)  
+                            val pcrClient = PcrClient(biliAuth)  
+                            pcrClient.login()  
+                            pcrClient  
+                        }  
+                    }  
   
-                    queryEngine.queryAll(binds, client, clientManager, account) { result ->  
+                    queryEngine.queryAll(binds, client) { result ->  
                         rankMonitor.processResult(result)  
                     }  
                 } catch (e: Exception) {  
                     Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
-                    clientManager.clearClient(account.id)  
                 }  
             }  
   
+            // Flush pending histories to database  
             rankMonitor.flushHistories()  
   
             Log.i(TAG, "Rank check completed")  
