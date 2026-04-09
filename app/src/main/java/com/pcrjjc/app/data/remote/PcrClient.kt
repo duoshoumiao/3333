@@ -94,7 +94,7 @@ class PcrClient(
             var lastException: Exception? = null
             for (attempt in 0 until maxRetries) {
                 try {
-                    if (viewerId != 0L) {
+                    if (viewerId != null) {
                         request["viewer_id"] = if (crypted) {
                             Base64.encodeToString(
                                 CryptoUtils.encrypt(viewerId.toString(), key),
