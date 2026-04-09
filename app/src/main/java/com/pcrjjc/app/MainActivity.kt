@@ -21,7 +21,6 @@ class MainActivity : ComponentActivity() {
   
     private val requestPermissionLauncher =  
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _: Boolean ->  
-            // 用户授权或拒绝后的回调，这里无需额外处理  
         }  
   
     override fun onCreate(savedInstanceState: Bundle?) {  
