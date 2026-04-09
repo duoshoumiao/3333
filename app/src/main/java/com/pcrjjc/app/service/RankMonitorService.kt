@@ -62,7 +62,6 @@ class RankMonitorService : Service() {
         val intervalSeconds: Long = if (intent != null) {  
             intent.getLongExtra(EXTRA_INTERVAL_SECONDS, 30)  
         } else {  
-            // Service 被系统重启，intent 为 null，从持久化存储读取  
             runBlocking { settingsDataStore.getPollingIntervalSync() }  
         }  
   
@@ -153,24 +152,22 @@ class RankMonitorService : Service() {
         return START_STICKY  
     }  
   
-    private suspend fun createAndLoginClient(account: com.pcrjjc.app.data.local.entity.Account): Any {  
+    private suspend fun createAndLoginClient(  
+        account: com.pcrjjc.app.data.local.entity.Account  
+    ): Any {  
         return when (account.platform) {  
             Platform.TW_SERVER.id -> {  
                 val twPlatform = account.viewerId.toLong() / 1000000000  
                 val twClient = TwPcrClient(  
-                    account.account,  
-                    account.password,  
-                    account.viewerId,  
-                    twPlatform.toInt()  
+                    account.account, account.password,  
+                    account.viewerId, twPlatform.toInt()  
                 )  
                 twClient.login()  
                 twClient  
             }  
             else -> {  
                 val biliAuth = BiliAuth(  
-                    account.account,  
-                    account.password,  
-                    account.platform  
+                    account.account, account.password, account.platform  
                 )  
                 val pcrClient = PcrClient(biliAuth)  
                 pcrClient.login()  

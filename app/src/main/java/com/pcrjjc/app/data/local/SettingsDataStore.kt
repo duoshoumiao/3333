@@ -40,12 +40,9 @@ class SettingsDataStore(private val context: Context) {
         }  
     }  
   
-    /** 同步读取（阻塞），仅用于 Service onStartCommand 等非挂起场景 */  
     suspend fun getPollingIntervalSync(): Long {  
         return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 30L  
     }  
   
     suspend fun isMonitoringEnabledSync(): Boolean {  
         return context.dataStore.data.first()[KEY_MONITORING_ENABLED] ?: false  
-    }  
-}

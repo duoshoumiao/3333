@@ -15,10 +15,6 @@ import com.pcrjjc.app.data.local.entity.RankCache
 import com.pcrjjc.app.util.NoticeType  
 import java.util.concurrent.ConcurrentHashMap  
   
-/**  
- * Rank monitor corresponding to the rank monitoring logic in pcrjjc2/utils.py  
- * Caches ranks in both memory and database, compares changes, writes history, sends Android notifications  
- */  
 class RankMonitor(  
     private val context: Context,  
     private val historyDao: HistoryDao,  
@@ -30,21 +26,18 @@ class RankMonitor(
         private var notificationId = 1000  
     }  
   
-    // In-memory cache: (pcrid, platform) -> [arenaRank, grandArenaRank, lastLoginTime]  
     private val cache = ConcurrentHashMap<Pair<Long, Int>, IntArray>()  
     private val pendingHistories = mutableListOf<JjcHistory>()  
     private var dbCacheLoaded = false  
   
-    /**  
-     * Load persisted rank cache from database into memory.  
-     * Should be called once before the first processResult().  
-     */  
+    /** Load persisted rank cache from database into memory. */  
     suspend fun loadCacheFromDb() {  
         if (dbCacheLoaded) return  
         try {  
             val all = rankCacheDao.getAll()  
             for (rc in all) {  
-                cache[Pair(rc.pcrid, rc.platform)] = intArrayOf(rc.arenaRank, rc.grandArenaRank, rc.lastLoginTime)  
+                cache[Pair(rc.pcrid, rc.platform)] =  
+                    intArrayOf(rc.arenaRank, rc.grandArenaRank, rc.lastLoginTime)  
             }  
             Log.i(TAG, "Loaded ${all.size} rank cache entries from database")  
         } catch (e: Exception) {  
@@ -53,10 +46,6 @@ class RankMonitor(
         dbCacheLoaded = true  
     }  
   
-    /**  
-     * Process a query result and check for rank changes  
-     * Corresponds to query_rank() in utils.py  
-     */  
     suspend fun processResult(result: QueryEngine.QueryResult) {  
         val bind = result.bind  
         val userInfo = result.userInfo  
@@ -70,35 +59,25 @@ class RankMonitor(
   
         val previous = cache[cacheKey]  
         if (previous == null) {  
-            // First time seeing this bind — just populate cache, no comparison  
             cache[cacheKey] = current  
             persistCache(bind.pcrid, bind.platform, current)  
             return  
         }  
   
-        // Update cache  
         cache[cacheKey] = current  
         persistCache(bind.pcrid, bind.platform, current)  
   
-        // Check JJC rank change  
         if (current[0] != previous[0]) {  
             handleRankChange(current[0], previous[0], bind, NoticeType.JJC)  
         }  
-  
-        // Check PJJC rank change  
         if (current[1] != previous[1]) {  
             handleRankChange(current[1], previous[1], bind, NoticeType.PJJC)  
         }  
-  
-        // Check online status change  
         if (current[2] != previous[2]) {  
             handleRankChange(current[2], previous[2], bind, NoticeType.ONLINE)  
         }  
     }  
   
-    /**  
-     * Persist a single cache entry to the database  
-     */  
     private suspend fun persistCache(pcrid: Long, platform: Int, values: IntArray) {  
         try {  
             rankCacheDao.upsert(  
@@ -115,36 +94,24 @@ class RankMonitor(
         }  
     }  
   
-    /**  
-     * Handle rank change notification  
-     * Corresponds to sendNotice() in utils.py  
-     */  
     private suspend fun handleRankChange(  
-        new: Int,  
-        old: Int,  
-        bind: PcrBind,  
-        noticeType: NoticeType  
+        new: Int, old: Int, bind: PcrBind, noticeType: NoticeType  
     ) {  
         val timestamp = System.currentTimeMillis() / 1000  
-  
-        // Build notification message  
         val change: String  
         if (noticeType == NoticeType.ONLINE) {  
-            // Online notice logic  
             if (bind.onlineNotice == 0) return  
             val timeDiff = new - old  
             if (timeDiff < (if (bind.onlineNotice == 3) 60 else 600)) {  
-                // Interval too short, skip  
                 cache[Pair(bind.pcrid, bind.platform)]?.let { it[2] = old }  
                 return  
             }  
             change = "上线了！"  
         } else {  
-            // JJC/PJJC rank change  
             val isJjc = noticeType == NoticeType.JJC  
             val shouldNotify = if (isJjc) bind.jjcNotice else bind.pjjcNotice  
             if (!shouldNotify) return  
-            if (!bind.upNotice && new > old) return // Only notify on rank up if upNotice is off  
+            if (!bind.upNotice && new > old) return  
   
             val prefix = if (isJjc) "jjc: " else "pjjc: "  
             change = if (new < old) {  
@@ -153,51 +120,34 @@ class RankMonitor(
                 "$prefix$old->$new [▽${new - old}]"  
             }  
   
-            // Save history  
             val history = JjcHistory(  
-                pcrid = bind.pcrid,  
-                name = bind.name ?: "",  
-                platform = bind.platform,  
-                date = timestamp,  
-                item = if (isJjc) 0 else 1,  
-                before = old,  
-                after = new  
+                pcrid = bind.pcrid, name = bind.name ?: "",  
+                platform = bind.platform, date = timestamp,  
+                item = if (isJjc) 0 else 1, before = old, after = new  
             )  
-            synchronized(pendingHistories) {  
-                pendingHistories.add(history)  
-            }  
+            synchronized(pendingHistories) { pendingHistories.add(history) }  
         }  
   
-        // Send Android notification  
         val msg = "${bind.name ?: bind.pcrid} $change"  
         sendNotification(msg, noticeType)  
         Log.i(TAG, "Send Notice: $msg")  
     }  
   
-    /**  
-     * Flush pending histories to database  
-     */  
     suspend fun flushHistories() {  
         val toInsert: List<JjcHistory>  
         synchronized(pendingHistories) {  
             toInsert = pendingHistories.toList()  
             pendingHistories.clear()  
         }  
-        if (toInsert.isNotEmpty()) {  
-            historyDao.insertAll(toInsert)  
-        }  
+        if (toInsert.isNotEmpty()) { historyDao.insertAll(toInsert) }  
     }  
   
-    /**  
-     * Send Android local notification  
-     */  
     private fun sendNotification(message: String, noticeType: NoticeType) {  
         val title = when (noticeType) {  
             NoticeType.JJC -> "竞技场排名变动"  
             NoticeType.PJJC -> "公主竞技场排名变动"  
             NoticeType.ONLINE -> "上线提醒"  
         }  
-  
         val notification = NotificationCompat.Builder(context, PcrJjcApp.RANK_CHANNEL_ID)  
             .setSmallIcon(R.drawable.ic_notification)  
             .setContentTitle(title)  
@@ -205,9 +155,8 @@ class RankMonitor(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)  
             .setAutoCancel(true)  
             .build()  
-  
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
-        notificationManager.notify(notificationId++, notification)  
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
+        nm.notify(notificationId++, notification)  
     }  
   
     fun getCachedRank(pcrid: Long, platform: Int): IntArray? {  

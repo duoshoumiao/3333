@@ -157,7 +157,7 @@ fun SettingsScreen(
                         text = "最小间隔10秒（使用前台服务轮询）",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )  
+                    )    
                 }  
             }  
   
