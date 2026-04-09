@@ -1,11 +1,11 @@
 package com.pcrjjc.app.domain  
   
 import android.util.Log  
+import com.pcrjjc.app.data.local.entity.Account  
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.data.remote.ApiException  
 import com.pcrjjc.app.data.remote.PcrClient  
 import com.pcrjjc.app.data.remote.TwPcrClient  
-import kotlinx.coroutines.channels.Channel  
 import kotlinx.coroutines.coroutineScope  
 import kotlinx.coroutines.launch  
   
@@ -15,52 +15,54 @@ class QueryEngine {
         private const val TAG = "QueryEngine"  
     }  
   
-    data class QueryTask(  
-        val bind: PcrBind,  
-        val priority: Int = 10  
-    )  
-  
     data class QueryResult(  
         val bind: PcrBind,  
         val userInfo: Map<String, Any?>,  
         val fullResponse: Map<String, Any?>  
     )  
   
+    /**  
+     * 查询 profile，失败时通过 clientManager 重新登录再重试  
+     */  
     @Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
         client: Any,  
-        bind: PcrBind  
+        bind: PcrBind,  
+        clientManager: ClientManager? = null,  
+        account: Account? = null  
     ): QueryResult? {  
         return try {  
             val res = when (client) {  
-                is PcrClient -> {  
-                    client.callApi(  
-                        "/profile/get_profile",  
-                        mutableMapOf("target_viewer_id" to bind.pcrid)  
-                    )  
-                }  
-                is TwPcrClient -> {  
-                    client.callApi(  
-                        "/profile/get_profile",  
-                        mutableMapOf("target_viewer_id" to bind.pcrid)  
-                    )  
-                }  
+                is PcrClient -> client.callApi(  
+                    "/profile/get_profile",  
+                    mutableMapOf("target_viewer_id" to bind.pcrid)  
+                )  
+                is TwPcrClient -> client.callApi(  
+                    "/profile/get_profile",  
+                    mutableMapOf("target_viewer_id" to bind.pcrid)  
+                )  
                 else -> throw IllegalArgumentException("Unknown client type")  
             }  
   
             val userInfo = res["user_info"] as? Map<String, Any?>  
             if (userInfo == null) {  
-                when (client) {  
-                    is PcrClient -> client.login()  
-                    is TwPcrClient -> client.login()  
+                // session 可能过期，重新登录后重试  
+                val retryClient = if (clientManager != null && account != null) {  
+                    clientManager.relogin(account)  
+                } else {  
+                    when (client) {  
+                        is PcrClient -> client.login()  
+                        is TwPcrClient -> client.login()  
+                    }  
+                    client  
                 }  
-                val retryRes = when (client) {  
-                    is PcrClient -> client.callApi(  
-                        "/profile/get_profile",                              // ← 修复  
+                val retryRes = when (retryClient) {  
+                    is PcrClient -> retryClient.callApi(  
+                        "/profile/get_profile",  
                         mutableMapOf("target_viewer_id" to bind.pcrid)  
                     )  
-                    is TwPcrClient -> client.callApi(  
-                        "/profile/get_profile",                              // ← 修复  
+                    is TwPcrClient -> retryClient.callApi(  
+                        "/profile/get_profile",  
                         mutableMapOf("target_viewer_id" to bind.pcrid)  
                     )  
                     else -> return null  
@@ -79,15 +81,20 @@ class QueryEngine {
         }  
     }  
   
+    /**  
+     * 查询所有 binds  
+     */  
     suspend fun queryAll(  
         binds: List<PcrBind>,  
         client: Any,  
+        clientManager: ClientManager? = null,  
+        account: Account? = null,  
         onResult: suspend (QueryResult) -> Unit  
     ) {  
         coroutineScope {  
             for (bind in binds) {  
                 launch {  
-                    val result = queryProfile(client, bind)  
+                    val result = queryProfile(client, bind, clientManager, account)  
                     if (result != null) {  
                         onResult(result)  
                     }  

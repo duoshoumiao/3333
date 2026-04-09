@@ -88,6 +88,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),  
             verticalArrangement = Arrangement.spacedBy(16.dp)  
         ) {  
+            // Monitoring toggle  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
@@ -104,7 +105,8 @@ fun SettingsScreen(
                             onCheckedChange = { enabled ->  
                                 if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
                                     if (ContextCompat.checkSelfPermission(  
-                                            context, Manifest.permission.POST_NOTIFICATIONS  
+                                            context,  
+                                            Manifest.permission.POST_NOTIFICATIONS  
                                         ) != PackageManager.PERMISSION_GRANTED  
                                     ) {  
                                         notificationPermissionLauncher.launch(  
@@ -126,6 +128,7 @@ fun SettingsScreen(
                 }  
             }  
   
+            // Polling interval  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
@@ -134,23 +137,24 @@ fun SettingsScreen(
                     Text("轮询间隔", style = MaterialTheme.typography.titleMedium)  
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text(  
-                        text = "${uiState.pollingIntervalSeconds} 秒",  
+                        text = "${uiState.pollingIntervalMinutes} 分钟",  
                         style = MaterialTheme.typography.bodyLarge  
                     )  
                     Slider(  
-                        value = uiState.pollingIntervalSeconds.toFloat(),  
+                        value = uiState.pollingIntervalMinutes.toFloat(),  
                         onValueChange = { viewModel.setPollingInterval(it.toLong()) },  
-                        valueRange = 1f..300f,  
-                        steps = 0  
+                        valueRange = 15f..120f,  
+                        steps = 6  
                     )  
                     Text(  
-                        text = "最小间隔1秒（使用前台服务轮询）",  
+                        text = "最小间隔15分钟（WorkManager限制）",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
                 }  
             }  
   
+            // Per-bind notification settings  
             if (uiState.binds.isNotEmpty()) {  
                 Text("通知设置", style = MaterialTheme.typography.titleMedium)  
                 uiState.binds.forEach { bind ->  
@@ -164,6 +168,7 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.titleSmall  
                             )  
                             Spacer(modifier = Modifier.height(8.dp))  
+  
                             NoticeCheckbox(  
                                 label = "JJC排名变动",  
                                 checked = bind.jjcNotice,  
