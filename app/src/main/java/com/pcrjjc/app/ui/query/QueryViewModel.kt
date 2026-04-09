@@ -61,11 +61,11 @@ class QueryViewModel @Inject constructor(
                 if (bind != null) {  
                     query(bind)  
                 }  
-            } catch (e: Throwable) {  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Failed to load bind: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
-                    errorMessage = "加载绑定失败: ${e.message}"  
+                    errorMessage = "加载绑定信息失败: ${e.message}"  
                 )  
-                Log.e(TAG, "loadBind failed", e)  
             }  
         }  
     }  
@@ -90,7 +90,7 @@ class QueryViewModel @Inject constructor(
   
                 val client = clientManager.getClient(account)  
   
-                val result = queryEngine.queryProfile(client, bind, clientManager, account)  
+                val result = queryEngine.queryProfile(client, bind)  
                 if (result != null) {  
                     val info = result.userInfo  
                     _uiState.value = _uiState.value.copy(  
@@ -112,7 +112,8 @@ class QueryViewModel @Inject constructor(
                     )  
                 }  
             } catch (e: Throwable) {  
-                Log.e(TAG, "Query failed", e)  
+                Log.e(TAG, "Query failed: ${e.message}", e)  
+                // 清除缓存的客户端，下次重新登录  
                 try {  
                     val accounts = accountDao.getAccountsByPlatform(bind.platform)  
                     if (accounts.isNotEmpty()) {  

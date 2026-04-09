@@ -82,7 +82,7 @@ class RankMonitorService : Service() {
   
         pollingJob?.cancel()  
         pollingJob = serviceScope.launch {  
-            Log.i(TAG, "开始实时监控，间隔 ${intervalSeconds} 秒")  
+            Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao)  
   
@@ -98,24 +98,26 @@ class RankMonitorService : Service() {
                                 val binds = bindDao.getBindsByPlatformSync(account.platform)  
                                 if (binds.isEmpty()) continue  
   
-                                // 从 ClientManager 获取已登录的客户端（首次会自动登录）  
-                                val client = clientManager.getClient(account)  
+                                val client = try {  
+                                    clientManager.getClient(account)  
+                                } catch (e: Exception) {  
+                                    Log.e(TAG, "Login failed for account ${account.id}: ${e.message}", e)  
+                                    clientManager.clearClient(account.id)  
+                                    continue  
+                                }  
   
-                                queryEngine.queryAll(  
-                                    binds, client, clientManager, account  
-                                ) { result ->  
+                                queryEngine.queryAll(binds, client) { result ->  
                                     rankMonitor.processResult(result)  
                                 }  
                             } catch (e: Exception) {  
-                                Log.e(TAG, "查询平台 ${account.platform} 失败: ${e.message}", e)  
-                                // session 可能过期，清除缓存，下次循环会重新登录  
+                                Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                                 clientManager.clearClient(account.id)  
                             }  
                         }  
                         rankMonitor.flushHistories()  
                     }  
                 } catch (e: Exception) {  
-                    Log.e(TAG, "轮询周期失败: ${e.message}", e)  
+                    Log.e(TAG, "Polling cycle failed: ${e.message}", e)  
                 }  
   
                 delay(intervalSeconds * 1000)  
@@ -135,7 +137,7 @@ class RankMonitorService : Service() {
     private fun createNotification(intervalSeconds: Long): Notification {  
         return NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
             .setSmallIcon(R.drawable.ic_notification)  
-            .setContentTitle("竞技场实时监控")  
+            .setContentTitle("竞技场监控")  
             .setContentText("正在监控排名变动，间隔 ${intervalSeconds} 秒")  
             .setPriority(NotificationCompat.PRIORITY_LOW)  
             .setOngoing(true)  
