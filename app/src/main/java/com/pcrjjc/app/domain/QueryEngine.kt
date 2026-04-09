@@ -57,16 +57,16 @@ class QueryEngine {
                     is TwPcrClient -> client.login()  
                 }  
                 val retryRes = when (client) {  
-                    is PcrClient -> client.callApi(  
-                        "/profile/get_profile",  
-                        mutableMapOf("target_viewer_id" to bind.pcrid)  
-                    )  
-                    is TwPcrClient -> client.callApi(  
-                        "/profile/get_profile",  
-                        mutableMapOf("target_viewer_id" to bind.pcrid)  
-                    )  
-                    else -> return null  
-                }  
+					is PcrClient -> client.callApi(  
+						"/profile/get_profile",  
+						mutableMapOf("target_viewer_id" to bind.pcrid)   
+					)  
+					is TwPcrClient -> client.callApi(  
+						"/profile/get_profile",  
+						mutableMapOf("target_viewer_id" to bind.pcrid)   
+					)  
+					else -> return null  
+				}  
                 val retryUserInfo = retryRes["user_info"] as? Map<String, Any?> ?: return null  
                 QueryResult(bind, retryUserInfo, retryRes)  
             } else {  
