@@ -98,13 +98,14 @@ class BiliAuth(
         data["timestamp"] = (System.currentTimeMillis() / 1000).toString()
         data["client_timestamp"] = (System.currentTimeMillis() / 1000).toString()
 
-        val dataStr = StringBuilder()
-        for ((key, value) in data) {
-            if (key == "pwd") {
-                val pwd = URLEncoder.encode(value, "UTF-8")
-                dataStr.append("$key=$pwd&")
-            }
-            dataStr.append("$key=$value&")
+        val dataStr = StringBuilder()  
+        for ((key, value) in data) {  
+            if (key == "pwd") {  
+                val pwd = URLEncoder.encode(value, "UTF-8")  
+                dataStr.append("$key=$pwd&")  
+            } else {  
+                dataStr.append("$key=$value&")  
+            }  
         }
 
         val sign = data.toSortedMap().values.joinToString("") + SALT

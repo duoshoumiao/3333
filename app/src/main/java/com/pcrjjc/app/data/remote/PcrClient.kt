@@ -123,7 +123,6 @@ class PcrClient(
                     val parsed = if (crypted) {  
                         CryptoUtils.unpack(responseBody).first  
                     } else {  
-                        // Parse as JSON for non-crypted responses  
                         val jsonStr = String(responseBody, Charsets.UTF_8)  
                         parseJsonToMap(jsonStr)  
                     }  
@@ -211,7 +210,6 @@ class PcrClient(
         Log.i(TAG, "using manifest ver = $ver")  
         headers["MANIFEST-VER"] = ver  
   
-        // check_dangerous: sdk_login  
         val lres = callApi(  
             "/tool/sdk_login",  
             mutableMapOf(  
@@ -230,7 +228,6 @@ class PcrClient(
             throw ApiException("服务器在维护", 503)  
         }  
   
-        // check_gamestart  
         val gameStart = callApi(  
             "/check/game_start",  
             mutableMapOf(  
