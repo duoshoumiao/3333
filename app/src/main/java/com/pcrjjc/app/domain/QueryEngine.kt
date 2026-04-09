@@ -15,15 +15,17 @@ class QueryEngine {
         private const val TAG = "QueryEngine"  
     }  
   
+    data class QueryTask(  
+        val bind: PcrBind,  
+        val priority: Int = 10  
+    )  
+  
     data class QueryResult(  
         val bind: PcrBind,  
         val userInfo: Map<String, Any?>,  
         val fullResponse: Map<String, Any?>  
     )  
   
-    /**  
-     * 查询 profile，失败时通过 clientManager 重新登录再重试  
-     */  
     @Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
         client: Any,  
@@ -33,28 +35,32 @@ class QueryEngine {
     ): QueryResult? {  
         return try {  
             val res = when (client) {  
-                is PcrClient -> client.callApi(  
-                    "/profile/get_profile",  
-                    mutableMapOf("target_viewer_id" to bind.pcrid)  
-                )  
-                is TwPcrClient -> client.callApi(  
-                    "/profile/get_profile",  
-                    mutableMapOf("target_viewer_id" to bind.pcrid)  
-                )  
+                is PcrClient -> {  
+                    client.callApi(  
+                        "/profile/get_profile",  
+                        mutableMapOf("target_viewer_id" to bind.pcrid)  
+                    )  
+                }  
+                is TwPcrClient -> {  
+                    client.callApi(  
+                        "/profile/get_profile",  
+                        mutableMapOf("target_viewer_id" to bind.pcrid)  
+                    )  
+                }  
                 else -> throw IllegalArgumentException("Unknown client type")  
             }  
   
             val userInfo = res["user_info"] as? Map<String, Any?>  
             if (userInfo == null) {  
-                // session 可能过期，重新登录后重试  
+                // 会话过期，重新登录  
                 val retryClient = if (clientManager != null && account != null) {  
                     clientManager.relogin(account)  
                 } else {  
                     when (client) {  
-                        is PcrClient -> client.login()  
-                        is TwPcrClient -> client.login()  
+                        is PcrClient -> { client.login(); client }  
+                        is TwPcrClient -> { client.login(); client }  
+                        else -> return null  
                     }  
-                    client  
                 }  
                 val retryRes = when (retryClient) {  
                     is PcrClient -> retryClient.callApi(  
@@ -81,9 +87,6 @@ class QueryEngine {
         }  
     }  
   
-    /**  
-     * 查询所有 binds  
-     */  
     suspend fun queryAll(  
         binds: List<PcrBind>,  
         client: Any,  

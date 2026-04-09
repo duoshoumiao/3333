@@ -53,6 +53,7 @@ class RankMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
         val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 30) ?: 30  
   
+        // Check notification permission on Android 13+  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
             if (ContextCompat.checkSelfPermission(  
                     this, Manifest.permission.POST_NOTIFICATIONS  
@@ -64,6 +65,7 @@ class RankMonitorService : Service() {
             }  
         }  
   
+        // Start foreground  
         val notification = createNotification(intervalSeconds)  
         try {  
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {  
@@ -80,6 +82,7 @@ class RankMonitorService : Service() {
             return START_NOT_STICKY  
         }  
   
+        // Cancel previous polling job and start new one  
         pollingJob?.cancel()  
         pollingJob = serviceScope.launch {  
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
@@ -98,19 +101,15 @@ class RankMonitorService : Service() {
                                 val binds = bindDao.getBindsByPlatformSync(account.platform)  
                                 if (binds.isEmpty()) continue  
   
-                                val client = try {  
-                                    clientManager.getClient(account)  
-                                } catch (e: Exception) {  
-                                    Log.e(TAG, "Login failed for account ${account.id}: ${e.message}", e)  
-                                    clientManager.clearClient(account.id)  
-                                    continue  
-                                }  
+                                // 复用缓存客户端，首次才登录  
+                                val client = clientManager.getClient(account)  
   
-                                queryEngine.queryAll(binds, client) { result ->  
+                                queryEngine.queryAll(binds, client, clientManager, account) { result ->  
                                     rankMonitor.processResult(result)  
                                 }  
                             } catch (e: Exception) {  
                                 Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
+                                // 查询异常时清除缓存，下次轮询会重新登录  
                                 clientManager.clearClient(account.id)  
                             }  
                         }  
