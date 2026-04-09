@@ -129,7 +129,18 @@ class PcrClient(
                         parseJsonToMap(jsonStr)
                     }
 
-                    val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()
+                    val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()  
+  
+                    // 新增：Update viewer_id from response  
+                    dataHeaders["viewer_id"]?.let {  
+                        val vid = (it as? Number)?.toLong() ?: it.toString().toLongOrNull()  
+                        if (vid != null) {  
+                            this.viewerId = vid  
+                        }  
+                    }  
+                      
+                    // 已有的 SID 更新逻辑...  
+                    val sid = dataHeaders["sid"]?.toString()
 
                     // Update SID
                     val sid = dataHeaders["sid"]?.toString()
