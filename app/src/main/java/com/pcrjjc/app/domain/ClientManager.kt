@@ -21,10 +21,10 @@ class ClientManager @Inject constructor() {
     private val clients = mutableMapOf<Int, Any>()  
     private val mutex = Mutex()  
   
-    suspend fun getClient(account: Account): Any {  
+    suspend fun getClient(account: Account, forceRelogin: Boolean = false): Any {  
         return mutex.withLock {  
             val existing = clients[account.id]  
-            if (existing != null) {  
+            if (existing != null && !forceRelogin) {  
                 // Check if TwPcrClient needs re-login  
                 if (existing is TwPcrClient && existing.shouldLogin) {  
                     Log.i(TAG, "TwPcrClient for account ${account.id} needs re-login")  
@@ -35,11 +35,20 @@ class ClientManager @Inject constructor() {
                 }  
             }  
   
+            if (forceRelogin) {  
+                Log.i(TAG, "Force re-login for account ${account.id}")  
+                clients.remove(account.id)  
+            }  
+  
             Log.i(TAG, "Creating new client for account ${account.id}, platform ${account.platform}")  
             val client = createAndLogin(account)  
             clients[account.id] = client  
             client  
         }  
+    }  
+  
+    suspend fun relogin(account: Account): Any {  
+        return getClient(account, forceRelogin = true)  
     }  
   
     private suspend fun createAndLogin(account: Account): Any {  
