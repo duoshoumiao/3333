@@ -45,7 +45,9 @@ class RankCheckWorker @AssistedInject constructor(
                     val binds = bindDao.getBindsByPlatformSync(account.platform)  
                     if (binds.isEmpty()) continue  
                     val client = clientManager.getClient(account)  
-                    queryEngine.queryAll(binds, client) { result -> rankMonitor.processResult(result) }  
+                    queryEngine.queryAll(binds, client) { result ->  
+                        rankMonitor.processResult(result)  
+                    }  
                 } catch (e: Exception) {  
                     Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                     clientManager.clearClient(account.id)  

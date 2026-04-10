@@ -1,12 +1,35 @@
 package com.pcrjjc.app.ui.home  
   
 import androidx.compose.foundation.clickable  
-import androidx.compose.foundation.layout.*  
+import androidx.compose.foundation.layout.Arrangement  
+import androidx.compose.foundation.layout.Column  
+import androidx.compose.foundation.layout.Row  
+import androidx.compose.foundation.layout.Spacer  
+import androidx.compose.foundation.layout.fillMaxSize  
+import androidx.compose.foundation.layout.fillMaxWidth  
+import androidx.compose.foundation.layout.height  
+import androidx.compose.foundation.layout.padding  
+import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.itemsIndexed  
 import androidx.compose.material.icons.Icons  
-import androidx.compose.material.icons.filled.*  
-import androidx.compose.material3.*  
+import androidx.compose.material.icons.filled.Add  
+import androidx.compose.material.icons.filled.Delete  
+import androidx.compose.material.icons.filled.History  
+import androidx.compose.material.icons.filled.ManageAccounts  
+import androidx.compose.material.icons.filled.Search  
+import androidx.compose.material.icons.filled.Settings  
+import androidx.compose.material3.Card  
+import androidx.compose.material3.CardDefaults  
+import androidx.compose.material3.ExperimentalMaterial3Api  
+import androidx.compose.material3.FloatingActionButton  
+import androidx.compose.material3.Icon  
+import androidx.compose.material3.IconButton  
+import androidx.compose.material3.MaterialTheme  
+import androidx.compose.material3.Scaffold  
+import androidx.compose.material3.Text  
+import androidx.compose.material3.TopAppBar  
+import androidx.compose.material3.TopAppBarDefaults  
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
@@ -31,65 +54,165 @@ fun HomeScreen(
 ) {  
     val binds by viewModel.binds.collectAsState()  
     val rankCacheMap by viewModel.rankCacheMap.collectAsState()  
+  
     Scaffold(  
         topBar = {  
-            TopAppBar(title = { Text("竞技场查询") }, colors = TopAppBarDefaults.topAppBarColors(  
-                containerColor = MaterialTheme.colorScheme.primaryContainer,  
-                titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
-            ), actions = {  
-                IconButton(onClick = onNavigateToAccount) { Icon(Icons.Default.ManageAccounts, "账号管理") }  
-                IconButton(onClick = onNavigateToSettings) { Icon(Icons.Default.Settings, "设置") }  
-            })  
+            TopAppBar(  
+                title = { Text("竞技场查询") },  
+                colors = TopAppBarDefaults.topAppBarColors(  
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,  
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
+                ),  
+                actions = {  
+                    IconButton(onClick = onNavigateToAccount) {  
+                        Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
+                    }  
+                    IconButton(onClick = onNavigateToSettings) {  
+                        Icon(Icons.Default.Settings, contentDescription = "设置")  
+                    }  
+                }  
+            )  
         },  
-        floatingActionButton = { FloatingActionButton(onClick = onNavigateToBind) { Icon(Icons.Default.Add, "添加绑定") } }  
+        floatingActionButton = {  
+            FloatingActionButton(onClick = onNavigateToBind) {  
+                Icon(Icons.Default.Add, contentDescription = "添加绑定")  
+            }  
+        }  
     ) { paddingValues ->  
         if (binds.isEmpty()) {  
-            Column(Modifier.fillMaxSize().padding(paddingValues), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {  
-                Text("暂无绑定", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)  
-                Spacer(Modifier.height(8.dp))  
-                Text("点击右下角按钮添加竞技场绑定", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)  
+            Column(  
+                modifier = Modifier  
+                    .fillMaxSize()  
+                    .padding(paddingValues),  
+                horizontalAlignment = Alignment.CenterHorizontally,  
+                verticalArrangement = Arrangement.Center  
+            ) {  
+                Text(  
+                    text = "暂无绑定",  
+                    style = MaterialTheme.typography.titleLarge,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+                Spacer(modifier = Modifier.height(8.dp))  
+                Text(  
+                    text = "点击右下角按钮添加竞技场绑定",  
+                    style = MaterialTheme.typography.bodyMedium,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
             }  
         } else {  
-            LazyColumn(Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {  
-                item { Spacer(Modifier.height(8.dp)) }  
+            LazyColumn(  
+                modifier = Modifier  
+                    .fillMaxSize()  
+                    .padding(paddingValues)  
+                    .padding(horizontal = 16.dp),  
+                verticalArrangement = Arrangement.spacedBy(8.dp)  
+            ) {  
+                item { Spacer(modifier = Modifier.height(8.dp)) }  
                 itemsIndexed(binds) { index, bind ->  
-                    BindCard(index + 1, bind, rankCacheMap[Pair(bind.pcrid, bind.platform)],  
-                        onQuery = { onNavigateToQuery(bind.id) }, onDetail = { onNavigateToDetail(bind.id) },  
-                        onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) }, onDelete = { viewModel.deleteBind(bind) })  
+                    val rankCache = rankCacheMap[Pair(bind.pcrid, bind.platform)]  
+                    BindCard(  
+                        index = index + 1,  
+                        bind = bind,  
+                        rankCache = rankCache,  
+                        onQuery = { onNavigateToQuery(bind.id) },  
+                        onDetail = { onNavigateToDetail(bind.id) },  
+                        onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                        onDelete = { viewModel.deleteBind(bind) }  
+                    )  
                 }  
-                item { Spacer(Modifier.height(80.dp)) }  
+                item { Spacer(modifier = Modifier.height(80.dp)) }  
             }  
         }  
     }  
 }  
   
 @Composable  
-private fun BindCard(index: Int, bind: PcrBind, rankCache: RankCache?, onQuery: () -> Unit, onDetail: () -> Unit, onHistory: () -> Unit, onDelete: () -> Unit) {  
-    Card(Modifier.fillMaxWidth().clickable(onClick = onQuery), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {  
-        Column(Modifier.padding(16.dp)) {  
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {  
-                Column(Modifier.weight(1f)) {  
-                    Text("【$index】${bind.name ?: "未命名"}", style = MaterialTheme.typography.titleMedium)  
-                    Spacer(Modifier.height(4.dp))  
-                    Text("UID: ${bind.pcrid}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)  
-                    Text("服务器: ${Platform.fromId(bind.platform).displayName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)  
+private fun BindCard(  
+    index: Int,  
+    bind: PcrBind,  
+    rankCache: RankCache?,  
+    onQuery: () -> Unit,  
+    onDetail: () -> Unit,  
+    onHistory: () -> Unit,  
+    onDelete: () -> Unit  
+) {  
+    Card(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .clickable(onClick = onQuery),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+    ) {  
+        Column(modifier = Modifier.padding(16.dp)) {  
+            Row(  
+                modifier = Modifier.fillMaxWidth(),  
+                horizontalArrangement = Arrangement.SpaceBetween,  
+                verticalAlignment = Alignment.CenterVertically  
+            ) {  
+                Column(modifier = Modifier.weight(1f)) {  
+                    Text(  
+                        text = "【$index】${bind.name ?: "未命名"}",  
+                        style = MaterialTheme.typography.titleMedium  
+                    )  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text(  
+                        text = "UID: ${bind.pcrid}",  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Text(  
+                        text = "服务器: ${Platform.fromId(bind.platform).displayName}",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
                 }  
                 Row {  
-                    IconButton(onClick = onQuery) { Icon(Icons.Default.Search, "查询") }  
-                    IconButton(onClick = onHistory) { Icon(Icons.Default.History, "击剑记录") }  
-                    IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error) }  
+                    IconButton(onClick = onQuery) {  
+                        Icon(Icons.Default.Search, contentDescription = "查询")  
+                    }  
+                    IconButton(onClick = onHistory) {  
+                        Icon(Icons.Default.History, contentDescription = "击剑记录")  
+                    }  
+                    IconButton(onClick = onDelete) {  
+                        Icon(  
+                            Icons.Default.Delete,  
+                            contentDescription = "删除",  
+                            tint = MaterialTheme.colorScheme.error  
+                        )  
+                    }  
                 }  
             }  
-            Spacer(Modifier.height(8.dp))  
+  
+            // 排名数据显示（新增栏）  
+            Spacer(modifier = Modifier.height(8.dp))  
             if (rankCache != null) {  
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {  
-                    Text("JJC: ${rankCache.arenaRank}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)  
-                    Text("PJJC: ${rankCache.grandArenaRank}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)  
+                ) {  
+                    Text(  
+                        text = "JJC: ${rankCache.arenaRank}",  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        color = MaterialTheme.colorScheme.primary  
+                    )  
+                    Text(  
+                        text = "PJJC: ${rankCache.grandArenaRank}",  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        color = MaterialTheme.colorScheme.primary  
+                    )  
                 }  
             } else {  
-                Text("暂无排名数据", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                Text(  
+                    text = "暂无排名数据",  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
             }  
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
+  
+            // Notification status  
+            Row(  
+                modifier = Modifier.padding(top = 8.dp),  
+                horizontalArrangement = Arrangement.spacedBy(8.dp)  
+            ) {  
                 if (bind.jjcNotice) NoticeChip("JJC")  
                 if (bind.pjjcNotice) NoticeChip("PJJC")  
                 if (bind.upNotice) NoticeChip("排名上升")  
@@ -101,7 +224,16 @@ private fun BindCard(index: Int, bind: PcrBind, rankCache: RankCache?, onQuery: 
   
 @Composable  
 private fun NoticeChip(text: String) {  
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {  
-        Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)  
+    Card(  
+        colors = CardDefaults.cardColors(  
+            containerColor = MaterialTheme.colorScheme.secondaryContainer  
+        )  
+    ) {  
+        Text(  
+            text = text,  
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),  
+            style = MaterialTheme.typography.labelSmall,  
+            color = MaterialTheme.colorScheme.onSecondaryContainer  
+        )  
     }  
 }

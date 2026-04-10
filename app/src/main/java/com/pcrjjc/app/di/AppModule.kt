@@ -20,29 +20,19 @@ import javax.inject.Singleton
 @Module  
 @InstallIn(SingletonComponent::class)  
 object AppModule {  
-  
     @Provides  
     @Singleton  
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {  
-        return Room.databaseBuilder(  
-            context,  
-            AppDatabase::class.java,  
-            "pcrjjc.db"  
-        ).build()  
+        return Room.databaseBuilder(context, AppDatabase::class.java, "pcrjjc.db").build()  
     }  
-  
     @Provides  
     fun provideBindDao(database: AppDatabase): BindDao = database.bindDao()  
-  
     @Provides  
     fun provideAccountDao(database: AppDatabase): AccountDao = database.accountDao()  
-  
     @Provides  
     fun provideHistoryDao(database: AppDatabase): HistoryDao = database.historyDao()  
-  
     @Provides  
     fun provideRankCacheDao(database: AppDatabase): RankCacheDao = database.rankCacheDao()  
-  
     @Provides  
     @Singleton  
     fun provideOkHttpClient(): OkHttpClient {  
@@ -52,7 +42,6 @@ object AppModule {
             .writeTimeout(20, TimeUnit.SECONDS)  
             .build()  
     }  
-  
     @Provides  
     @Singleton  
     fun provideSettingsDataStore(@ApplicationContext context: Context): SettingsDataStore {  

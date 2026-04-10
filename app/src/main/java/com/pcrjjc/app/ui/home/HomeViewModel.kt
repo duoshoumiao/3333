@@ -19,15 +19,10 @@ class HomeViewModel @Inject constructor(
     private val bindDao: BindDao,  
     private val rankCacheDao: RankCacheDao  
 ) : ViewModel() {  
-  
     val binds: StateFlow<List<PcrBind>> = bindDao.getAllBinds()  
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
-  
     val rankCacheMap: StateFlow<Map<Pair<Long, Int>, RankCache>> = rankCacheDao.getAllFlow()  
         .map { list -> list.associateBy { Pair(it.pcrid, it.platform) } }  
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())  
-  
-    fun deleteBind(bind: PcrBind) {  
-        viewModelScope.launch { bindDao.deleteById(bind.id) }  
-    }  
+    fun deleteBind(bind: PcrBind) { viewModelScope.launch { bindDao.deleteById(bind.id) } }  
 }
