@@ -35,7 +35,7 @@ class RankCheckWorker @AssistedInject constructor(
         Log.i(TAG, "Starting rank check...")  
   
         try {  
-            val accounts = accountDao.getAllAccountsSync()  
+            val accounts = accountDao.getNonMasterAccountsSync()
             if (accounts.isEmpty()) {  
                 Log.w(TAG, "No accounts configured, skipping rank check")  
                 return Result.success()  

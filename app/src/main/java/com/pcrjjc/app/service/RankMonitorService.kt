@@ -106,7 +106,7 @@ class RankMonitorService : Service() {
   
             while (isActive) {  
                 try {  
-                    val accounts = accountDao.getAllAccountsSync()  
+                    val accounts = accountDao.getNonMasterAccountsSync()
                     if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  
                     } else {  

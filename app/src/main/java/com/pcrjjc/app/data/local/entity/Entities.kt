@@ -23,8 +23,9 @@ data class Account(
     val viewerId: String,  
     val account: String,  
     val password: String,  
-    val platform: Int  
-)  
+    val platform: Int,  
+    val isMaster: Boolean = false       // <-- 新增  
+)
   
 @Entity(tableName = "jjc_history")  
 data class JjcHistory(  

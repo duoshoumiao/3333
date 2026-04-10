@@ -45,7 +45,7 @@ class AccountViewModel @Inject constructor(
     private val clientManager: ClientManager  
 ) : ViewModel() {  
   
-    val accounts: StateFlow<List<Account>> = accountDao.getAllAccounts()  
+    val accounts: StateFlow<List<Account>> = accountDao.getNonMasterAccounts()  
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
   
     private val _addState = MutableStateFlow(AddAccountState())  

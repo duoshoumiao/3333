@@ -5,13 +5,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope  
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
+import com.pcrjjc.app.data.local.entity.Account  
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.flow.MutableStateFlow  
+import kotlinx.coroutines.flow.SharingStarted  
 import kotlinx.coroutines.flow.StateFlow  
+import kotlinx.coroutines.flow.stateIn  
 import kotlinx.coroutines.launch  
 import javax.inject.Inject  
   
@@ -28,7 +31,13 @@ data class MasterUiState(
     val selectedPlatform: Platform = Platform.B_SERVER,  
     val boundPcrIds: Set<Long> = emptySet(),  
     val bindingId: Long? = null,  
-    val bindSuccessIds: Set<Long> = emptySet()  
+    val bindSuccessIds: Set<Long> = emptySet(),  
+    // 添加主人号相关  
+    val addAccount: String = "",  
+    val addPassword: String = "",  
+    val addViewerId: String = "",  
+    val isAddingAccount: Boolean = false,  
+    val addError: String? = null  
 )  
   
 @HiltViewModel  
@@ -46,6 +55,10 @@ class MasterViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MasterUiState())  
     val uiState: StateFlow<MasterUiState> = _uiState  
   
+    /** 主人号列表（实时 Flow） */  
+    val masterAccounts: StateFlow<List<Account>> = accountDao.getMasterAccounts()  
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
+  
     init {  
         loadBoundIds()  
     }  
@@ -57,6 +70,61 @@ class MasterViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(boundPcrIds = ids)  
         }  
     }  
+  
+    // ==================== 主人号管理 ====================  
+  
+    fun updateAddAccount(value: String) {  
+        _uiState.value = _uiState.value.copy(addAccount = value, addError = null)  
+    }  
+  
+    fun updateAddPassword(value: String) {  
+        _uiState.value = _uiState.value.copy(addPassword = value, addError = null)  
+    }  
+  
+    fun updateAddViewerId(value: String) {  
+        _uiState.value = _uiState.value.copy(addViewerId = value, addError = null)  
+    }  
+  
+    fun addMasterAccount() {  
+        val state = _uiState.value  
+        if (state.addAccount.isBlank()) {  
+            _uiState.value = state.copy(addError = "请输入账号")  
+            return  
+        }  
+        if (state.addPassword.isBlank()) {  
+            _uiState.value = state.copy(addError = "请输入密码")  
+            return  
+        }  
+  
+        viewModelScope.launch {  
+            _uiState.value = state.copy(isAddingAccount = true)  
+  
+            val account = Account(  
+                viewerId = state.addViewerId.ifBlank { "" },  
+                account = state.addAccount,  
+                password = state.addPassword,  
+                platform = state.selectedPlatform.id,  
+                isMaster = true                         // 标记为主人号  
+            )  
+            accountDao.insert(account)  
+  
+            _uiState.value = _uiState.value.copy(  
+                isAddingAccount = false,  
+                addAccount = "",  
+                addPassword = "",  
+                addViewerId = "",  
+                addError = null  
+            )  
+        }  
+    }  
+  
+    fun deleteMasterAccount(account: Account) {  
+        viewModelScope.launch {  
+            accountDao.deleteById(account.id)  
+        }  
+    }  
+  
+    // ==================== 透视 & 绑定 ====================  
   
     fun updateType(type: ArenaType) {  
         _uiState.value = _uiState.value.copy(selectedType = type, errorMessage = null)  
@@ -76,11 +144,12 @@ class MasterViewModel @Inject constructor(
             _uiState.value = state.copy(isLoading = true, errorMessage = null)  
   
             try {  
-                val accounts = accountDao.getAccountsByPlatform(state.selectedPlatform.id)  
+                // 只用主人号  
+                val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
                 if (accounts.isEmpty()) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
-                        errorMessage = "没有${state.selectedPlatform.displayName}的查询账号，请先在账号管理中添加"  
+                        errorMessage = "没有${state.selectedPlatform.displayName}的主人号，请先在上方添加"  
                     )  
                     return@launch  
                 }  
@@ -93,7 +162,6 @@ class MasterViewModel @Inject constructor(
                     ArenaType.PJJC -> queryEngine.queryGrandArenaRanking(client)  
                 }  
   
-                // 刷新已绑定列表  
                 val allBinds = bindDao.getAllBindsSync()  
                 val boundIds = allBinds.map { it.pcrid }.toSet()  
   
@@ -118,7 +186,6 @@ class MasterViewModel @Inject constructor(
             _uiState.value = state.copy(bindingId = player.viewerId)  
   
             try {  
-                // 检查是否已绑定  
                 val existing = bindDao.getBindByPcrid(player.viewerId, state.selectedPlatform.id)  
                 if (existing != null) {  
                     _uiState.value = _uiState.value.copy(  
@@ -128,7 +195,6 @@ class MasterViewModel @Inject constructor(
                     return@launch  
                 }  
   
-                // 检查绑定数量上限  
                 val count = bindDao.getBindCount(state.selectedPlatform.id)  
                 if (count >= 999) {  
                     _uiState.value = _uiState.value.copy(  
@@ -145,7 +211,6 @@ class MasterViewModel @Inject constructor(
                 )  
                 bindDao.insert(bind)  
   
-                // 更新状态  
                 val newBoundIds = _uiState.value.boundPcrIds + player.viewerId  
                 val newSuccessIds = _uiState.value.bindSuccessIds + player.viewerId  
                 _uiState.value = _uiState.value.copy(  

@@ -45,11 +45,13 @@ object AppModule {
   
     @Provides  
     @Singleton  
-    fun provideOkHttpClient(): OkHttpClient {  
-        return OkHttpClient.Builder()  
-            .connectTimeout(20, TimeUnit.SECONDS)  
-            .readTimeout(20, TimeUnit.SECONDS)  
-            .writeTimeout(20, TimeUnit.SECONDS)  
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {  
+        return Room.databaseBuilder(  
+            context,  
+            AppDatabase::class.java,  
+            "pcrjjc.db"  
+        )  
+            .addMigrations(AppDatabase.MIGRATION_2_3)   // <-- 新增  
             .build()  
     }  
   
