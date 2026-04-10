@@ -24,7 +24,9 @@ enum class ArenaType(val displayName: String) {
 }  
   
 data class MasterUiState(  
-    val players: List<QueryEngine.ArenaRankingPlayer> = emptyList(),  
+    // 分场显示  
+    val jjcPlayers: List<QueryEngine.ArenaRankingPlayer> = emptyList(),  
+    val pjjcPlayers: List<QueryEngine.ArenaRankingPlayer> = emptyList(),  
     val isLoading: Boolean = false,  
     val errorMessage: String? = null,  
     val selectedType: ArenaType = ArenaType.JJC,  
@@ -104,7 +106,7 @@ class MasterViewModel @Inject constructor(
                 account = state.addAccount,  
                 password = state.addPassword,  
                 platform = state.selectedPlatform.id,  
-                isMaster = true                         // 标记为主人号  
+                isMaster = true  
             )  
             accountDao.insert(account)  
   
@@ -134,7 +136,8 @@ class MasterViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(  
             selectedPlatform = platform,  
             errorMessage = null,  
-            players = emptyList()  
+            jjcPlayers = emptyList(),  
+            pjjcPlayers = emptyList()  
         )  
     }  
   
@@ -144,12 +147,11 @@ class MasterViewModel @Inject constructor(
             _uiState.value = state.copy(isLoading = true, errorMessage = null)  
   
             try {  
-                // 只用主人号  
                 val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
                 if (accounts.isEmpty()) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
-                        errorMessage = "没有${state.selectedPlatform.displayName}的主人号，请先在上方添加"  
+                        errorMessage = "没有${state.selectedPlatform.displayName}的账号，请先在上方添加"  
                     )  
                     return@launch  
                 }  
@@ -165,11 +167,19 @@ class MasterViewModel @Inject constructor(
                 val allBinds = bindDao.getAllBindsSync()  
                 val boundIds = allBinds.map { it.pcrid }.toSet()  
   
-                _uiState.value = _uiState.value.copy(  
-                    isLoading = false,  
-                    players = players,  
-                    boundPcrIds = boundIds  
-                )  
+                // 根据选择的类型存入对应列表  
+                _uiState.value = when (state.selectedType) {  
+                    ArenaType.JJC -> _uiState.value.copy(  
+                        isLoading = false,  
+                        jjcPlayers = players,  
+                        boundPcrIds = boundIds  
+                    )  
+                    ArenaType.PJJC -> _uiState.value.copy(  
+                        isLoading = false,  
+                        pjjcPlayers = players,  
+                        boundPcrIds = boundIds  
+                    )  
+                }  
             } catch (e: Exception) {  
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  

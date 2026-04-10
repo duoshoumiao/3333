@@ -89,7 +89,7 @@ class QueryViewModel @Inject constructor(
                 if (accounts.isEmpty()) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
-                        errorMessage = "未配置查询账号，请先在账号管理中添加"  
+                        errorMessage = "未配置查询账号，请先在监控账号管理中添加"  
                     )  
                     return@launch  
                 }  

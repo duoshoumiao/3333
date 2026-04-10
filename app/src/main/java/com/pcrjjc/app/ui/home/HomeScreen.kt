@@ -68,11 +68,11 @@ fun HomeScreen(
                 actions = {  
                     // ---- 新增：主人号按钮 ----  
                     IconButton(onClick = onNavigateToMaster) {  
-                        Icon(Icons.Default.Visibility, contentDescription = "主人号")  
+                        Icon(Icons.Default.Visibility, contentDescription = "我的账号")  
                     }  
                     // ---- 新增结束 ----  
                     IconButton(onClick = onNavigateToAccount) {  
-                        Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
+                        Icon(Icons.Default.ManageAccounts, contentDescription = "监控账号管理")  
                     }  
                     IconButton(onClick = onNavigateToSettings) {  
                         Icon(Icons.Default.Settings, contentDescription = "设置")  

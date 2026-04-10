@@ -25,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api  
 import androidx.compose.material3.FilterChip  
 import androidx.compose.material3.FloatingActionButton  
+import androidx.compose.material3.HorizontalDivider  
 import androidx.compose.material3.Icon  
 import androidx.compose.material3.IconButton  
 import androidx.compose.material3.MaterialTheme  
@@ -45,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.text.font.FontWeight  
 import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.ui.text.input.PasswordVisualTransformation  
 import androidx.compose.ui.unit.dp  
@@ -74,7 +76,7 @@ fun MasterScreen(
     Scaffold(  
         topBar = {  
             TopAppBar(  
-                title = { Text("主人号") },  
+                title = { Text("我的账号") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")  
@@ -85,7 +87,7 @@ fun MasterScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },  
         floatingActionButton = {  
             FloatingActionButton(onClick = { showAddDialog = true }) {  
-                Icon(Icons.Default.Add, contentDescription = "添加主人号")  
+                Icon(Icons.Default.Add, contentDescription = "添加账号")  
             }  
         }  
     ) { paddingValues ->  
@@ -98,10 +100,10 @@ fun MasterScreen(
         ) {  
             item { Spacer(modifier = Modifier.height(4.dp)) }  
   
-            // ==================== 主人号列表 ====================  
+            // ==================== 账号列表 ====================  
             item {  
                 Text(  
-                    "主人号（仅用于透视，不参与轮询监控）",  
+                    "账号（仅用于透视，不参与轮询监控）",  
                     style = MaterialTheme.typography.titleMedium  
                 )  
             }  
@@ -109,7 +111,7 @@ fun MasterScreen(
             if (masterAccounts.isEmpty()) {  
                 item {  
                     Text(  
-                        text = "暂无主人号，请点击右下角添加",  
+                        text = "暂无账号，请点击右下角添加",  
                         style = MaterialTheme.typography.bodyMedium,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
@@ -189,32 +191,94 @@ fun MasterScreen(
                 }  
             }  
   
-            // 结果数量  
-            if (uiState.players.isNotEmpty()) {  
-                item {  
+            // ==================== J场 ====================  
+            item {  
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    horizontalArrangement = Arrangement.SpaceBetween,  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
                     Text(  
-                        text = "共 ${uiState.players.size} 名玩家",  
-                        style = MaterialTheme.typography.bodyMedium,  
+                        text = "J场（JJC）",  
+                        style = MaterialTheme.typography.titleMedium,  
+                        fontWeight = FontWeight.Bold,  
+                        color = MaterialTheme.colorScheme.primary  
+                    )  
+                    Text(  
+                        text = "${uiState.jjcPlayers.size} 人",  
+                        style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
                 }  
             }  
   
-            // 玩家列表  
-            items(uiState.players) { player ->  
-                PlayerCard(  
-                    player = player,  
-                    isBound = uiState.boundPcrIds.contains(player.viewerId),  
-                    isBinding = uiState.bindingId == player.viewerId,  
-                    justBound = uiState.bindSuccessIds.contains(player.viewerId),  
-                    onBind = { viewModel.bindPlayer(player) }  
-                )  
+            if (uiState.jjcPlayers.isEmpty()) {  
+                item {  
+                    Text(  
+                        text = "暂无数据，请选择 JJC透视 后点击开始透视",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            } else {  
+                items(uiState.jjcPlayers, key = { "jjc_${it.viewerId}" }) { player ->  
+                    PlayerCard(  
+                        player = player,  
+                        isBound = uiState.boundPcrIds.contains(player.viewerId),  
+                        isBinding = uiState.bindingId == player.viewerId,  
+                        justBound = uiState.bindSuccessIds.contains(player.viewerId),  
+                        onBind = { viewModel.bindPlayer(player) }  
+                    )  
+                }  
+            }  
+  
+            // ==================== P场 ====================  
+            item {  
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    horizontalArrangement = Arrangement.SpaceBetween,  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
+                    Text(  
+                        text = "P场（PJJC）",  
+                        style = MaterialTheme.typography.titleMedium,  
+                        fontWeight = FontWeight.Bold,  
+                        color = MaterialTheme.colorScheme.tertiary  
+                    )  
+                    Text(  
+                        text = "${uiState.pjjcPlayers.size} 人",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            }  
+  
+            if (uiState.pjjcPlayers.isEmpty()) {  
+                item {  
+                    Text(  
+                        text = "暂无数据，请选择 PJJC透视 后点击开始透视",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            } else {  
+                items(uiState.pjjcPlayers, key = { "pjjc_${it.viewerId}" }) { player ->  
+                    PlayerCard(  
+                        player = player,  
+                        isBound = uiState.boundPcrIds.contains(player.viewerId),  
+                        isBinding = uiState.bindingId == player.viewerId,  
+                        justBound = uiState.bindSuccessIds.contains(player.viewerId),  
+                        onBind = { viewModel.bindPlayer(player) }  
+                    )  
+                }  
             }  
   
             item { Spacer(modifier = Modifier.height(80.dp)) }  
         }  
   
-        // 添加主人号对话框  
+        // 添加账号对话框  
         if (showAddDialog) {  
             AddMasterAccountDialog(  
                 viewModel = viewModel,  
@@ -224,7 +288,7 @@ fun MasterScreen(
     }  
 }  
   
-// ==================== 主人号卡片 ====================  
+// ==================== 账号卡片 ====================  
   
 @Composable  
 private fun MasterAccountCard(  
@@ -344,7 +408,7 @@ private fun PlayerCard(
     }  
 }  
   
-// ==================== 添加主人号对话框 ====================  
+// ==================== 添加账号对话框 ====================  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -356,11 +420,11 @@ private fun AddMasterAccountDialog(
   
     AlertDialog(  
         onDismissRequest = onDismiss,  
-        title = { Text("添加主人号") },  
+        title = { Text("添加账号") },  
         text = {  
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {  
                 Text(  
-                    text = "主人号仅用于竞技场透视，不参与轮询监控",  
+                    text = "账号仅用于竞技场透视，不参与轮询监控",  
                     style = MaterialTheme.typography.bodySmall,  
                     color = MaterialTheme.colorScheme.onSurfaceVariant  
                 )  
@@ -418,7 +482,6 @@ private fun AddMasterAccountDialog(
             TextButton(  
                 onClick = {  
                     viewModel.addMasterAccount()  
-                    // addMasterAccount 成功后清空输入，关闭对话框  
                     onDismiss()  
                 },  
                 enabled = !uiState.isAddingAccount  
