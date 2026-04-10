@@ -37,12 +37,16 @@ class PcrJjcApp : Application(), Configuration.Provider {
   
     private fun restoreMonitoringState() {  
         CoroutineScope(Dispatchers.IO).launch {  
-            val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)  
-            intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, 1L)  
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
-                startForegroundService(intent)  
-            } else {  
-                startService(intent)  
+            val enabled = settingsDataStore.isMonitoringEnabledSync()  
+            if (enabled) {  
+                val interval = settingsDataStore.getPollingIntervalSync()  
+                val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)  
+                intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
+                    startForegroundService(intent)  
+                } else {  
+                    startService(intent)  
+                }  
             }  
         }  
     }  
@@ -65,14 +69,24 @@ class PcrJjcApp : Application(), Configuration.Provider {
                 description = getString(R.string.foreground_channel_desc)  
             }  
   
+            val captchaChannel = NotificationChannel(  
+                CAPTCHA_CHANNEL_ID,  
+                "验证码通知",  
+                NotificationManager.IMPORTANCE_HIGH  
+            ).apply {  
+                description = "登录需要手动验证码时的通知"  
+            }  
+  
             val notificationManager = getSystemService(NotificationManager::class.java)  
             notificationManager.createNotificationChannel(rankChannel)  
             notificationManager.createNotificationChannel(serviceChannel)  
+            notificationManager.createNotificationChannel(captchaChannel)  
         }  
     }  
   
     companion object {  
         const val RANK_CHANNEL_ID = "rank_change_channel"  
         const val SERVICE_CHANNEL_ID = "service_channel"  
+        const val CAPTCHA_CHANNEL_ID = "captcha_channel"  
     }  
 }

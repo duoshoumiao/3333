@@ -155,56 +155,77 @@ class BiliAuth(
     }  
   
     suspend fun bLogin(): Pair<String, String> {  
-        if (qudao == 0) {  
-            for (i in 0 until 3) {  
-                val resp = internalLogin(account, password)  
-                val code = resp.optInt("code", -1)  
-                val message = resp.optString("message", "")  
-  
-                if (message == "用户名或密码错误") {  
-                    throw ApiException("用户名或密码错误", 401)  
-                }  
-  
-                if (code == 0) {  
-                    Log.i(TAG, "Login succeeded")  
-                    return Pair(resp.getString("uid"), resp.getString("access_key"))  
-                }  
-  
-                if (code == 200000) {  
-                    Log.w(TAG, "Captcha required, attempting auto-verify")  
-                    val captchaData = mutableMapOf<String, String>()  
-                    captchaData.putAll(modolCaptch)  
-                    val cap = sendPost(  
-                        BILI_LOGIN_URL + "api/client/start_captcha",  
-                        setSign(captchaData)  
-                    )  
-  
-                    try {  
-                        val result = captchaVerify(  
-                            cap.getString("gt"),  
-                            cap.getString("challenge"),  
-                            cap.getString("gt_user_id")  
-                        )  
-                        val loginSta = internalLogin(  
-                            account, password,  
-                            result.first, result.second, result.third  
-                        )  
-                        if (loginSta.optInt("code") == 0) {  
-                            return Pair(  
-                                loginSta.getString("uid"),  
-                                loginSta.getString("access_key")  
-                            )  
-                        }  
-                    } catch (e: Exception) {  
-                        Log.e(TAG, "Captcha verification failed: ${e.message}")  
-                    }  
-                }  
-            }  
-            throw ApiException("登录失败", 401)  
-        } else {  
-            return Pair(account, password)  
-        }  
-    }  
+		if (qudao == 0) {  
+			for (i in 0 until 3) {  
+				val resp = internalLogin(account, password)  
+				val code = resp.optInt("code", -1)  
+				val message = resp.optString("message", "")  
+	  
+				if (message == "用户名或密码错误") {  
+					throw ApiException("用户名或密码错误", 401)  
+				}  
+	  
+				if (code == 0) {  
+					Log.i(TAG, "Login succeeded")  
+					return Pair(resp.getString("uid"), resp.getString("access_key"))  
+				}  
+	  
+				if (code == 200000) {  
+					Log.w(TAG, "Captcha required, attempting auto-verify")  
+					val captchaData = mutableMapOf<String, String>()  
+					captchaData.putAll(modolCaptch)  
+					val cap = sendPost(  
+						BILI_LOGIN_URL + "api/client/start_captcha",  
+						setSign(captchaData)  
+					)  
+	  
+					try {  
+						val result = captchaVerify(  
+							cap.getString("gt"),  
+							cap.getString("challenge"),  
+							cap.getString("gt_user_id")  
+						)  
+						val loginSta = internalLogin(  
+							account, password,  
+							result.first, result.second, result.third  
+						)  
+						if (loginSta.optInt("code") == 0) {  
+							return Pair(  
+								loginSta.getString("uid"),  
+								loginSta.getString("access_key")  
+							)  
+						}  
+					} catch (e: Exception) {  
+						Log.e(TAG, "Auto captcha failed: ${e.message}, falling back to manual")  
+						// 自动过码失败，抛出异常让上层处理手动过码  
+						throw CaptchaRequiredException(  
+							gt = cap.getString("gt"),  
+							challenge = cap.getString("challenge"),  
+							gtUserId = cap.getString("gt_user_id")  
+						)  
+					}  
+				}  
+			}  
+			throw ApiException("登录失败", 401)  
+		} else {  
+			return Pair(account, password)  
+		}  
+	}  
+	  
+	/**  
+	 * 使用手动过码结果完成登录  
+	 */  
+	fun bLoginWithValidate(  
+		challenge: String,  
+		gtUserId: String,  
+		validate: String  
+	): Pair<String, String> {  
+		val loginSta = internalLogin(account, password, challenge, gtUserId, validate)  
+		if (loginSta.optInt("code") == 0) {  
+			return Pair(loginSta.getString("uid"), loginSta.getString("access_key"))  
+		}  
+		throw ApiException("手动过码后登录失败: ${loginSta.optString("message", "")}", 401)  
+	}  
   
     private fun captchaVerify(  
         gt: String,  

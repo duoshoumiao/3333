@@ -77,7 +77,27 @@ class ClientManager @Inject constructor() {
         }  
     }  
   
-    suspend fun clearClient(accountId: Int) {  
+    suspend fun loginWithCaptchaResult(  
+		account: Account,  
+		challenge: String,  
+		gtUserId: String,  
+		validate: String  
+	): Any {  
+		return mutex.withLock {  
+			val biliAuth = BiliAuth(account.account, account.password, account.platform)  
+			val pcrClient = PcrClient(biliAuth)  
+			// 先用 validate 完成 bili 登录  
+			val (uid, accessKey) = biliAuth.bLoginWithValidate(challenge, gtUserId, validate)  
+			// 然后继续 PcrClient 的后续登录流程（sdk_login, game_start 等）  
+			// 需要在 PcrClient 中暴露一个方法接受已有的 uid/accessKey 继续后续流程  
+			pcrClient.loginWithCredentials(uid, accessKey)  
+			clients[account.id] = pcrClient  
+			pcrClient  
+		}  
+	}
+	
+	
+	suspend fun clearClient(accountId: Int) {  
         mutex.withLock {  
             clients.remove(accountId)  
             Log.i(TAG, "Cleared cached client for account $accountId")  
