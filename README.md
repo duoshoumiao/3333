@@ -70,6 +70,6 @@ app/src/main/java/com/pcrjjc/app/
 ./gradlew assembleDebug
 ```
 
-## 许可
+## 原库
 
 基于 [pcrjjc2](https://github.com/duoshoumiao/pcrjjc2) 移植。
