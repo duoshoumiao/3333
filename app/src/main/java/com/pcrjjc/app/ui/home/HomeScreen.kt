@@ -33,33 +33,29 @@ fun HomeScreen(
     val rankCacheMap by viewModel.rankCacheMap.collectAsState()  
     Scaffold(  
         topBar = {  
-            TopAppBar(  
-                title = { Text("竞技场查询") },  
-                colors = TopAppBarDefaults.topAppBarColors(  
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,  
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
-                ),  
-                actions = {  
-                    IconButton(onClick = onNavigateToAccount) { Icon(Icons.Default.ManageAccounts, "账号管理") }  
-                    IconButton(onClick = onNavigateToSettings) { Icon(Icons.Default.Settings, "设置") }  
-                }  
-            )  
+            TopAppBar(title = { Text("竞技场查询") }, colors = TopAppBarDefaults.topAppBarColors(  
+                containerColor = MaterialTheme.colorScheme.primaryContainer,  
+                titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
+            ), actions = {  
+                IconButton(onClick = onNavigateToAccount) { Icon(Icons.Default.ManageAccounts, "账号管理") }  
+                IconButton(onClick = onNavigateToSettings) { Icon(Icons.Default.Settings, "设置") }  
+            })  
         },  
         floatingActionButton = { FloatingActionButton(onClick = onNavigateToBind) { Icon(Icons.Default.Add, "添加绑定") } }  
-    ) { pv ->  
+    ) { paddingValues ->  
         if (binds.isEmpty()) {  
-            Column(Modifier.fillMaxSize().padding(pv), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {  
+            Column(Modifier.fillMaxSize().padding(paddingValues), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {  
                 Text("暂无绑定", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)  
                 Spacer(Modifier.height(8.dp))  
                 Text("点击右下角按钮添加竞技场绑定", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)  
             }  
         } else {  
-            LazyColumn(Modifier.fillMaxSize().padding(pv).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {  
+            LazyColumn(Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {  
                 item { Spacer(Modifier.height(8.dp)) }  
                 itemsIndexed(binds) { index, bind ->  
                     BindCard(index + 1, bind, rankCacheMap[Pair(bind.pcrid, bind.platform)],  
-                        { onNavigateToQuery(bind.id) }, { onNavigateToDetail(bind.id) },  
-                        { onNavigateToHistory(bind.pcrid, bind.platform) }, { viewModel.deleteBind(bind) })  
+                        onQuery = { onNavigateToQuery(bind.id) }, onDetail = { onNavigateToDetail(bind.id) },  
+                        onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) }, onDelete = { viewModel.deleteBind(bind) })  
                 }  
                 item { Spacer(Modifier.height(80.dp)) }  
             }  

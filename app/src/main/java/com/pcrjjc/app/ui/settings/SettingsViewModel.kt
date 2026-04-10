@@ -18,8 +18,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject  
   
 data class SettingsUiState(  
-    val pollingIntervalSeconds: Long = 30,  
-    val isMonitoringEnabled: Boolean = false,  
+    val pollingIntervalSeconds: Long = 1,  
+    val isMonitoringEnabled: Boolean = true,  
     val binds: List<PcrBind> = emptyList()  
 )  
   

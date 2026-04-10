@@ -25,12 +25,10 @@ class RankCheckWorker @AssistedInject constructor(
     private val rankCacheDao: RankCacheDao,  
     private val clientManager: ClientManager  
 ) : CoroutineWorker(appContext, workerParams) {  
-  
     companion object {  
         const val TAG = "RankCheckWorker"  
         const val WORK_NAME = "rank_check_work"  
     }  
-  
     override suspend fun doWork(): Result {  
         Log.i(TAG, "Starting rank check...")  
         try {  
@@ -42,15 +40,12 @@ class RankCheckWorker @AssistedInject constructor(
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao)  
             rankMonitor.loadCacheFromDb()  
-  
             for (account in accounts) {  
                 try {  
                     val binds = bindDao.getBindsByPlatformSync(account.platform)  
                     if (binds.isEmpty()) continue  
                     val client = clientManager.getClient(account)  
-                    queryEngine.queryAll(binds, client) { result ->  
-                        rankMonitor.processResult(result)  
-                    }  
+                    queryEngine.queryAll(binds, client) { result -> rankMonitor.processResult(result) }  
                 } catch (e: Exception) {  
                     Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                     clientManager.clearClient(account.id)  

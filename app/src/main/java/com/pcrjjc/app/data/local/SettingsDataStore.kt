@@ -21,11 +21,11 @@ class SettingsDataStore(private val context: Context) {
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->  
-        prefs[KEY_POLLING_INTERVAL] ?: 30L  
+        prefs[KEY_POLLING_INTERVAL] ?: 1L  
     }  
   
     val isMonitoringEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->  
-        prefs[KEY_MONITORING_ENABLED] ?: false  
+        prefs[KEY_MONITORING_ENABLED] ?: true 
     }  
   
     suspend fun setPollingInterval(seconds: Long) {  
@@ -41,10 +41,10 @@ class SettingsDataStore(private val context: Context) {
     }  
   
     suspend fun getPollingIntervalSync(): Long {  
-        return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 30L  
+        return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 1L  
     }  
   
     suspend fun isMonitoringEnabledSync(): Boolean {  
-        return context.dataStore.data.first()[KEY_MONITORING_ENABLED] ?: false  
+        return context.dataStore.data.first()[KEY_MONITORING_ENABLED] ?: true  
     }  
 }

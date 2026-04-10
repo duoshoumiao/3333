@@ -28,8 +28,6 @@ class HomeViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())  
   
     fun deleteBind(bind: PcrBind) {  
-        viewModelScope.launch {  
-            bindDao.deleteById(bind.id)  
-        }  
+        viewModelScope.launch { bindDao.deleteById(bind.id) }  
     }  
 }

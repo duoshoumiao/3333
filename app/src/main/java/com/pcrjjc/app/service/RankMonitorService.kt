@@ -34,13 +34,11 @@ import javax.inject.Inject
   
 @AndroidEntryPoint  
 class RankMonitorService : Service() {  
-  
     companion object {  
         const val NOTIFICATION_ID = 1  
         const val EXTRA_INTERVAL_SECONDS = "extra_interval_seconds"  
         private const val TAG = "RankMonitorService"  
     }  
-  
     @Inject lateinit var accountDao: AccountDao  
     @Inject lateinit var bindDao: BindDao  
     @Inject lateinit var historyDao: HistoryDao  
@@ -49,38 +47,21 @@ class RankMonitorService : Service() {
   
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)  
     private var pollingJob: Job? = null  
-  
     override fun onBind(intent: Intent?): IBinder? = null  
   
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
         val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 30) ?: 30  
-  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
-            if (ContextCompat.checkSelfPermission(  
-                    this, Manifest.permission.POST_NOTIFICATIONS  
-                ) != PackageManager.PERMISSION_GRANTED  
-            ) {  
-                Log.w(TAG, "通知权限未授予，停止前台服务")  
-                stopSelf()  
-                return START_NOT_STICKY  
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {  
+                Log.w(TAG, "通知权限未授予，停止前台服务"); stopSelf(); return START_NOT_STICKY  
             }  
         }  
-  
         val notification = createNotification(intervalSeconds)  
         try {  
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {  
-                ServiceCompat.startForeground(  
-                    this, NOTIFICATION_ID, notification,  
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC  
-                )  
-            } else {  
-                startForeground(NOTIFICATION_ID, notification)  
-            }  
-        } catch (e: Exception) {  
-            Log.e(TAG, "启动前台服务失败", e)  
-            stopSelf()  
-            return START_NOT_STICKY  
-        }  
+                ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)  
+            } else { startForeground(NOTIFICATION_ID, notification) }  
+        } catch (e: Exception) { Log.e(TAG, "启动前台服务失败", e); stopSelf(); return START_NOT_STICKY }  
   
         pollingJob?.cancel()  
         pollingJob = serviceScope.launch {  
@@ -88,22 +69,18 @@ class RankMonitorService : Service() {
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
             rankMonitor.loadCacheFromDb()  
-  
             while (isActive) {  
                 try {  
                     val accounts = accountDao.getAllAccountsSync()  
-                    if (accounts.isEmpty()) {  
-                        Log.w(TAG, "No accounts configured, waiting...")  
-                    } else {  
+                    if (accounts.isEmpty()) { Log.w(TAG, "No accounts configured, waiting...") }  
+                    else {  
                         for (account in accounts) {  
                             if (!isActive) break  
                             try {  
                                 val binds = bindDao.getBindsByPlatformSync(account.platform)  
                                 if (binds.isEmpty()) continue  
                                 val client = clientManager.getClient(account)  
-                                queryEngine.queryAll(binds, client) { result ->  
-                                    rankMonitor.processResult(result)  
-                                }  
+                                queryEngine.queryAll(binds, client) { result -> rankMonitor.processResult(result) }  
                             } catch (e: Exception) {  
                                 Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                                 clientManager.clearClient(account.id)  
@@ -111,9 +88,7 @@ class RankMonitorService : Service() {
                         }  
                         rankMonitor.flushHistories()  
                     }  
-                } catch (e: Exception) {  
-                    Log.e(TAG, "Polling cycle failed: ${e.message}", e)  
-                }  
+                } catch (e: Exception) { Log.e(TAG, "Polling cycle failed: ${e.message}", e) }  
                 delay(intervalSeconds * 1000)  
             }  
         }  
@@ -121,19 +96,14 @@ class RankMonitorService : Service() {
     }  
   
     override fun onDestroy() {  
-        super.onDestroy()  
-        pollingJob?.cancel()  
-        serviceScope.cancel()  
+        super.onDestroy(); pollingJob?.cancel(); serviceScope.cancel()  
         Log.i(TAG, "Service destroyed, polling stopped")  
     }  
   
     private fun createNotification(intervalSeconds: Long): Notification {  
         return NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
-            .setSmallIcon(R.drawable.ic_notification)  
-            .setContentTitle("竞技场监控")  
+            .setSmallIcon(R.drawable.ic_notification).setContentTitle("竞技场监控")  
             .setContentText("正在监控排名变动，间隔 ${intervalSeconds} 秒")  
-            .setPriority(NotificationCompat.PRIORITY_LOW)  
-            .setOngoing(true)  
-            .build()  
+            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).build()  
     }  
 }
