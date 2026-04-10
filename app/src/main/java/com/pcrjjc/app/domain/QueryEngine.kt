@@ -31,6 +31,112 @@ class QueryEngine {
         val fullResponse: Map<String, Any?>  
     )  
   
+    /**  
+     * 通过 /profile/get_profile 获取玩家名称  
+     */  
+    @Suppress("UNCHECKED_CAST")  
+    private suspend fun getUserName(client: Any, viewerId: Long): String {  
+        return try {  
+            val res = when (client) {  
+                is PcrClient -> client.callApi(  
+                    "/profile/get_profile",  
+                    mutableMapOf("target_viewer_id" to viewerId)  
+                )  
+                is TwPcrClient -> client.callApi(  
+                    "/profile/get_profile",  
+                    mutableMapOf("target_viewer_id" to viewerId)  
+                )  
+                else -> return "未知"  
+            }  
+            val userInfo = res["user_info"] as? Map<String, Any?>  
+            userInfo?.get("user_name")?.toString() ?: "未知"  
+        } catch (e: Exception) {  
+            Log.e(TAG, "getUserName failed for $viewerId: ${e.message}")  
+            "未知"  
+        }  
+    }  
+  
+    /**  
+     * JJC透视：查询竞技场排名前51名玩家  
+     * 排名API不返回user_name，需要逐个调用get_profile获取  
+     */  
+    @Suppress("UNCHECKED_CAST")  
+    suspend fun queryArenaRanking(client: Any, pages: Int = 3): List<ArenaRankingPlayer> {  
+        val allPlayers = mutableListOf<ArenaRankingPlayer>()  
+        // 第一步：获取排名列表（viewer_id, rank, team_level）  
+        for (page in 1..pages) {  
+            try {  
+                val res = when (client) {  
+                    is PcrClient -> client.callApi(  
+                        "/arena/ranking",  
+                        mutableMapOf("limit" to 20, "page" to page)  
+                    )  
+                    is TwPcrClient -> client.callApi(  
+                        "/arena/ranking",  
+                        mutableMapOf("limit" to 20, "page" to page)  
+                    )  
+                    else -> throw IllegalArgumentException("Unknown client type")  
+                }  
+                val ranking = res["ranking"] as? List<Map<String, Any?>> ?: continue  
+                for (item in ranking) {  
+                    val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
+                    val rank = (item["rank"] as? Number)?.toInt() ?: continue  
+                    if (rank > 51) break  
+                    val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
+                    // 先用空名称占位  
+                    allPlayers.add(ArenaRankingPlayer(viewerId, rank, "", teamLevel))  
+                }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "queryArenaRanking page $page failed: ${e.message}", e)  
+            }  
+        }  
+        // 第二步：逐个获取用户名称  
+        val result = allPlayers.map { player ->  
+            val userName = getUserName(client, player.viewerId)  
+            player.copy(userName = userName)  
+        }  
+        return result.sortedBy { it.rank }  
+    }  
+  
+    /**  
+     * PJJC透视：查询公主竞技场排名前51名玩家  
+     * 排名API不返回user_name，需要逐个调用get_profile获取  
+     */  
+    @Suppress("UNCHECKED_CAST")  
+    suspend fun queryGrandArenaRanking(client: Any, pages: Int = 3): List<ArenaRankingPlayer> {  
+        val allPlayers = mutableListOf<ArenaRankingPlayer>()  
+        for (page in 1..pages) {  
+            try {  
+                val res = when (client) {  
+                    is PcrClient -> client.callApi(  
+                        "/grand_arena/ranking",  
+                        mutableMapOf("limit" to 20, "page" to page)  
+                    )  
+                    is TwPcrClient -> client.callApi(  
+                        "/grand_arena/ranking",  
+                        mutableMapOf("limit" to 20, "page" to page)  
+                    )  
+                    else -> throw IllegalArgumentException("Unknown client type")  
+                }  
+                val ranking = res["ranking"] as? List<Map<String, Any?>> ?: continue  
+                for (item in ranking) {  
+                    val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
+                    val rank = (item["rank"] as? Number)?.toInt() ?: continue  
+                    if (rank > 51) break  
+                    val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
+                    allPlayers.add(ArenaRankingPlayer(viewerId, rank, "", teamLevel))  
+                }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "queryGrandArenaRanking page $page failed: ${e.message}", e)  
+            }  
+        }  
+        val result = allPlayers.map { player ->  
+            val userName = getUserName(client, player.viewerId)  
+            player.copy(userName = userName)  
+        }  
+        return result.sortedBy { it.rank }  
+    }  
+  
     @Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
         client: Any,  
@@ -105,79 +211,5 @@ class QueryEngine {
                 onResult(result)  
             }  
         }  
-    }  
-  
-    /**  
-     * JJC透视：查询竞技场排名前51名玩家  
-     * API: /arena/ranking, 参数: limit, page  
-     * 响应: ranking 列表，每项含 viewer_id, rank, user_name, team_level  
-     */  
-    @Suppress("UNCHECKED_CAST")  
-    suspend fun queryArenaRanking(client: Any, pages: Int = 3): List<ArenaRankingPlayer> {  
-        val allPlayers = mutableListOf<ArenaRankingPlayer>()  
-        for (page in 1..pages) {  
-            try {  
-                val res = when (client) {  
-                    is PcrClient -> client.callApi(  
-                        "/arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    is TwPcrClient -> client.callApi(  
-                        "/arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    else -> throw IllegalArgumentException("Unknown client type")  
-                }  
-                val ranking = res["ranking"] as? List<Map<String, Any?>> ?: continue  
-                for (item in ranking) {  
-                    val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
-                    val rank = (item["rank"] as? Number)?.toInt() ?: continue  
-                    if (rank > 51) break  
-                    val userName = item["user_name"]?.toString() ?: ""  
-                    val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
-                    allPlayers.add(ArenaRankingPlayer(viewerId, rank, userName, teamLevel))  
-                }  
-            } catch (e: Exception) {  
-                Log.e(TAG, "queryArenaRanking page $page failed: ${e.message}", e)  
-            }  
-        }  
-        return allPlayers.sortedBy { it.rank }  
-    }  
-  
-    /**  
-     * PJJC透视：查询公主竞技场排名前51名玩家  
-     * API: /grand_arena/ranking, 参数: limit, page  
-     * 响应: ranking 列表，每项含 viewer_id, rank, user_name, team_level  
-     */  
-    @Suppress("UNCHECKED_CAST")  
-    suspend fun queryGrandArenaRanking(client: Any, pages: Int = 3): List<ArenaRankingPlayer> {  
-        val allPlayers = mutableListOf<ArenaRankingPlayer>()  
-        for (page in 1..pages) {  
-            try {  
-                val res = when (client) {  
-                    is PcrClient -> client.callApi(  
-                        "/grand_arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    is TwPcrClient -> client.callApi(  
-                        "/grand_arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    else -> throw IllegalArgumentException("Unknown client type")  
-                }  
-                val ranking = res["ranking"] as? List<Map<String, Any?>> ?: continue  
-                for (item in ranking) {  
-                    val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
-                    val rank = (item["rank"] as? Number)?.toInt() ?: continue  
-                    if (rank > 51) break  
-                    val userName = item["user_name"]?.toString() ?: ""  
-                    val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
-                    allPlayers.add(ArenaRankingPlayer(viewerId, rank, userName, teamLevel))  
-                }  
-            } catch (e: Exception) {  
-                Log.e(TAG, "queryGrandArenaRanking page $page failed: ${e.message}", e)  
-            }  
-        }  
-        return allPlayers.sortedBy { it.rank }  
     }  
 }
