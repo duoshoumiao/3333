@@ -197,7 +197,6 @@ class BiliAuth(
 						}  
 					} catch (e: Exception) {  
 						Log.e(TAG, "Auto captcha failed: ${e.message}, falling back to manual")  
-						// 自动过码失败，抛出异常让上层处理手动过码  
 						throw CaptchaRequiredException(  
 							gt = cap.getString("gt"),  
 							challenge = cap.getString("challenge"),  
