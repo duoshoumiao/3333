@@ -25,26 +25,32 @@ class RankCheckWorker @AssistedInject constructor(
     private val rankCacheDao: RankCacheDao,  
     private val clientManager: ClientManager  
 ) : CoroutineWorker(appContext, workerParams) {  
+  
     companion object {  
         const val TAG = "RankCheckWorker"  
         const val WORK_NAME = "rank_check_work"  
     }  
+  
     override suspend fun doWork(): Result {  
         Log.i(TAG, "Starting rank check...")  
+  
         try {  
             val accounts = accountDao.getAllAccountsSync()  
             if (accounts.isEmpty()) {  
                 Log.w(TAG, "No accounts configured, skipping rank check")  
                 return Result.success()  
             }  
+  
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao)  
-            rankMonitor.loadCacheFromDb()  
+  
             for (account in accounts) {  
                 try {  
                     val binds = bindDao.getBindsByPlatformSync(account.platform)  
                     if (binds.isEmpty()) continue  
+  
                     val client = clientManager.getClient(account)  
+  
                     queryEngine.queryAll(binds, client) { result ->  
                         rankMonitor.processResult(result)  
                     }  
@@ -53,7 +59,9 @@ class RankCheckWorker @AssistedInject constructor(
                     clientManager.clearClient(account.id)  
                 }  
             }  
+  
             rankMonitor.flushHistories()  
+  
             Log.i(TAG, "Rank check completed")  
             return Result.success()  
         } catch (e: Exception) {  

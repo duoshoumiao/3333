@@ -1,33 +1,25 @@
 package com.pcrjjc.app.ui.settings  
   
 import android.content.Context  
-import android.content.Intent  
-import android.os.Build  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
-import com.pcrjjc.app.data.local.SettingsDataStore  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.entity.PcrBind  
-import com.pcrjjc.app.service.RankMonitorService  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import dagger.hilt.android.qualifiers.ApplicationContext  
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
-import kotlinx.coroutines.flow.update  
 import kotlinx.coroutines.launch  
 import javax.inject.Inject  
   
 data class SettingsUiState(  
-    val pollingIntervalSeconds: Long = 1,  
-    val isMonitoringEnabled: Boolean = true,  
     val binds: List<PcrBind> = emptyList()  
 )  
   
 @HiltViewModel  
 class SettingsViewModel @Inject constructor(  
     @ApplicationContext private val context: Context,  
-    private val bindDao: BindDao,  
-    private val settingsDataStore: SettingsDataStore  
+    private val bindDao: BindDao  
 ) : ViewModel() {  
   
     private val _uiState = MutableStateFlow(SettingsUiState())  
@@ -36,40 +28,8 @@ class SettingsViewModel @Inject constructor(
     init {  
         viewModelScope.launch {  
             bindDao.getAllBinds().collect { binds ->  
-                _uiState.update { it.copy(binds = binds) }  
+                _uiState.value = _uiState.value.copy(binds = binds)  
             }  
-        }  
-        viewModelScope.launch {  
-            settingsDataStore.pollingIntervalFlow.collect { interval ->  
-                _uiState.update { it.copy(pollingIntervalSeconds = interval) }  
-            }  
-        }  
-        viewModelScope.launch {  
-            settingsDataStore.isMonitoringEnabledFlow.collect { enabled ->  
-                _uiState.update { it.copy(isMonitoringEnabled = enabled) }  
-            }  
-        }  
-    }  
-  
-    fun setPollingInterval(seconds: Long) {  
-        _uiState.update { it.copy(pollingIntervalSeconds = seconds) }  
-        viewModelScope.launch {  
-            settingsDataStore.setPollingInterval(seconds)  
-        }  
-        if (_uiState.value.isMonitoringEnabled) {  
-            startMonitoring()  
-        }  
-    }  
-  
-    fun toggleMonitoring(enabled: Boolean) {  
-        _uiState.update { it.copy(isMonitoringEnabled = enabled) }  
-        viewModelScope.launch {  
-            settingsDataStore.setMonitoringEnabled(enabled)  
-        }  
-        if (enabled) {  
-            startMonitoring()  
-        } else {  
-            stopMonitoring()  
         }  
     }  
   
@@ -89,20 +49,5 @@ class SettingsViewModel @Inject constructor(
             )  
             bindDao.update(updated)  
         }  
-    }  
-  
-    private fun startMonitoring() {  
-        val interval = _uiState.value.pollingIntervalSeconds  
-        val intent = Intent(context, RankMonitorService::class.java)  
-        intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
-            context.startForegroundService(intent)  
-        } else {  
-            context.startService(intent)  
-        }  
-    }  
-  
-    private fun stopMonitoring() {  
-        context.stopService(Intent(context, RankMonitorService::class.java))  
     }  
 }

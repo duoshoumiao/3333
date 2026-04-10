@@ -55,6 +55,7 @@ class RankMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
         val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 1) ?: 1  
   
+        // Check notification permission on Android 13+  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
             if (ContextCompat.checkSelfPermission(  
                     this, Manifest.permission.POST_NOTIFICATIONS  
@@ -66,7 +67,8 @@ class RankMonitorService : Service() {
             }  
         }  
   
-        val notification = createNotification(intervalSeconds)  
+        // Start foreground  
+        val notification = createNotification()  
         try {  
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {  
                 ServiceCompat.startForeground(  
@@ -82,13 +84,12 @@ class RankMonitorService : Service() {
             return START_NOT_STICKY  
         }  
   
+        // Cancel previous polling job and start new one  
         pollingJob?.cancel()  
         pollingJob = serviceScope.launch {  
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
-  
-            rankMonitor.loadCacheFromDb()  
   
             while (isActive) {  
                 try {  
@@ -101,7 +102,9 @@ class RankMonitorService : Service() {
                             try {  
                                 val binds = bindDao.getBindsByPlatformSync(account.platform)  
                                 if (binds.isEmpty()) continue  
+  
                                 val client = clientManager.getClient(account)  
+  
                                 queryEngine.queryAll(binds, client) { result ->  
                                     rankMonitor.processResult(result)  
                                 }  
@@ -115,6 +118,7 @@ class RankMonitorService : Service() {
                 } catch (e: Exception) {  
                     Log.e(TAG, "Polling cycle failed: ${e.message}", e)  
                 }  
+  
                 delay(intervalSeconds * 1000)  
             }  
         }  
@@ -129,11 +133,11 @@ class RankMonitorService : Service() {
         Log.i(TAG, "Service destroyed, polling stopped")  
     }  
   
-    private fun createNotification(intervalSeconds: Long): Notification {  
+    private fun createNotification(): Notification {  
         return NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
             .setSmallIcon(R.drawable.ic_notification)  
             .setContentTitle("竞技场监控")  
-            .setContentText("正在监控排名变动，间隔 ${intervalSeconds} 秒")  
+            .setContentText("正在监控排名变动，间隔 1 秒")  
             .setPriority(NotificationCompat.PRIORITY_LOW)  
             .setOngoing(true)  
             .build()  

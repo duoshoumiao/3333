@@ -53,7 +53,7 @@ fun HomeScreen(
     onNavigateToAccount: () -> Unit  
 ) {  
     val binds by viewModel.binds.collectAsState()  
-    val rankCacheMap by viewModel.rankCacheMap.collectAsState()  
+    val rankCaches by viewModel.rankCaches.collectAsState()  
   
     Scaffold(  
         topBar = {  
@@ -109,11 +109,10 @@ fun HomeScreen(
             ) {  
                 item { Spacer(modifier = Modifier.height(8.dp)) }  
                 itemsIndexed(binds) { index, bind ->  
-                    val rankCache = rankCacheMap[Pair(bind.pcrid, bind.platform)]  
                     BindCard(  
                         index = index + 1,  
                         bind = bind,  
-                        rankCache = rankCache,  
+                        rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
                         onQuery = { onNavigateToQuery(bind.id) },  
                         onDetail = { onNavigateToDetail(bind.id) },  
                         onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
@@ -164,6 +163,19 @@ private fun BindCard(
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
+                    if (rankCache != null) {  
+                        Text(  
+                            text = "JJC: ${rankCache.arenaRank}  PJJC: ${rankCache.grandArenaRank}",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.primary  
+                        )  
+                    } else {  
+                        Text(  
+                            text = "排名: 加载中...",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    }  
                 }  
                 Row {  
                     IconButton(onClick = onQuery) {  
@@ -180,32 +192,6 @@ private fun BindCard(
                         )  
                     }  
                 }  
-            }  
-  
-            // 排名数据显示（新增栏）  
-            Spacer(modifier = Modifier.height(8.dp))  
-            if (rankCache != null) {  
-                Row(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)  
-                ) {  
-                    Text(  
-                        text = "JJC: ${rankCache.arenaRank}",  
-                        style = MaterialTheme.typography.bodyMedium,  
-                        color = MaterialTheme.colorScheme.primary  
-                    )  
-                    Text(  
-                        text = "PJJC: ${rankCache.grandArenaRank}",  
-                        style = MaterialTheme.typography.bodyMedium,  
-                        color = MaterialTheme.colorScheme.primary  
-                    )  
-                }  
-            } else {  
-                Text(  
-                    text = "暂无排名数据",  
-                    style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.onSurfaceVariant  
-                )  
             }  
   
             // Notification status  

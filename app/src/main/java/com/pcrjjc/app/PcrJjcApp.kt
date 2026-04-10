@@ -37,16 +37,12 @@ class PcrJjcApp : Application(), Configuration.Provider {
   
     private fun restoreMonitoringState() {  
         CoroutineScope(Dispatchers.IO).launch {  
-            val enabled = settingsDataStore.isMonitoringEnabledSync()  
-            if (enabled) {  
-                val interval = settingsDataStore.getPollingIntervalSync()  
-                val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)  
-                intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
-                    startForegroundService(intent)  
-                } else {  
-                    startService(intent)  
-                }  
+            val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)  
+            intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, 1L)  
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
+                startForegroundService(intent)  
+            } else {  
+                startService(intent)  
             }  
         }  
     }  

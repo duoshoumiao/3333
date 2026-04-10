@@ -25,7 +25,7 @@ class SettingsDataStore(private val context: Context) {
     }  
   
     val isMonitoringEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->  
-        prefs[KEY_MONITORING_ENABLED] ?: true 
+        prefs[KEY_MONITORING_ENABLED] ?: true  
     }  
   
     suspend fun setPollingInterval(seconds: Long) {  
