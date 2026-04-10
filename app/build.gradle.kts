@@ -94,7 +94,7 @@ dependencies {
     implementation("org.msgpack:msgpack-core:0.9.8")
 
     // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.0.1")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
