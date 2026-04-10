@@ -38,7 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
-import com.pcrjjc.app.util.Platform  
+import com.pcrjjc.app.util.Platform
+import com.pcrjjc.app.domain.QueryEngine  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -161,7 +162,7 @@ fun MasterScreen(
   
 @Composable  
 private fun PlayerCard(  
-    player: ArenaPlayer,  
+    player: QueryEngine.ArenaRankingPlayer,
     isBound: Boolean,  
     isBinding: Boolean,  
     justBound: Boolean,  
