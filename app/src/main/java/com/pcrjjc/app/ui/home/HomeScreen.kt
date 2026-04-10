@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ManageAccounts  
 import androidx.compose.material.icons.filled.Search  
 import androidx.compose.material.icons.filled.Settings  
+import androidx.compose.material.icons.filled.Visibility  
 import androidx.compose.material3.Card  
 import androidx.compose.material3.CardDefaults  
 import androidx.compose.material3.ExperimentalMaterial3Api  
@@ -50,7 +51,8 @@ fun HomeScreen(
     onNavigateToDetail: (Int) -> Unit,  
     onNavigateToHistory: (Long, Int) -> Unit,  
     onNavigateToSettings: () -> Unit,  
-    onNavigateToAccount: () -> Unit  
+    onNavigateToAccount: () -> Unit,  
+    onNavigateToMaster: () -> Unit          // <-- 新增参数  
 ) {  
     val binds by viewModel.binds.collectAsState()  
     val rankCaches by viewModel.rankCaches.collectAsState()  
@@ -64,6 +66,11 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
                 ),  
                 actions = {  
+                    // ---- 新增：主人号按钮 ----  
+                    IconButton(onClick = onNavigateToMaster) {  
+                        Icon(Icons.Default.Visibility, contentDescription = "主人号")  
+                    }  
+                    // ---- 新增结束 ----  
                     IconButton(onClick = onNavigateToAccount) {  
                         Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
                     }  
