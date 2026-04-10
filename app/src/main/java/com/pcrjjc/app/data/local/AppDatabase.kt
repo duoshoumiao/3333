@@ -15,9 +15,9 @@ import com.pcrjjc.app.data.local.entity.RankCache
   
 @Database(  
     entities = [PcrBind::class, Account::class, JjcHistory::class, RankCache::class],  
-    version = 3,                        // <-- 2 → 3  
+    version = 3,  
     exportSchema = true  
-)  
+) 
 abstract class AppDatabase : RoomDatabase() {  
     abstract fun bindDao(): BindDao  
     abstract fun accountDao(): AccountDao  

@@ -26,6 +26,7 @@ object AppModule {
     private val MIGRATION_2_3 = object : Migration(2, 3) {  
         override fun migrate(db: SupportSQLiteDatabase) {  
             db.execSQL("ALTER TABLE account ADD COLUMN isMaster INTEGER NOT NULL DEFAULT 0")  
+            db.execSQL("ALTER TABLE pcr_bind ADD COLUMN arenaType INTEGER NOT NULL DEFAULT 0")  
         }  
     }  
   
@@ -39,7 +40,7 @@ object AppModule {
         )  
         .addMigrations(MIGRATION_2_3)  
         .build()  
-    }  
+    }   
   
     @Provides  
     fun provideBindDao(database: AppDatabase): BindDao = database.bindDao()  

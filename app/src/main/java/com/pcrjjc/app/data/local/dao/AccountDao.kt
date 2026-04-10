@@ -17,14 +17,14 @@ interface AccountDao {
     @Query("SELECT * FROM account ORDER BY id")  
     suspend fun getAllAccountsSync(): List<Account>  
   
-    // ---- 新增：非主人号（用于轮询监控） ----  
+    // ---- 新增：非账号（用于轮询监控） ----  
     @Query("SELECT * FROM account WHERE isMaster = 0 ORDER BY id")  
     fun getNonMasterAccounts(): Flow<List<Account>>  
   
     @Query("SELECT * FROM account WHERE isMaster = 0 ORDER BY id")  
     suspend fun getNonMasterAccountsSync(): List<Account>  
   
-    // ---- 新增：主人号 ----  
+    // ---- 新增：账号 ----  
     @Query("SELECT * FROM account WHERE isMaster = 1 ORDER BY id")  
     fun getMasterAccounts(): Flow<List<Account>>  
   

@@ -34,7 +34,7 @@ data class MasterUiState(
     val boundPcrIds: Set<Long> = emptySet(),  
     val bindingId: Long? = null,  
     val bindSuccessIds: Set<Long> = emptySet(),  
-    // 添加主人号相关  
+    // 添加账号相关  
     val addAccount: String = "",  
     val addPassword: String = "",  
     val addViewerId: String = "",  
@@ -57,7 +57,7 @@ class MasterViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MasterUiState())  
     val uiState: StateFlow<MasterUiState> = _uiState  
   
-    /** 主人号列表（实时 Flow） */  
+    /** 账号列表（实时 Flow） */  
     val masterAccounts: StateFlow<List<Account>> = accountDao.getMasterAccounts()  
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
   
@@ -73,7 +73,7 @@ class MasterViewModel @Inject constructor(
         }  
     }  
   
-    // ==================== 主人号管理 ====================  
+    // ==================== 账号管理 ====================  
   
     fun updateAddAccount(value: String) {  
         _uiState.value = _uiState.value.copy(addAccount = value, addError = null)  
@@ -215,10 +215,14 @@ class MasterViewModel @Inject constructor(
                 }  
   
                 val bind = PcrBind(  
-                    pcrid = player.viewerId,  
-                    platform = state.selectedPlatform.id,  
-                    name = player.userName  
-                )  
+					pcrid = player.viewerId,  
+					platform = state.selectedPlatform.id,  
+					name = player.userName,  
+					arenaType = when (state.selectedType) {  
+						ArenaType.JJC -> 1  
+						ArenaType.PJJC -> 2  
+					}  
+				)  
                 bindDao.insert(bind)  
   
                 val newBoundIds = _uiState.value.boundPcrIds + player.viewerId  

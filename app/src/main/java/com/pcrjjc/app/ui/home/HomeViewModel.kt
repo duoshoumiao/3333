@@ -23,6 +23,21 @@ class HomeViewModel @Inject constructor(
     val binds: StateFlow<List<PcrBind>> = bindDao.getAllBinds()  
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
   
+    // J场绑定 (arenaType == 1)  
+    val jjcBinds: StateFlow<List<PcrBind>> = bindDao.getAllBinds()  
+        .map { list -> list.filter { it.arenaType == 1 } }  
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
+  
+    // P场绑定 (arenaType == 2)  
+    val pjjcBinds: StateFlow<List<PcrBind>> = bindDao.getAllBinds()  
+        .map { list -> list.filter { it.arenaType == 2 } }  
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
+  
+    // 手动绑定 (arenaType == 0)  
+    val manualBinds: StateFlow<List<PcrBind>> = bindDao.getAllBinds()  
+        .map { list -> list.filter { it.arenaType == 0 } }  
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())  
+  
     val rankCaches: StateFlow<Map<Pair<Long, Int>, RankCache>> = rankCacheDao.getAllFlow()  
         .map { list -> list.associateBy { Pair(it.pcrid, it.platform) } }  
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())  

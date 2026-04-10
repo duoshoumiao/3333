@@ -24,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults  
 import androidx.compose.material3.ExperimentalMaterial3Api  
 import androidx.compose.material3.FloatingActionButton  
+import androidx.compose.material3.HorizontalDivider  
 import androidx.compose.material3.Icon  
 import androidx.compose.material3.IconButton  
 import androidx.compose.material3.MaterialTheme  
@@ -36,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.text.font.FontWeight  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import com.pcrjjc.app.data.local.entity.PcrBind  
@@ -52,10 +54,14 @@ fun HomeScreen(
     onNavigateToHistory: (Long, Int) -> Unit,  
     onNavigateToSettings: () -> Unit,  
     onNavigateToAccount: () -> Unit,  
-    onNavigateToMaster: () -> Unit          // <-- 新增参数  
+    onNavigateToMaster: () -> Unit  
 ) {  
-    val binds by viewModel.binds.collectAsState()  
+    val jjcBinds by viewModel.jjcBinds.collectAsState()  
+    val pjjcBinds by viewModel.pjjcBinds.collectAsState()  
+    val manualBinds by viewModel.manualBinds.collectAsState()  
     val rankCaches by viewModel.rankCaches.collectAsState()  
+  
+    val totalCount = jjcBinds.size + pjjcBinds.size + manualBinds.size  
   
     Scaffold(  
         topBar = {  
@@ -66,13 +72,11 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
                 ),  
                 actions = {  
-                    // ---- 新增：主人号按钮 ----  
                     IconButton(onClick = onNavigateToMaster) {  
-                        Icon(Icons.Default.Visibility, contentDescription = "我的账号")  
+                        Icon(Icons.Default.Visibility, contentDescription = "账号")  
                     }  
-                    // ---- 新增结束 ----  
                     IconButton(onClick = onNavigateToAccount) {  
-                        Icon(Icons.Default.ManageAccounts, contentDescription = "监控账号管理")  
+                        Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
                     }  
                     IconButton(onClick = onNavigateToSettings) {  
                         Icon(Icons.Default.Settings, contentDescription = "设置")  
@@ -86,7 +90,7 @@ fun HomeScreen(
             }  
         }  
     ) { paddingValues ->  
-        if (binds.isEmpty()) {  
+        if (totalCount == 0) {  
             Column(  
                 modifier = Modifier  
                     .fillMaxSize()  
@@ -115,17 +119,111 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)  
             ) {  
                 item { Spacer(modifier = Modifier.height(8.dp)) }  
-                itemsIndexed(binds) { index, bind ->  
-                    BindCard(  
-                        index = index + 1,  
-                        bind = bind,  
-                        rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
-                        onQuery = { onNavigateToQuery(bind.id) },  
-                        onDetail = { onNavigateToDetail(bind.id) },  
-                        onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
-                        onDelete = { viewModel.deleteBind(bind) }  
-                    )  
+  
+                // ==================== J场 ====================  
+                if (jjcBinds.isNotEmpty()) {  
+                    item {  
+                        Row(  
+                            modifier = Modifier.fillMaxWidth(),  
+                            horizontalArrangement = Arrangement.SpaceBetween,  
+                            verticalAlignment = Alignment.CenterVertically  
+                        ) {  
+                            Text(  
+                                text = "J场（JJC）",  
+                                style = MaterialTheme.typography.titleMedium,  
+                                fontWeight = FontWeight.Bold,  
+                                color = MaterialTheme.colorScheme.primary  
+                            )  
+                            Text(  
+                                text = "${jjcBinds.size} 人",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.onSurfaceVariant  
+                            )  
+                        }  
+                    }  
+                    itemsIndexed(jjcBinds, key = { _, bind -> "jjc_${bind.id}" }) { index, bind ->  
+                        BindCard(  
+                            index = index + 1,  
+                            bind = bind,  
+                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
+                            onQuery = { onNavigateToQuery(bind.id) },  
+                            onDetail = { onNavigateToDetail(bind.id) },  
+                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                            onDelete = { viewModel.deleteBind(bind) }  
+                        )  
+                    }  
                 }  
+  
+                // ==================== P场 ====================  
+                if (pjjcBinds.isNotEmpty()) {  
+                    item {  
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
+                        Row(  
+                            modifier = Modifier.fillMaxWidth(),  
+                            horizontalArrangement = Arrangement.SpaceBetween,  
+                            verticalAlignment = Alignment.CenterVertically  
+                        ) {  
+                            Text(  
+                                text = "P场（PJJC）",  
+                                style = MaterialTheme.typography.titleMedium,  
+                                fontWeight = FontWeight.Bold,  
+                                color = MaterialTheme.colorScheme.tertiary  
+                            )  
+                            Text(  
+                                text = "${pjjcBinds.size} 人",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.onSurfaceVariant  
+                            )  
+                        }  
+                    }  
+                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->  
+                        BindCard(  
+                            index = index + 1,  
+                            bind = bind,  
+                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
+                            onQuery = { onNavigateToQuery(bind.id) },  
+                            onDetail = { onNavigateToDetail(bind.id) },  
+                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                            onDelete = { viewModel.deleteBind(bind) }  
+                        )  
+                    }  
+                }  
+  
+                // ==================== 手动绑定 ====================  
+                if (manualBinds.isNotEmpty()) {  
+                    item {  
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
+                        Row(  
+                            modifier = Modifier.fillMaxWidth(),  
+                            horizontalArrangement = Arrangement.SpaceBetween,  
+                            verticalAlignment = Alignment.CenterVertically  
+                        ) {  
+                            Text(  
+                                text = "手动绑定",  
+                                style = MaterialTheme.typography.titleMedium,  
+                                fontWeight = FontWeight.Bold,  
+                                color = MaterialTheme.colorScheme.onSurface  
+                            )  
+                            Text(  
+                                text = "${manualBinds.size} 人",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.onSurfaceVariant  
+                            )  
+                        }  
+                    }  
+                    itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->  
+                        BindCard(  
+                            index = index + 1,  
+                            bind = bind,  
+                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
+                            onQuery = { onNavigateToQuery(bind.id) },  
+                            onDetail = { onNavigateToDetail(bind.id) },  
+                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                            onDelete = { viewModel.deleteBind(bind) }  
+                        )  
+                    }  
+                }  
+  
                 item { Spacer(modifier = Modifier.height(80.dp)) }  
             }  
         }  
