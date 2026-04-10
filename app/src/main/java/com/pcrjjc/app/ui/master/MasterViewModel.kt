@@ -11,11 +11,13 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.lifecycle.HiltViewModel  
+import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.SharingStarted  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.flow.stateIn  
 import kotlinx.coroutines.launch  
+import kotlinx.coroutines.withContext  
 import javax.inject.Inject  
   
 enum class ArenaType(val displayName: String) {  
@@ -147,21 +149,19 @@ class MasterViewModel @Inject constructor(
             _uiState.value = state.copy(isLoading = true, errorMessage = null)  
   
             try {  
-                val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
-                if (accounts.isEmpty()) {  
-                    _uiState.value = _uiState.value.copy(  
-                        isLoading = false,  
-                        errorMessage = "没有${state.selectedPlatform.displayName}的账号，请先在上方添加"  
-                    )  
-                    return@launch  
-                }  
+                val players = withContext(Dispatchers.IO) {  
+                    val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
+                    if (accounts.isEmpty()) {  
+                        throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在上方添加")  
+                    }  
   
-                val account = accounts.first()  
-                val client = clientManager.getClient(account)  
+                    val account = accounts.first()  
+                    val client = clientManager.getClient(account)  
   
-                val players = when (state.selectedType) {  
-                    ArenaType.JJC -> queryEngine.queryArenaRanking(client)  
-                    ArenaType.PJJC -> queryEngine.queryGrandArenaRanking(client)  
+                    when (state.selectedType) {  
+                        ArenaType.JJC -> queryEngine.queryArenaRanking(client)  
+                        ArenaType.PJJC -> queryEngine.queryGrandArenaRanking(client)  
+                    }  
                 }  
   
                 val allBinds = bindDao.getAllBindsSync()  
@@ -184,7 +184,7 @@ class MasterViewModel @Inject constructor(
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
-                    errorMessage = "查询失败: ${e.message}"  
+                    errorMessage = "查询失败: ${e.message ?: e.javaClass.simpleName}"  
                 )  
             }  
         }  
@@ -215,14 +215,14 @@ class MasterViewModel @Inject constructor(
                 }  
   
                 val bind = PcrBind(  
-					pcrid = player.viewerId,  
-					platform = state.selectedPlatform.id,  
-					name = player.userName,  
-					arenaType = when (state.selectedType) {  
-						ArenaType.JJC -> 1  
-						ArenaType.PJJC -> 2  
-					}  
-				)  
+                    pcrid = player.viewerId,  
+                    platform = state.selectedPlatform.id,  
+                    name = player.userName,  
+                    arenaType = when (state.selectedType) {  
+                        ArenaType.JJC -> 1  
+                        ArenaType.PJJC -> 2  
+                    }  
+                )  
                 bindDao.insert(bind)  
   
                 val newBoundIds = _uiState.value.boundPcrIds + player.viewerId  
