@@ -190,7 +190,7 @@ class MasterViewModel @Inject constructor(
         }  
     }  
   
-    fun bindPlayer(player: QueryEngine.ArenaRankingPlayer) {  
+    fun bindPlayer(player: QueryEngine.ArenaRankingPlayer, fromType: ArenaType) {
         val state = _uiState.value  
         viewModelScope.launch {  
             _uiState.value = state.copy(bindingId = player.viewerId)  
@@ -218,10 +218,10 @@ class MasterViewModel @Inject constructor(
                     pcrid = player.viewerId,  
                     platform = state.selectedPlatform.id,  
                     name = player.userName,  
-                    arenaType = when (state.selectedType) {  
-                        ArenaType.JJC -> 1  
-                        ArenaType.PJJC -> 2  
-                    }  
+                    arenaType = when (fromType) {  
+						ArenaType.JJC -> 1  
+						ArenaType.PJJC -> 2  
+					} 
                 )  
                 bindDao.insert(bind)  
   

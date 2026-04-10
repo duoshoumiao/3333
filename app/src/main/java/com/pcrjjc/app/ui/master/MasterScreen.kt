@@ -228,7 +228,7 @@ fun MasterScreen(
                         isBound = uiState.boundPcrIds.contains(player.viewerId),  
                         isBinding = uiState.bindingId == player.viewerId,  
                         justBound = uiState.bindSuccessIds.contains(player.viewerId),  
-                        onBind = { viewModel.bindPlayer(player) }  
+                        onBind = { viewModel.bindPlayer(player, ArenaType.JJC) } 
                     )  
                 }  
             }  
@@ -270,7 +270,7 @@ fun MasterScreen(
                         isBound = uiState.boundPcrIds.contains(player.viewerId),  
                         isBinding = uiState.bindingId == player.viewerId,  
                         justBound = uiState.bindSuccessIds.contains(player.viewerId),  
-                        onBind = { viewModel.bindPlayer(player) }  
+                        onBind = { viewModel.bindPlayer(player, ArenaType.PJJC) }
                     )  
                 }  
             }  
