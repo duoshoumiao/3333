@@ -78,20 +78,21 @@ class ClientManager @Inject constructor() {
     }  
   
     suspend fun loginWithCaptchaResult(  
-		account: Account,  
+		accountId: Int,  
+		account: String,  
+		password: String,  
+		platform: Int,  
 		challenge: String,  
 		gtUserId: String,  
 		validate: String  
 	): Any {  
 		return mutex.withLock {  
-			val biliAuth = BiliAuth(account.account, account.password, account.platform)  
+			val biliAuth = BiliAuth(account, password, platform)  
 			val pcrClient = PcrClient(biliAuth)  
-			// 先用 validate 完成 bili 登录  
 			val (uid, accessKey) = biliAuth.bLoginWithValidate(challenge, gtUserId, validate)  
-			// 然后继续 PcrClient 的后续登录流程（sdk_login, game_start 等）  
-			// 需要在 PcrClient 中暴露一个方法接受已有的 uid/accessKey 继续后续流程  
 			pcrClient.loginWithCredentials(uid, accessKey)  
-			clients[account.id] = pcrClient  
+			clients[accountId] = pcrClient  
+			Log.i(TAG, "Manual captcha login succeeded for account $accountId")  
 			pcrClient  
 		}  
 	}
