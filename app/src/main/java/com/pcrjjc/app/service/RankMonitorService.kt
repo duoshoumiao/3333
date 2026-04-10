@@ -55,7 +55,6 @@ class RankMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
         val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 30) ?: 30  
   
-        // Check notification permission on Android 13+  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
             if (ContextCompat.checkSelfPermission(  
                     this, Manifest.permission.POST_NOTIFICATIONS  
@@ -67,7 +66,6 @@ class RankMonitorService : Service() {
             }  
         }  
   
-        // Start foreground  
         val notification = createNotification(intervalSeconds)  
         try {  
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {  
@@ -84,14 +82,11 @@ class RankMonitorService : Service() {
             return START_NOT_STICKY  
         }  
   
-        // Cancel previous polling job and start new one  
         pollingJob?.cancel()  
         pollingJob = serviceScope.launch {  
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
-  
-            // 从数据库加载已有缓存，避免服务重启后丢失排名数据  
             rankMonitor.loadCacheFromDb()  
   
             while (isActive) {  
@@ -105,9 +100,7 @@ class RankMonitorService : Service() {
                             try {  
                                 val binds = bindDao.getBindsByPlatformSync(account.platform)  
                                 if (binds.isEmpty()) continue  
-  
                                 val client = clientManager.getClient(account)  
-  
                                 queryEngine.queryAll(binds, client) { result ->  
                                     rankMonitor.processResult(result)  
                                 }  
@@ -121,11 +114,9 @@ class RankMonitorService : Service() {
                 } catch (e: Exception) {  
                     Log.e(TAG, "Polling cycle failed: ${e.message}", e)  
                 }  
-  
                 delay(intervalSeconds * 1000)  
             }  
         }  
-  
         return START_STICKY  
     }  
   
