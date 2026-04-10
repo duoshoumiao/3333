@@ -29,6 +29,22 @@ class RankMonitor(
     private val cache = ConcurrentHashMap<Pair<Long, Int>, IntArray>()  
     private val pendingHistories = mutableListOf<JjcHistory>()  
   
+    /**  
+     * 从数据库加载已有的排名缓存到内存，服务重启后不会丢失上次的排名数据。  
+     * 应在轮询循环开始前调用一次。  
+     */  
+    suspend fun loadCacheFromDb() {  
+        if (cache.isEmpty()) {  
+            val dbCaches = rankCacheDao.getAll()  
+            for (rc in dbCaches) {  
+                cache[Pair(rc.pcrid, rc.platform)] = intArrayOf(rc.arenaRank, rc.grandArenaRank, rc.lastLoginTime)  
+            }  
+            if (dbCaches.isNotEmpty()) {  
+                Log.i(TAG, "Loaded ${dbCaches.size} rank cache entries from database")  
+            }  
+        }  
+    }  
+  
     suspend fun processResult(result: QueryEngine.QueryResult) {  
         val bind = result.bind  
         val userInfo = result.userInfo  
@@ -40,34 +56,17 @@ class RankMonitor(
         val cacheKey = Pair(bind.pcrid, bind.platform)  
         val current = intArrayOf(arenaRank, grandArenaRank, lastLoginTime)  
   
-        var previous = cache[cacheKey]  
-  
-        // 内存缓存未命中时，从本地数据库加载  
-        if (previous == null) {  
-            val dbCache = rankCacheDao.get(bind.pcrid, bind.platform)  
-            if (dbCache != null) {  
-                previous = intArrayOf(dbCache.arenaRank, dbCache.grandArenaRank, dbCache.lastLoginTime)  
-                cache[cacheKey] = previous  
-            }  
-        }  
-  
-        // 持久化当前排名到数据库  
-        rankCacheDao.upsert(  
-            RankCache(  
-                pcrid = bind.pcrid,  
-                platform = bind.platform,  
-                arenaRank = arenaRank,  
-                grandArenaRank = grandArenaRank,  
-                lastLoginTime = lastLoginTime  
-            )  
-        )  
-  
+        val previous = cache[cacheKey]  
         if (previous == null) {  
             cache[cacheKey] = current  
+            // 首次写入也持久化到数据库  
+            rankCacheDao.upsert(RankCache(bind.pcrid, bind.platform, arenaRank, grandArenaRank, lastLoginTime))  
             return  
         }  
   
         cache[cacheKey] = current  
+        // 持久化到数据库  
+        rankCacheDao.upsert(RankCache(bind.pcrid, bind.platform, arenaRank, grandArenaRank, lastLoginTime))  
   
         if (current[0] != previous[0]) {  
             handleRankChange(current[0], previous[0], bind, NoticeType.JJC)  

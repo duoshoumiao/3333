@@ -44,6 +44,9 @@ class RankCheckWorker @AssistedInject constructor(
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao)  
   
+            // 从数据库加载已有缓存  
+            rankMonitor.loadCacheFromDb()  
+  
             for (account in accounts) {  
                 try {  
                     val binds = bindDao.getBindsByPlatformSync(account.platform)  

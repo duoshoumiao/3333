@@ -91,6 +91,9 @@ class RankMonitorService : Service() {
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
   
+            // 从数据库加载已有缓存，避免服务重启后丢失排名数据  
+            rankMonitor.loadCacheFromDb()  
+  
             while (isActive) {  
                 try {  
                     val accounts = accountDao.getAllAccountsSync()  
