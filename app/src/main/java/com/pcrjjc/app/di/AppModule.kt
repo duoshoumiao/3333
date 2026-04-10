@@ -2,6 +2,8 @@ package com.pcrjjc.app.di
   
 import android.content.Context  
 import androidx.room.Room  
+import androidx.room.migration.Migration  
+import androidx.sqlite.db.SupportSQLiteDatabase  
 import com.pcrjjc.app.data.local.AppDatabase  
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import com.pcrjjc.app.data.local.dao.AccountDao  
@@ -21,6 +23,12 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)  
 object AppModule {  
   
+    private val MIGRATION_2_3 = object : Migration(2, 3) {  
+        override fun migrate(db: SupportSQLiteDatabase) {  
+            db.execSQL("ALTER TABLE account ADD COLUMN isMaster INTEGER NOT NULL DEFAULT 0")  
+        }  
+    }  
+  
     @Provides  
     @Singleton  
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {  
@@ -28,7 +36,9 @@ object AppModule {
             context,  
             AppDatabase::class.java,  
             "pcrjjc.db"  
-        ).build()  
+        )  
+        .addMigrations(MIGRATION_2_3)  
+        .build()  
     }  
   
     @Provides  
@@ -45,13 +55,11 @@ object AppModule {
   
     @Provides  
     @Singleton  
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {  
-        return Room.databaseBuilder(  
-            context,  
-            AppDatabase::class.java,  
-            "pcrjjc.db"  
-        )  
-            .addMigrations(AppDatabase.MIGRATION_2_3)   // <-- 新增  
+    fun provideOkHttpClient(): OkHttpClient {  
+        return OkHttpClient.Builder()  
+            .connectTimeout(20, TimeUnit.SECONDS)  
+            .readTimeout(20, TimeUnit.SECONDS)  
+            .writeTimeout(20, TimeUnit.SECONDS)  
             .build()  
     }  
   
