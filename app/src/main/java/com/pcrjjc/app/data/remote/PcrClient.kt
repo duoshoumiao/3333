@@ -42,7 +42,10 @@ class PcrClient(
         }  
     }  
   
-    var viewerId: Long? = null                    // ← 修复: Long? 而非 Long  
+    // 实例级别固定 API 节点，避免每次请求随机选服导致会话不一致  
+    private val apiRoot: String = getApiRoot(biliAuth.qudao)  
+  
+    var viewerId: Long? = null  
     private var uid: String = ""  
     private var accessKey: String = ""  
     private val callLock = Mutex()  
@@ -110,7 +113,7 @@ class PcrClient(
                     }  
   
                     val requestBuilder = Request.Builder()  
-                        .url(getApiRoot(biliAuth.qudao) + apiUrl)  
+                        .url(apiRoot + apiUrl)  // ← 使用实例固定的 apiRoot  
                         .post(body.toRequestBody("application/octet-stream".toMediaType()))  
   
                     headers.forEach { (k, v) -> requestBuilder.addHeader(k, v) }  
@@ -135,7 +138,7 @@ class PcrClient(
                         }  
                     }  
   
-                    // Update SID                          ← 修复: 只保留一个 val sid  
+                    // Update SID  
                     val sid = dataHeaders["sid"]?.toString()  
                     if (!sid.isNullOrEmpty()) {  
                         val md5 = MessageDigest.getInstance("MD5")  
@@ -195,7 +198,6 @@ class PcrClient(
 		this.accessKey = loginAccessKey  
 		headers.remove("REQUEST-ID")  
 		  
-		// 以下逻辑与 login() 中 bLogin 之后的部分完全相同  
 		val manifest = callApi("/source_ini/get_maintenance_status?format=json", mutableMapOf(), crypted = false)  
 		val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
 		headers["MANIFEST-VER"] = ver  
@@ -214,8 +216,8 @@ class PcrClient(
 		))  
 		val nowTutorial = gameStart["now_tutorial"]  
 		if (nowTutorial != null && nowTutorial == false) throw ApiException("该账号没过完教程!", 403)  
-	}
-	
+	}  
+	  
 	suspend fun login() {  
         val (loginUid, loginAccessKey) = biliAuth.bLogin()  
         this.uid = loginUid  

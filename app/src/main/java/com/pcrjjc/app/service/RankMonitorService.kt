@@ -93,12 +93,18 @@ class RankMonitorService : Service() {
             return START_NOT_STICKY  
         }  
   
-        // Cancel previous polling job and start new one  
-        pollingJob?.cancel()  
+        // ★ 修复：保存旧 Job 引用，在新 Job 内部等待旧 Job 完全结束，避免重叠  
+        val oldJob = pollingJob  
         pollingJob = serviceScope.launch {  
+            oldJob?.cancel()  
+            oldJob?.join()  
+  
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
+  
+            // ★ 修复：从数据库初始化缓存，避免重启后丢失比较基准  
+            rankMonitor.initCacheFromDb()  
   
             while (isActive) {  
                 try {  
