@@ -77,7 +77,7 @@ class RankMonitorService : Service() {
         }  
   
         // Start foreground  
-        val notification = createNotification()  
+        val notification = createNotification(intervalSeconds)  
         try {  
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {  
                 ServiceCompat.startForeground(  
@@ -93,7 +93,6 @@ class RankMonitorService : Service() {
             return START_NOT_STICKY  
         }  
   
-        // ★ 修复：保存旧 Job 引用，在新 Job 内部等待旧 Job 完全结束，避免重叠  
         val oldJob = pollingJob  
         pollingJob = serviceScope.launch {  
             oldJob?.cancel()  
@@ -103,7 +102,6 @@ class RankMonitorService : Service() {
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
   
-            // ★ 修复：从数据库初始化缓存，避免重启后丢失比较基准  
             rankMonitor.initCacheFromDb()  
   
             while (isActive) {  
@@ -125,7 +123,6 @@ class RankMonitorService : Service() {
                                             rankMonitor.processResult(result)  
                                         }  
                                     } catch (e: CaptchaRequiredException) {  
-                                        // 自动过码失败，发送通知引导用户手动过码  
                                         Log.w(TAG, "Captcha required for account ${account.id}, sending notification")  
                                         sendCaptchaNotification(account, e)  
                                     } catch (e: Exception) {  
@@ -155,19 +152,16 @@ class RankMonitorService : Service() {
         Log.i(TAG, "Service destroyed, polling stopped")  
     }  
   
-    private fun createNotification(): Notification {  
+    private fun createNotification(intervalSeconds: Long): Notification {  
         return NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
             .setSmallIcon(R.drawable.ic_notification)  
             .setContentTitle("竞技场监控")  
-            .setContentText("正在监控排名变动，间隔 1 秒")  
+            .setContentText("正在监控排名变动，间隔 $intervalSeconds 秒")  
             .setPriority(NotificationCompat.PRIORITY_LOW)  
             .setOngoing(true)  
             .build()  
     }  
   
-    /**  
-     * 发送验证码通知，点击后打开 MainActivity 并携带验证码参数，触发手动过码对话框  
-     */  
     private fun sendCaptchaNotification(account: Account, e: CaptchaRequiredException) {  
         val intent = Intent(this, MainActivity::class.java).apply {  
             putExtra("captcha_gt", e.gt)  

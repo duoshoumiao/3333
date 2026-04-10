@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size  
 import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.rememberScrollState  
+import androidx.compose.foundation.text.KeyboardOptions  
 import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton  
 import androidx.compose.material3.LinearProgressIndicator  
 import androidx.compose.material3.MaterialTheme  
+import androidx.compose.material3.OutlinedTextField  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TopAppBar  
@@ -32,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import com.pcrjjc.app.BuildConfig  
@@ -64,7 +67,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),  
             verticalArrangement = Arrangement.spacedBy(16.dp)  
         ) {  
-            // Monitoring status (always on, read-only)  
+            // 轮询间隔设置  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
@@ -73,10 +76,40 @@ fun SettingsScreen(
                     Text("排名监控", style = MaterialTheme.typography.titleMedium)  
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text(  
-                        text = "已强制开启，轮询间隔 1 秒",  
+                        text = "当前轮询间隔: ${uiState.pollingInterval} 秒",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
+                    Spacer(modifier = Modifier.height(12.dp))  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        verticalAlignment = Alignment.CenterVertically,  
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)  
+                    ) {  
+                        OutlinedTextField(  
+                            value = uiState.pollingIntervalInput,  
+                            onValueChange = { viewModel.onIntervalInputChanged(it) },  
+                            label = { Text("间隔(秒)") },  
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),  
+                            singleLine = true,  
+                            modifier = Modifier.weight(1f),  
+                            isError = uiState.pollingIntervalInput.toLongOrNull().let { it == null || it < 1 }  
+                        )  
+                        Button(  
+                            onClick = { viewModel.savePollingInterval() },  
+                            enabled = uiState.pollingIntervalInput.toLongOrNull().let { it != null && it >= 1 }  
+                        ) {  
+                            Text("保存")  
+                        }  
+                    }  
+                    if (uiState.intervalSaved) {  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text(  
+                            text = "已保存，轮询间隔已更新为 ${uiState.pollingInterval} 秒",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.primary  
+                        )  
+                    }  
                 }  
             }  
   
@@ -122,7 +155,7 @@ fun SettingsScreen(
                 }  
             }  
   
-            // ★ 检查更新  
+            // 检查更新  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
@@ -137,7 +170,6 @@ fun SettingsScreen(
                     )  
                     Spacer(modifier = Modifier.height(12.dp))  
   
-                    // 检查更新按钮  
                     Button(  
                         onClick = { viewModel.checkForUpdate() },  
                         modifier = Modifier.fillMaxWidth(),  
@@ -153,7 +185,6 @@ fun SettingsScreen(
                         Text("检查更新")  
                     }  
   
-                    // 下载进度条  
                     if (uiState.isDownloading) {  
                         Spacer(modifier = Modifier.height(8.dp))  
                         LinearProgressIndicator(  
@@ -162,7 +193,6 @@ fun SettingsScreen(
                         )  
                     }  
   
-                    // 状态消息  
                     uiState.updateMessage?.let { msg ->  
                         Spacer(modifier = Modifier.height(8.dp))  
                         Text(  
@@ -172,7 +202,6 @@ fun SettingsScreen(
                         )  
                     }  
   
-                    // 有新版本时显示下载按钮  
                     if (uiState.updateInfo != null && !uiState.isDownloading) {  
                         Spacer(modifier = Modifier.height(8.dp))  
                         Button(  
