@@ -102,7 +102,13 @@ fun SettingsScreen(
                             NoticeCheckbox(  
                                 label = "排名上升也通知",  
                                 checked = bind.upNotice,  
-                                onCheckedChange = { viewModel.updateBindNotice(bind, upNotice = it) }  
+                                onCheckedChange = { viewModel.updateBindNotice(bind, upNotice = it) } 
+                            NoticeCheckbox(  
+								label = "上线提醒",  
+								checked = bind.onlineNotice != 0,  
+								onCheckedChange = { checked ->  
+									viewModel.updateBindNotice(bind, onlineNotice = if (checked) 1 else 0)  
+								}  						
                             )  
                         }  
                     }  
