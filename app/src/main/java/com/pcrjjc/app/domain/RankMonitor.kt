@@ -71,38 +71,43 @@ class RankMonitor(
     }  
   
     private suspend fun handleRankChange(  
-        new: Int, old: Int, bind: PcrBind, noticeType: NoticeType  
-    ) {  
-        val timestamp = System.currentTimeMillis() / 1000  
-        val change: String  
-        if (noticeType == NoticeType.ONLINE) {  
-            if (bind.onlineNotice == 0) return  
-            change = "上线了！" 
-        } else {  
-            val isJjc = noticeType == NoticeType.JJC  
-            val shouldNotify = if (isJjc) bind.jjcNotice else bind.pjjcNotice  
-            if (!shouldNotify) return  
-            if (!bind.upNotice && new > old) return  
-  
-            val prefix = if (isJjc) "jjc: " else "pjjc: "  
-            change = if (new < old) {  
-                "$prefix$old->$new [▲${old - new}]"  
-            } else {  
-                "$prefix$old->$new [▽${new - old}]"  
-            }  
-  
-            val history = JjcHistory(  
-                pcrid = bind.pcrid, name = bind.name ?: "",  
-                platform = bind.platform, date = timestamp,  
-                item = if (isJjc) 0 else 1, before = old, after = new  
-            )  
-            synchronized(pendingHistories) { pendingHistories.add(history) }  
-        }  
-  
-        val msg = "${bind.name ?: bind.pcrid} $change"  
-        sendNotification(msg, noticeType)  
-        Log.i(TAG, "Send Notice: $msg")  
-    }  
+		new: Int, old: Int, bind: PcrBind, noticeType: NoticeType  
+	) {  
+		val timestamp = System.currentTimeMillis() / 1000  
+	  
+		if (noticeType == NoticeType.ONLINE) {  
+			if (bind.onlineNotice == 0) return  
+			val msg = "${bind.name ?: bind.pcrid} 上线了！"  
+			sendNotification(msg, noticeType)  
+			Log.i(TAG, "Send Notice: $msg")  
+			return  
+		}  
+	  
+		// 无论通知开关如何，始终记录历史  
+		val isJjc = noticeType == NoticeType.JJC  
+		val prefix = if (isJjc) "jjc: " else "pjjc: "  
+		val change = if (new < old) {  
+			"$prefix$old->$new [▲${old - new}]"  
+		} else {  
+			"$prefix$old->$new [▽${new - old}]"  
+		}  
+	  
+		val history = JjcHistory(  
+			pcrid = bind.pcrid, name = bind.name ?: "",  
+			platform = bind.platform, date = timestamp,  
+			item = if (isJjc) 0 else 1, before = old, after = new  
+		)  
+		synchronized(pendingHistories) { pendingHistories.add(history) }  
+	  
+		// 通知开关只控制是否发送通知  
+		val shouldNotify = if (isJjc) bind.jjcNotice else bind.pjjcNotice  
+		if (!shouldNotify) return  
+		if (!bind.upNotice && new > old) return  
+	  
+		val msg = "${bind.name ?: bind.pcrid} $change"  
+		sendNotification(msg, noticeType)  
+		Log.i(TAG, "Send Notice: $msg")  
+	}
   
     suspend fun flushHistories() {  
         val toInsert: List<JjcHistory>  
