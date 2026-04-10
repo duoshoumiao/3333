@@ -84,7 +84,7 @@ class PcrClient(
         request: MutableMap<String, Any?>,  
         crypted: Boolean = true,  
         noerr: Boolean = true,  
-        maxRetries: Int = 3  
+        maxRetries: Int = 1  
     ): Map<String, Any?> {  
         return callLock.withLock {  
             val key = CryptoUtils.createKey()  

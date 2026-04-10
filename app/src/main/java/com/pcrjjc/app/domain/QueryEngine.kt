@@ -86,17 +86,17 @@ class QueryEngine {
     }  
   
     suspend fun queryAll(  
-        binds: List<PcrBind>,  
-        client: Any,  
-        clientManager: ClientManager? = null,  
-        account: Account? = null,  
-        onResult: suspend (QueryResult) -> Unit  
-    ) {  
-        for (bind in binds) {  
-            val result = queryProfile(client, bind, clientManager, account)  
-            if (result != null) {  
-                onResult(result)  
-            }  
-        }  
-    }  
+		binds: List<PcrBind>,  
+		client: Any,  
+		clientManager: ClientManager? = null,  
+		account: Account? = null,  
+		onResult: suspend (QueryResult) -> Unit  
+	) {  
+		for (bind in binds) {  
+			val result = queryProfile(client, bind, clientManager, account)  
+			if (result != null) {  
+				onResult(result)  
+			}  
+		}  
+	}  
 }
