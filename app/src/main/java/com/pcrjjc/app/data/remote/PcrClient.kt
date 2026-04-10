@@ -54,7 +54,7 @@ class PcrClient(
         "DEVICE" to "2",  
         "DEVICE-ID" to "7b1703a5d9b394e24051d7a5d5518f17",  
         "DEVICE-NAME" to "OPPO PCRT00",  
-        "EXCEL-VER" to "1.0.0",  
+        "EXCEL-VER" to "1.0.1",  
         "GRAPHICS-DEVICE-NAME" to "Adreno (TM) 640",  
         "IP-ADDRESS" to "10.0.2.15",  
         "KEYCHAIN" to "",  

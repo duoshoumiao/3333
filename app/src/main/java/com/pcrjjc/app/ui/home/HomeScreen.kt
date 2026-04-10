@@ -58,7 +58,7 @@ fun HomeScreen(
     Scaffold(  
         topBar = {  
             TopAppBar(  
-                title = { Text("竞技场查询") },  
+                title = { Text("莱宝竞技场查询") },  
                 colors = TopAppBarDefaults.topAppBarColors(  
                     containerColor = MaterialTheme.colorScheme.primaryContainer,  
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
