@@ -18,6 +18,11 @@ class TwPcrClient(
     companion object {  
         private const val TAG = "TwPcrClient"  
         private const val ALPHABET = "0123456789"  
+  
+        val sharedHttpClient: OkHttpClient = OkHttpClient.Builder()  
+            .connectTimeout(5, TimeUnit.SECONDS)  
+            .readTimeout(5, TimeUnit.SECONDS)  
+            .build()  
     }  
   
     var viewerId: String = viewerId  
@@ -25,10 +30,7 @@ class TwPcrClient(
     var shouldLogin: Boolean = false  
         private set  
   
-    private val httpClient = OkHttpClient.Builder()  
-        .connectTimeout(5, TimeUnit.SECONDS)  
-        .readTimeout(5, TimeUnit.SECONDS)  
-        .build()  
+    private val httpClient = sharedHttpClient  
   
     private val apiRoot: String = if (platformId == 1) {  
         "https://api-pc.so-net.tw"  

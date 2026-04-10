@@ -14,14 +14,16 @@ import java.util.concurrent.TimeUnit
   
 class PcrClient(  
     private val biliAuth: BiliAuth,  
-    private val httpClient: OkHttpClient = OkHttpClient.Builder()  
-        .connectTimeout(20, TimeUnit.SECONDS)  
-        .readTimeout(20, TimeUnit.SECONDS)  
-        .writeTimeout(20, TimeUnit.SECONDS)  
-        .build()  
+    private val httpClient: OkHttpClient = sharedHttpClient  
 ) {  
     companion object {  
         private const val TAG = "PcrClient"  
+  
+        val sharedHttpClient: OkHttpClient = OkHttpClient.Builder()  
+            .connectTimeout(5, TimeUnit.SECONDS)  
+            .readTimeout(5, TimeUnit.SECONDS)  
+            .writeTimeout(5, TimeUnit.SECONDS)  
+            .build()  
   
         private val API_ROOTS_B = listOf(  
             "https://le1-prod-all-gs-gzlj.bilibiligame.net",  
@@ -54,7 +56,7 @@ class PcrClient(
         "DEVICE" to "2",  
         "DEVICE-ID" to "7b1703a5d9b394e24051d7a5d5518f17",  
         "DEVICE-NAME" to "OPPO PCRT00",  
-        "EXCEL-VER" to "1.0.1",  
+        "EXCEL-VER" to "1.0.0",  
         "GRAPHICS-DEVICE-NAME" to "Adreno (TM) 640",  
         "IP-ADDRESS" to "10.0.2.15",  
         "KEYCHAIN" to "",  
@@ -166,14 +168,14 @@ class PcrClient(
                 } catch (e: java.net.SocketTimeoutException) {  
                     lastException = e  
                     if (attempt < maxRetries - 1) {  
-                        val waitTime = (attempt + 1) * 2000L  
+                        val waitTime = (attempt + 1) * 500L  
                         Log.w(TAG, "API call failed, retrying in ${waitTime}ms: ${e.message}")  
                         delay(waitTime)  
                     }  
                 } catch (e: java.io.IOException) {  
                     lastException = e  
                     if (attempt < maxRetries - 1) {  
-                        val waitTime = (attempt + 1) * 2000L  
+                        val waitTime = (attempt + 1) * 500L  
                         Log.w(TAG, "API call failed, retrying in ${waitTime}ms: ${e.message}")  
                         delay(waitTime)  
                     }  

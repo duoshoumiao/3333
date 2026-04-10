@@ -26,7 +26,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.Job  
 import kotlinx.coroutines.SupervisorJob  
+import kotlinx.coroutines.async  
+import kotlinx.coroutines.awaitAll  
 import kotlinx.coroutines.cancel  
+import kotlinx.coroutines.coroutineScope  
 import kotlinx.coroutines.delay  
 import kotlinx.coroutines.isActive  
 import kotlinx.coroutines.launch  
@@ -97,21 +100,24 @@ class RankMonitorService : Service() {
                     if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  
                     } else {  
-                        for (account in accounts) {  
-                            if (!isActive) break  
-                            try {  
-                                val binds = bindDao.getBindsByPlatformSync(account.platform)  
-                                if (binds.isEmpty()) continue  
+                        coroutineScope {  
+                            accounts.map { account ->  
+                                async {  
+                                    try {  
+                                        val binds = bindDao.getBindsByPlatformSync(account.platform)  
+                                        if (binds.isEmpty()) return@async  
   
-                                val client = clientManager.getClient(account)  
+                                        val client = clientManager.getClient(account)  
   
-                                queryEngine.queryAll(binds, client) { result ->  
-                                    rankMonitor.processResult(result)  
+                                        queryEngine.queryAll(binds, client) { result ->  
+                                            rankMonitor.processResult(result)  
+                                        }  
+                                    } catch (e: Exception) {  
+                                        Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
+                                        clientManager.clearClient(account.id)  
+                                    }  
                                 }  
-                            } catch (e: Exception) {  
-                                Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
-                                clientManager.clearClient(account.id)  
-                            }  
+                            }.awaitAll()  
                         }  
                         rankMonitor.flushHistories()  
                     }  

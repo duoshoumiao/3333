@@ -77,12 +77,7 @@ class RankMonitor(
         val change: String  
         if (noticeType == NoticeType.ONLINE) {  
             if (bind.onlineNotice == 0) return  
-            val timeDiff = new - old  
-            if (timeDiff < (if (bind.onlineNotice == 3) 60 else 600)) {  
-                cache[Pair(bind.pcrid, bind.platform)]?.let { it[2] = old }  
-                return  
-            }  
-            change = "上线了！"  
+            change = "上线了！" 
         } else {  
             val isJjc = noticeType == NoticeType.JJC  
             val shouldNotify = if (isJjc) bind.jjcNotice else bind.pjjcNotice  

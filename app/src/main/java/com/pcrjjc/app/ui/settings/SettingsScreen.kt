@@ -109,7 +109,7 @@ fun SettingsScreen(
                                 checked = bind.onlineNotice != 0,  
                                 onCheckedChange = { checked ->  
                                     viewModel.updateBindNotice(bind, onlineNotice = if (checked) 1 else 0)  
-                                }  			
+                                }  
                             )  
                         }  
                     }  

@@ -6,8 +6,6 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.data.remote.ApiException  
 import com.pcrjjc.app.data.remote.PcrClient  
 import com.pcrjjc.app.data.remote.TwPcrClient  
-import kotlinx.coroutines.coroutineScope  
-import kotlinx.coroutines.launch  
   
 class QueryEngine {  
   
@@ -94,14 +92,10 @@ class QueryEngine {
         account: Account? = null,  
         onResult: suspend (QueryResult) -> Unit  
     ) {  
-        coroutineScope {  
-            for (bind in binds) {  
-                launch {  
-                    val result = queryProfile(client, bind, clientManager, account)  
-                    if (result != null) {  
-                        onResult(result)  
-                    }  
-                }  
+        for (bind in binds) {  
+            val result = queryProfile(client, bind, clientManager, account)  
+            if (result != null) {  
+                onResult(result)  
             }  
         }  
     }  

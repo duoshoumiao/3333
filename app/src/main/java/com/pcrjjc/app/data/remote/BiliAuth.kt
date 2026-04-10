@@ -219,7 +219,7 @@ class BiliAuth(
         val request = Request.Builder()  
             .url("https://pcrd.tencentbot.top/geetest_renew?captcha_type=1&challenge=$challenge&gt=$gt&userid=$userId&gs=1")  
             .addHeader("Content-Type", "application/json")  
-            .addHeader("User-Agent", "pcrjjc2/1.0.1")  
+            .addHeader("User-Agent", "pcrjjc2/1.0.0")  
             .build()  
   
         val response = client.newCall(request).execute()  
@@ -230,7 +230,7 @@ class BiliAuth(
             val checkRequest = Request.Builder()  
                 .url("https://pcrd.tencentbot.top/check/$uuid")  
                 .addHeader("Content-Type", "application/json")  
-                .addHeader("User-Agent", "pcrjjc2/1.0.1")  
+                .addHeader("User-Agent", "pcrjjc2/1.0.0")  
                 .build()  
   
             val checkResponse = client.newCall(checkRequest).execute()  
