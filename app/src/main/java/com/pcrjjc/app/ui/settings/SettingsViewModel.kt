@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext  
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
+import kotlinx.coroutines.flow.update  
 import kotlinx.coroutines.launch  
 import javax.inject.Inject  
   
@@ -35,23 +36,23 @@ class SettingsViewModel @Inject constructor(
     init {  
         viewModelScope.launch {  
             bindDao.getAllBinds().collect { binds ->  
-                _uiState.value = _uiState.value.copy(binds = binds)  
+                _uiState.update { it.copy(binds = binds) }  
             }  
         }  
         viewModelScope.launch {  
             settingsDataStore.pollingIntervalFlow.collect { interval ->  
-                _uiState.value = _uiState.value.copy(pollingIntervalSeconds = interval)  
+                _uiState.update { it.copy(pollingIntervalSeconds = interval) }  
             }  
         }  
         viewModelScope.launch {  
             settingsDataStore.isMonitoringEnabledFlow.collect { enabled ->  
-                _uiState.value = _uiState.value.copy(isMonitoringEnabled = enabled)  
+                _uiState.update { it.copy(isMonitoringEnabled = enabled) }  
             }  
         }  
     }  
   
     fun setPollingInterval(seconds: Long) {  
-        _uiState.value = _uiState.value.copy(pollingIntervalSeconds = seconds)  
+        _uiState.update { it.copy(pollingIntervalSeconds = seconds) }  
         viewModelScope.launch {  
             settingsDataStore.setPollingInterval(seconds)  
         }  
@@ -61,7 +62,7 @@ class SettingsViewModel @Inject constructor(
     }  
   
     fun toggleMonitoring(enabled: Boolean) {  
-        _uiState.value = _uiState.value.copy(isMonitoringEnabled = enabled)  
+        _uiState.update { it.copy(isMonitoringEnabled = enabled) }  
         viewModelScope.launch {  
             settingsDataStore.setMonitoringEnabled(enabled)  
         }  

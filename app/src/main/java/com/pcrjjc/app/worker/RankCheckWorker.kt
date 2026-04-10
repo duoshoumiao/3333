@@ -8,6 +8,7 @@ import androidx.work.WorkerParameters
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
@@ -21,6 +22,7 @@ class RankCheckWorker @AssistedInject constructor(
     private val accountDao: AccountDao,  
     private val bindDao: BindDao,  
     private val historyDao: HistoryDao,  
+    private val rankCacheDao: RankCacheDao,  
     private val clientManager: ClientManager  
 ) : CoroutineWorker(appContext, workerParams) {  
   
@@ -40,7 +42,7 @@ class RankCheckWorker @AssistedInject constructor(
             }  
   
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao)  
+            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao)  
   
             for (account in accounts) {  
                 try {  

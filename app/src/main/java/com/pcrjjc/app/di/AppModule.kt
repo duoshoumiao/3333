@@ -7,6 +7,7 @@ import com.pcrjjc.app.data.local.SettingsDataStore
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import dagger.Module  
 import dagger.Provides  
 import dagger.hilt.InstallIn  
@@ -38,6 +39,9 @@ object AppModule {
   
     @Provides  
     fun provideHistoryDao(database: AppDatabase): HistoryDao = database.historyDao()  
+  
+    @Provides  
+    fun provideRankCacheDao(database: AppDatabase): RankCacheDao = database.rankCacheDao()  
   
     @Provides  
     @Singleton  

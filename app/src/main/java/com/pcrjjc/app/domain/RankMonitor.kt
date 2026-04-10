@@ -8,15 +8,18 @@ import com.pcrjjc.app.PcrJjcApp
 import com.pcrjjc.app.R  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import com.pcrjjc.app.data.local.entity.JjcHistory  
 import com.pcrjjc.app.data.local.entity.PcrBind  
+import com.pcrjjc.app.data.local.entity.RankCache  
 import com.pcrjjc.app.util.NoticeType  
 import java.util.concurrent.ConcurrentHashMap  
   
 class RankMonitor(  
     private val context: Context,  
     private val historyDao: HistoryDao,  
-    private val bindDao: BindDao  
+    private val bindDao: BindDao,  
+    private val rankCacheDao: RankCacheDao  
 ) {  
     companion object {  
         private const val TAG = "RankMonitor"  
@@ -37,7 +40,28 @@ class RankMonitor(
         val cacheKey = Pair(bind.pcrid, bind.platform)  
         val current = intArrayOf(arenaRank, grandArenaRank, lastLoginTime)  
   
-        val previous = cache[cacheKey]  
+        var previous = cache[cacheKey]  
+  
+        // 内存缓存未命中时，从本地数据库加载  
+        if (previous == null) {  
+            val dbCache = rankCacheDao.get(bind.pcrid, bind.platform)  
+            if (dbCache != null) {  
+                previous = intArrayOf(dbCache.arenaRank, dbCache.grandArenaRank, dbCache.lastLoginTime)  
+                cache[cacheKey] = previous  
+            }  
+        }  
+  
+        // 持久化当前排名到数据库  
+        rankCacheDao.upsert(  
+            RankCache(  
+                pcrid = bind.pcrid,  
+                platform = bind.platform,  
+                arenaRank = arenaRank,  
+                grandArenaRank = grandArenaRank,  
+                lastLoginTime = lastLoginTime  
+            )  
+        )  
+  
         if (previous == null) {  
             cache[cacheKey] = current  
             return  

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
@@ -37,6 +38,7 @@ class QueryViewModel @Inject constructor(
     private val bindDao: BindDao,  
     private val accountDao: AccountDao,  
     private val historyDao: HistoryDao,  
+    private val rankCacheDao: RankCacheDao,  
     private val clientManager: ClientManager  
 ) : ViewModel() {  
   
@@ -53,8 +55,27 @@ class QueryViewModel @Inject constructor(
             val bind = bindDao.getBindById(bindId)  
             _uiState.value = _uiState.value.copy(bind = bind)  
             if (bind != null) {  
+                // 先从本地缓存加载排名，立即展示  
+                loadCachedRank(bind)  
+                // 再从网络获取最新数据  
                 query(bind)  
             }  
+        }  
+    }  
+  
+    private suspend fun loadCachedRank(bind: PcrBind) {  
+        try {  
+            val cached = rankCacheDao.get(bind.pcrid, bind.platform)  
+            if (cached != null) {  
+                _uiState.value = _uiState.value.copy(  
+                    arenaRank = cached.arenaRank,  
+                    grandArenaRank = cached.grandArenaRank,  
+                    lastLoginTime = cached.lastLoginTime.toLong(),  
+                    isQueried = true  
+                )  
+            }  
+        } catch (_: Exception) {  
+            // 缓存加载失败不影响后续网络查询  
         }  
     }  
   
@@ -81,18 +102,35 @@ class QueryViewModel @Inject constructor(
                 val result = queryEngine.queryProfile(client, bind)  
                 if (result != null) {  
                     val info = result.userInfo  
+                    val arenaRank = (info["arena_rank"] as? Number)?.toInt() ?: 0  
+                    val grandArenaRank = (info["grand_arena_rank"] as? Number)?.toInt() ?: 0  
+                    val lastLoginTime = (info["last_login_time"] as? Number)?.toLong() ?: 0  
+  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
                         isQueried = true,  
                         userName = info["user_name"]?.toString() ?: "",  
-                        arenaRank = (info["arena_rank"] as? Number)?.toInt() ?: 0,  
+                        arenaRank = arenaRank,  
                         arenaGroup = (info["arena_group"] as? Number)?.toInt() ?: 0,  
-                        grandArenaRank = (info["grand_arena_rank"] as? Number)?.toInt() ?: 0,  
+                        grandArenaRank = grandArenaRank,  
                         grandArenaGroup = (info["grand_arena_group"] as? Number)?.toInt() ?: 0,  
-                        lastLoginTime = (info["last_login_time"] as? Number)?.toLong() ?: 0,  
+                        lastLoginTime = lastLoginTime,  
                         teamLevel = (info["team_level"] as? Number)?.toInt() ?: 0,  
                         totalPower = (info["total_power"] as? Number)?.toInt() ?: 0  
                     )  
+  
+                    // 网络查询成功后，更新本地缓存  
+                    try {  
+                        rankCacheDao.upsert(  
+                            com.pcrjjc.app.data.local.entity.RankCache(  
+                                pcrid = bind.pcrid,  
+                                platform = bind.platform,  
+                                arenaRank = arenaRank,  
+                                grandArenaRank = grandArenaRank,  
+                                lastLoginTime = lastLoginTime.toInt()  
+                            )  
+                        )  
+                    } catch (_: Exception) {}  
                 } else {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  

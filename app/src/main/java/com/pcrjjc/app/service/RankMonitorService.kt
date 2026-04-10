@@ -17,6 +17,7 @@ import com.pcrjjc.app.R
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
@@ -43,6 +44,7 @@ class RankMonitorService : Service() {
     @Inject lateinit var accountDao: AccountDao  
     @Inject lateinit var bindDao: BindDao  
     @Inject lateinit var historyDao: HistoryDao  
+    @Inject lateinit var rankCacheDao: RankCacheDao  
     @Inject lateinit var clientManager: ClientManager  
   
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)  
@@ -87,7 +89,7 @@ class RankMonitorService : Service() {
         pollingJob = serviceScope.launch {  
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao)  
+            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
   
             while (isActive) {  
                 try {  
