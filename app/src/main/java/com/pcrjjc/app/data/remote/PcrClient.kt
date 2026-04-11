@@ -42,7 +42,7 @@ class PcrClient(
         }  
     }  
   
-    // 实例级别固定 API 节点，避免每次请求随机选服导致会话不一致  
+    // 实例级别固定 API 节点，避免每次请求随机选服导致会话不一致.  
     private val apiRoot: String = getApiRoot(biliAuth.qudao)  
   
     var viewerId: Long? = null  
