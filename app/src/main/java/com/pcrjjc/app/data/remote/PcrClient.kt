@@ -194,36 +194,31 @@ class PcrClient(
     }  
   
     suspend fun loginWithCredentials(loginUid: String, loginAccessKey: String) {  
-        this.uid = loginUid  
-        this.accessKey = loginAccessKey  
-        headers.remove("REQUEST-ID")  
-  
-        val manifest = callApi("/source_ini/get_maintenance_status?format=json", mutableMapOf(), crypted = false)  
-        val ver = manifest["required_manifest_ver"]?.toString()  
-        if (ver.isNullOrEmpty()) {  
-            Log.e(TAG, "No manifest_ver in response, manifest=$manifest")  
-            throw ApiException("获取版本信息失败(No manifest_ver)，服务器可能在维护中", 503)  
-        }  
-        Log.i(TAG, "using manifest ver = $ver")  
-        headers["MANIFEST-VER"] = ver  
-  
-        val lres = callApi("/tool/sdk_login", mutableMapOf(  
-            "uid" to uid, "access_key" to accessKey,  
-            "channel" to "1", "platform" to biliAuth.platform  
-        ))  
-  
-        val isRisk = (lres["is_risk"] as? Number)?.toInt()  
-        if (isRisk == 1) throw ApiException("账号存在风险", 403)  
-        if (lres.containsKey("maintenance_message")) throw ApiException("服务器在维护", 503)  
-  
-        val gameStart = callApi("/check/game_start", mutableMapOf(  
-            "apptype" to 0, "campaign_data" to "", "campaign_user" to (0..99999).random()  
-        ))  
-        val nowTutorial = gameStart["now_tutorial"]  
-        if (nowTutorial != null && nowTutorial == false) throw ApiException("该账号没过完教程!", 403)  
-    }  
-  
-    suspend fun login() {  
+		this.uid = loginUid  
+		this.accessKey = loginAccessKey  
+		headers.remove("REQUEST-ID")  
+		  
+		val manifest = callApi("/source_ini/get_maintenance_status?format=json", mutableMapOf(), crypted = false)  
+		val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
+		headers["MANIFEST-VER"] = ver  
+		  
+		val lres = callApi("/tool/sdk_login", mutableMapOf(  
+			"uid" to uid, "access_key" to accessKey,  
+			"channel" to "1", "platform" to biliAuth.platform  
+		))  
+		  
+		val isRisk = (lres["is_risk"] as? Number)?.toInt()  
+		if (isRisk == 1) throw ApiException("账号存在风险", 403)  
+		if (lres.containsKey("maintenance_message")) throw ApiException("服务器在维护", 503)  
+		  
+		val gameStart = callApi("/check/game_start", mutableMapOf(  
+			"apptype" to 0, "campaign_data" to "", "campaign_user" to (0..99999).random()  
+		))  
+		val nowTutorial = gameStart["now_tutorial"]  
+		if (nowTutorial != null && nowTutorial == false) throw ApiException("该账号没过完教程!", 403)  
+	}  
+	  
+	suspend fun login() {  
         val (loginUid, loginAccessKey) = biliAuth.bLogin()  
         this.uid = loginUid  
         this.accessKey = loginAccessKey  
@@ -235,11 +230,7 @@ class PcrClient(
             mutableMapOf(), crypted = false  
         )  
   
-        val ver = manifest["required_manifest_ver"]?.toString()  
-        if (ver.isNullOrEmpty()) {  
-            Log.e(TAG, "No manifest_ver in response, manifest=$manifest")  
-            throw ApiException("获取版本信息失败(No manifest_ver)，服务器可能在维护中", 503)  
-        }  
+        val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
         Log.i(TAG, "using manifest ver = $ver")  
         headers["MANIFEST-VER"] = ver  
   
@@ -282,7 +273,6 @@ class PcrClient(
             val jsonObj = org.json.JSONObject(json)  
             return jsonToMap(jsonObj)  
         } catch (e: Exception) {  
-            Log.e(TAG, "Failed to parse JSON response: $json", e)  
             return mapOf("raw" to json)  
         }  
     }  
