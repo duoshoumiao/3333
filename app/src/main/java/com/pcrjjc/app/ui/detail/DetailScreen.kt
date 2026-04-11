@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.detail  
   
+import android.widget.Toast  
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Box  
 import androidx.compose.foundation.layout.Column  
@@ -10,9 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height  
 import androidx.compose.foundation.layout.padding  
 import androidx.compose.foundation.layout.size  
-import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.rememberScrollState  
-import androidx.compose.foundation.shape.RoundedCornerShape  
 import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
@@ -31,27 +30,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TopAppBar  
 import androidx.compose.runtime.Composable  
+import androidx.compose.runtime.LaunchedEffect  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
-import androidx.compose.ui.draw.clip  
-import androidx.compose.ui.layout.ContentScale  
 import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.text.font.FontWeight  
-import androidx.compose.ui.unit.Dp  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
-import coil.compose.AsyncImage  
-import coil.compose.SubcomposeAsyncImage  
-import coil.imageLoader  
-import coil.request.CachePolicy  
-import coil.request.ImageRequest  
 import java.text.SimpleDateFormat  
 import java.util.Date  
 import java.util.Locale  
-  
-// ==================== 工具函数 ====================  
   
 private fun formatDateTime(timestamp: Long): String {  
     val sdf = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())  
@@ -80,112 +70,6 @@ private fun getSupportUnitInfo(unit: Map<String, Any?>): Triple<String, String, 
     return Triple("$unitId", "$unitLevel", "$promotionLevel")  
 }  
   
-// ==================== 角色图标 URL 生成 ====================  
-  
-/**  
- * 根据6位 unit ID 生成图标 URL  
- * XXXX01 对应 XXXX11(1星) / XXXX31(3星) / XXXX61(6星)  
- * 优先级: 61 > 31 > 11  
- */  
-private const val ICON_BASE_URL = "https://redive.estertion.win/icon/unit/"  
-  
-private fun getIconUrl(unitId: Int, star: Int): String {  
-    val baseId = unitId / 100  // 100101 -> 1001  
-    val starSuffix = when {  
-        star >= 6 -> 6  
-        star >= 3 -> 3  
-        else -> 1  
-    }  
-    return "${ICON_BASE_URL}${baseId}${starSuffix}1.webp"  
-}  
-  
-private fun getPriorityIconUrl(unitId: Int): String {  
-    val baseId = unitId / 100  
-    return "${ICON_BASE_URL}${baseId}61.webp"  
-}  
-  
-private fun getFallbackIconUrl(unitId: Int): String {  
-    val baseId = unitId / 100  
-    return "${ICON_BASE_URL}${baseId}31.webp"  
-}  
-  
-private fun getLastFallbackIconUrl(unitId: Int): String {  
-    val baseId = unitId / 100  
-    return "${ICON_BASE_URL}${baseId}11.webp"  
-}  
-  
-// ==================== UnitIcon 组件 ====================  
-  
-@Composable  
-private fun UnitIcon(  
-    unitId: Int,  
-    modifier: Modifier = Modifier,  
-    size: Dp = 48.dp  
-) {  
-    if (unitId <= 0) return  
-    val context = LocalContext.current  
-    val primaryUrl = getPriorityIconUrl(unitId)  
-    val fallbackUrl = getFallbackIconUrl(unitId)  
-    val lastFallbackUrl = getLastFallbackIconUrl(unitId)  
-  
-    SubcomposeAsyncImage(  
-        model = ImageRequest.Builder(context)  
-            .data(primaryUrl)  
-            .crossfade(true)  
-            .diskCachePolicy(CachePolicy.ENABLED)  
-            .memoryCachePolicy(CachePolicy.ENABLED)  
-            .build(),  
-        contentDescription = "角色头像 $unitId",  
-        modifier = modifier  
-            .size(size)  
-            .clip(RoundedCornerShape(8.dp)),  
-        contentScale = ContentScale.Crop,  
-        loading = {  
-            Box(  
-                modifier = Modifier.size(size),  
-                contentAlignment = Alignment.Center  
-            ) {  
-                CircularProgressIndicator(  
-                    modifier = Modifier.size(size / 3),  
-                    strokeWidth = 2.dp  
-                )  
-            }  
-        },  
-        error = {  
-            // 6星失败 -> 尝试3星  
-            SubcomposeAsyncImage(  
-                model = ImageRequest.Builder(context)  
-                    .data(fallbackUrl)  
-                    .crossfade(true)  
-                    .diskCachePolicy(CachePolicy.ENABLED)  
-                    .build(),  
-                contentDescription = "角色头像 $unitId",  
-                modifier = Modifier  
-                    .size(size)  
-                    .clip(RoundedCornerShape(8.dp)),  
-                contentScale = ContentScale.Crop,  
-                error = {  
-                    // 3星也失败 -> 尝试1星  
-                    AsyncImage(  
-                        model = ImageRequest.Builder(context)  
-                            .data(lastFallbackUrl)  
-                            .crossfade(true)  
-                            .diskCachePolicy(CachePolicy.ENABLED)  
-                            .build(),  
-                        contentDescription = "角色头像 $unitId",  
-                        modifier = Modifier  
-                            .size(size)  
-                            .clip(RoundedCornerShape(8.dp)),  
-                        contentScale = ContentScale.Crop  
-                    )  
-                }  
-            )  
-        }  
-    )  
-}  
-  
-// ==================== 主屏幕 ====================  
-  
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
 fun DetailScreen(  
@@ -195,6 +79,14 @@ fun DetailScreen(
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
     val context = LocalContext.current  
+  
+    // 预下载完成后显示 Toast 提示  
+    LaunchedEffect(uiState.preloadProgress, uiState.isPreloadingAvatars) {  
+        if (!uiState.isPreloadingAvatars && uiState.preloadProgress != null) {  
+            Toast.makeText(context, uiState.preloadProgress, Toast.LENGTH_SHORT).show()  
+            viewModel.clearPreloadMessage()  
+        }  
+    }  
   
     Scaffold(  
         topBar = {  
@@ -206,13 +98,19 @@ fun DetailScreen(
                     }  
                 },  
                 actions = {  
-                    // 更新头像按钮：清除 Coil 缓存并刷新  
-                    IconButton(onClick = {  
-                        context.imageLoader.diskCache?.clear()  
-                        context.imageLoader.memoryCache?.clear()  
-                        viewModel.retry()  
-                    }) {  
-                        Icon(Icons.Default.Face, contentDescription = "更新头像")  
+                    // 预下载头像按钮  
+                    IconButton(  
+                        onClick = { viewModel.preloadAvatars(context) },  
+                        enabled = !uiState.isPreloadingAvatars && !uiState.isLoading  
+                    ) {  
+                        if (uiState.isPreloadingAvatars) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.size(24.dp),  
+                                strokeWidth = 2.dp  
+                            )  
+                        } else {  
+                            Icon(Icons.Default.Face, contentDescription = "预下载头像")  
+                        }  
                     }  
                     // 刷新按钮  
                     IconButton(onClick = { viewModel.retry() }) {  
@@ -254,8 +152,6 @@ fun DetailScreen(
     }  
 }  
   
-// ==================== 内容布局 ====================  
-  
 @Composable  
 private fun DetailContent(uiState: DetailUiState) {  
     Column(  
@@ -274,8 +170,6 @@ private fun DetailContent(uiState: DetailUiState) {
         TalentCard(uiState)  
     }  
 }  
-  
-// ==================== 个人信息卡片 ====================  
   
 @Composable  
 private fun PersonalInfoCard(uiState: DetailUiState) {  
@@ -314,8 +208,6 @@ private fun PersonalInfoCard(uiState: DetailUiState) {
         }  
     }  
 }  
-  
-// ==================== 竞技场信息 ====================  
   
 @Composable  
 private fun ArenaInfoRow(uiState: DetailUiState) {  
@@ -380,8 +272,6 @@ private fun ArenaInfoRow(uiState: DetailUiState) {
     }  
 }  
   
-// ==================== 看板角色卡片（已加头像） ====================  
-  
 @Composable  
 private fun FavoriteUnitCard(uiState: DetailUiState) {  
     if (uiState.favoriteUnit.isEmpty()) return  
@@ -395,22 +285,12 @@ private fun FavoriteUnitCard(uiState: DetailUiState) {
             val unitId = (uiState.favoriteUnit["id"] as? Number)?.toInt() ?: 0  
             val unitLevel = (uiState.favoriteUnit["unit_level"] as? Number)?.toInt() ?: 0  
             val unitRarity = (uiState.favoriteUnit["unit_rarity"] as? Number)?.toInt() ?: 0  
-            Row(  
-                verticalAlignment = Alignment.CenterVertically  
-            ) {  
-                UnitIcon(unitId = unitId, size = 64.dp)  
-                Spacer(modifier = Modifier.width(12.dp))  
-                Column(modifier = Modifier.weight(1f)) {  
-                    InfoRow("角色ID", "$unitId")  
-                    InfoRow("等级", "$unitLevel")  
-                    InfoRow("星级", "$unitRarity")  
-                }  
-            }  
+            InfoRow("角色ID", "$unitId")  
+            InfoRow("等级", "$unitLevel")  
+            InfoRow("星级", "$unitRarity")  
         }  
     }  
 }  
-  
-// ==================== 冒险经历 ====================  
   
 @Composable  
 private fun AdventureCard(uiState: DetailUiState) {  
@@ -432,8 +312,6 @@ private fun AdventureCard(uiState: DetailUiState) {
     }  
 }  
   
-// ==================== 露娜塔 ====================  
-  
 @Composable  
 private fun TowerCard(uiState: DetailUiState) {  
     Card(  
@@ -448,8 +326,6 @@ private fun TowerCard(uiState: DetailUiState) {
         }  
     }  
 }  
-  
-// ==================== 支援角色卡片 ====================  
   
 @Composable  
 private fun SupportCard(uiState: DetailUiState) {  
@@ -491,8 +367,6 @@ private fun SupportCard(uiState: DetailUiState) {
     }  
 }  
   
-// ==================== 深域进度 ====================  
-  
 @Composable  
 private fun TalentCard(uiState: DetailUiState) {  
     if (uiState.talentQuest.isEmpty() && uiState.knightExp <= 0) return  
@@ -521,8 +395,6 @@ private fun TalentCard(uiState: DetailUiState) {
     }  
 }  
   
-// ==================== 通用组件 ====================  
-  
 @Composable  
 private fun SectionLabel(text: String) {  
     Text(  
@@ -537,20 +409,15 @@ private fun SectionLabel(text: String) {
 private fun SupportUnitRow(unit: Map<String, Any?>) {  
     val (id, level, rank) = getSupportUnitInfo(unit)  
     val pos = (unit["position"] as? Number)?.toInt() ?: 0  
-    val unitId = id.toIntOrNull() ?: 0  
     Row(  
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),  
-        verticalAlignment = Alignment.CenterVertically  
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),  
+        horizontalArrangement = Arrangement.SpaceBetween  
     ) {  
-        UnitIcon(unitId = unitId, size = 40.dp)  
-        Spacer(modifier = Modifier.width(8.dp))  
-        Column(modifier = Modifier.weight(1f)) {  
-            Text(  
-                text = "位置$pos  ID:$id",  
-                style = MaterialTheme.typography.bodyMedium,  
-                color = MaterialTheme.colorScheme.onSurfaceVariant  
-            )  
-        }  
+        Text(  
+            text = "位置$pos  ID:$id",  
+            style = MaterialTheme.typography.bodyMedium,  
+            color = MaterialTheme.colorScheme.onSurfaceVariant  
+        )  
         Text(text = "Lv.$level  Rank$rank", style = MaterialTheme.typography.bodyMedium)  
     }  
 }  
