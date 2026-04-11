@@ -155,55 +155,6 @@ fun SettingsScreen(
                 }  
             }  
   
-            // 头像缓存  
-            Card(  
-                modifier = Modifier.fillMaxWidth(),  
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
-            ) {  
-                Column(modifier = Modifier.padding(16.dp)) {  
-                    Text("头像缓存", style = MaterialTheme.typography.titleMedium)  
-                    Spacer(modifier = Modifier.height(8.dp))  
-                    Text(  
-                        text = "提前下载所有角色头像到本地，避免查看详细资料时超时",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )  
-                    Spacer(modifier = Modifier.height(12.dp))  
-  
-                    Button(  
-                        onClick = { viewModel.downloadAllAvatars() },  
-                        modifier = Modifier.fillMaxWidth(),  
-                        enabled = !uiState.isDownloadingAvatars  
-                    ) {  
-                        if (uiState.isDownloadingAvatars) {  
-                            CircularProgressIndicator(  
-                                modifier = Modifier.size(20.dp),  
-                                strokeWidth = 2.dp  
-                            )  
-                            Spacer(modifier = Modifier.width(8.dp))  
-                        }  
-                        Text("下载全部头像")  
-                    }  
-  
-                    if (uiState.isDownloadingAvatars) {  
-                        Spacer(modifier = Modifier.height(8.dp))  
-                        LinearProgressIndicator(  
-                            progress = { uiState.avatarDownloadProgress },  
-                            modifier = Modifier.fillMaxWidth()  
-                        )  
-                    }  
-  
-                    uiState.avatarDownloadMessage?.let { msg ->  
-                        Spacer(modifier = Modifier.height(8.dp))  
-                        Text(  
-                            text = msg,  
-                            style = MaterialTheme.typography.bodySmall,  
-                            color = MaterialTheme.colorScheme.onSurfaceVariant  
-                        )  
-                    }  
-                }  
-            }  
-  
             // 检查更新  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
