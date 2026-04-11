@@ -1,3 +1,5 @@
+// app/src/main/java/com/pcrjjc/app/ui/settings/SettingsViewModel.kt  
+  
 package com.pcrjjc.app.ui.settings  
   
 import android.content.Context  
@@ -6,9 +8,6 @@ import android.os.Build
 import android.util.Log  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
-import coil.imageLoader  
-import coil.request.CachePolicy  
-import coil.request.ImageRequest  
 import com.pcrjjc.app.BuildConfig  
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import com.pcrjjc.app.data.local.dao.BindDao  
@@ -16,17 +15,19 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.domain.UpdateChecker  
 import com.pcrjjc.app.domain.UpdateInfo  
 import com.pcrjjc.app.service.RankMonitorService  
-import com.pcrjjc.app.util.CharaIconUtil  
+import com.pcrjjc.app.util.AssetDownloader  
+import com.pcrjjc.app.util.IconStorage  
+import com.pcrjjc.app.util.SerializedFileParser  
+import com.pcrjjc.app.util.TextureDecoder  
+import com.pcrjjc.app.util.UnityBundleParser  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import dagger.hilt.android.qualifiers.ApplicationContext  
 import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.launch  
-import kotlinx.coroutines.suspendCancellableCoroutine  
 import kotlinx.coroutines.withContext  
 import javax.inject.Inject  
-import kotlin.coroutines.resume  
   
 data class SettingsUiState(  
     val binds: List<PcrBind> = emptyList(),  
@@ -94,7 +95,6 @@ class SettingsViewModel @Inject constructor(
                 pollingInterval = seconds,  
                 intervalSaved = true  
             )  
-            // 重启服务以应用新间隔  
             restartMonitorService(seconds)  
         }  
     }  
@@ -128,8 +128,8 @@ class SettingsViewModel @Inject constructor(
     }  
   
     /**  
-     * 批量下载所有 PCR 角色头像到本地 Coil 磁盘缓存  
-     * baseId 范围 1001..1999，每个 baseId 下载 61/31/11 三个星级的头像  
+     * 从游戏 CDN 下载所有角色头像（Unity asset bundle 解包）  
+     * 已下载过的自动跳过  
      */  
     fun downloadAllAvatars() {  
         if (_uiState.value.isDownloadingAvatars) return  
@@ -138,59 +138,85 @@ class SettingsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(  
                 isDownloadingAvatars = true,  
                 avatarDownloadProgress = 0f,  
-                avatarDownloadMessage = "准备下载..."  
+                avatarDownloadMessage = "获取资源版本..."  
             )  
   
-            val imageLoader = context.imageLoader  
-            // PCR 角色 baseId 范围大约 1001~1999  
-            val baseIds = (1001..1999).toList()  
-            // 对每个 baseId 生成一个虚拟 unitId（baseId * 100 + 1）来调用 getIconUrls  
-            val allUrls = baseIds.flatMap { baseId ->  
-                CharaIconUtil.getIconUrls(baseId * 100 + 1)  
-            }  
-            val totalCount = allUrls.size  
-            var completed = 0  
-            var successCount = 0  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val downloader = AssetDownloader()  
   
-            withContext(Dispatchers.IO) {  
-                for (url in allUrls) {  
-                    try {  
-                        val success = suspendCancellableCoroutine { cont ->  
-                            val request = ImageRequest.Builder(context)  
-                                .data(url)  
-                                .diskCachePolicy(CachePolicy.ENABLED)  
-                                .memoryCachePolicy(CachePolicy.DISABLED)  
-                                .build()  
-                            val disposable = imageLoader.enqueue(  
-                                request.newBuilder()  
-                                    .listener(  
-                                        onSuccess = { _, _ -> cont.resume(true) },  
-                                        onError = { _, _ -> cont.resume(false) },  
-                                        onCancel = { _ -> cont.resume(false) }  
-                                    )  
-                                    .build()  
-                            )  
-                            cont.invokeOnCancellation { disposable.dispose() }  
-                        }  
-                        if (success) successCount++  
-                    } catch (_: Exception) {  
-                        // 404 或网络错误，跳过  
+                    // 1. 获取 manifest_ver  
+                    val manifestVer = downloader.getManifestVer()  
+                    _uiState.value = _uiState.value.copy(  
+                        avatarDownloadMessage = "下载资源清单..."  
+                    )  
+  
+                    // 2. 下载并解析 manifest  
+                    val manifest = downloader.downloadManifest(manifestVer)  
+  
+                    // 3. 筛选角色图标 bundle，过滤已下载的  
+                    val icons = downloader.getAvailableUnitIcons(manifest)  
+                    val toDownload = icons.filter { (baseId, star, _) ->  
+                        !IconStorage.hasIcon(context, baseId, star)  
                     }  
-                    completed++  
-                    if (completed % 30 == 0 || completed == totalCount) {  
+  
+                    if (toDownload.isEmpty()) {  
                         _uiState.value = _uiState.value.copy(  
-                            avatarDownloadProgress = completed.toFloat() / totalCount,  
-                            avatarDownloadMessage = "下载中 $completed/$totalCount (成功 $successCount)"  
+                            isDownloadingAvatars = false,  
+                            avatarDownloadProgress = 1f,  
+                            avatarDownloadMessage = "所有头像已是最新 (共 ${icons.size} 个)"  
                         )  
+                        return@withContext  
                     }  
-                }  
-            }  
   
-            _uiState.value = _uiState.value.copy(  
-                isDownloadingAvatars = false,  
-                avatarDownloadProgress = 1f,  
-                avatarDownloadMessage = "下载完成，成功缓存 $successCount 个头像"  
-            )  
+                    _uiState.value = _uiState.value.copy(  
+                        avatarDownloadMessage = "需要下载 ${toDownload.size} 个图标..."  
+                    )  
+  
+                    var completed = 0  
+                    var success = 0  
+  
+                    // 4. 逐个下载 bundle 并解包提取 Texture2D  
+                    for ((baseId, star, hash) in toDownload) {  
+                        try {  
+                            val bundleData = downloader.downloadBundle(manifestVer, hash)  
+                            val files = UnityBundleParser.parse(bundleData)  
+                            for (file in files) {  
+                                val texture = SerializedFileParser.extractTexture2D(file.data)  
+                                if (texture != null) {  
+                                    val bitmap = TextureDecoder.decode(texture)  
+                                    if (bitmap != null) {  
+                                        IconStorage.saveBitmap(context, baseId, star, bitmap)  
+                                        bitmap.recycle()  
+                                        success++  
+                                    }  
+                                }  
+                            }  
+                        } catch (e: Exception) {  
+                            Log.w("SettingsVM", "Failed: ${baseId}_$star: ${e.message}")  
+                        }  
+                        completed++  
+                        if (completed % 5 == 0 || completed == toDownload.size) {  
+                            _uiState.value = _uiState.value.copy(  
+                                avatarDownloadProgress = completed.toFloat() / toDownload.size,  
+                                avatarDownloadMessage = "下载中 $completed/${toDownload.size} (成功 $success)"  
+                            )  
+                        }  
+                    }  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        isDownloadingAvatars = false,  
+                        avatarDownloadProgress = 1f,  
+                        avatarDownloadMessage = "完成，成功下载 $success 个图标"  
+                    )  
+                }  
+            } catch (e: Exception) {  
+                Log.e("SettingsVM", "Avatar download failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isDownloadingAvatars = false,  
+                    avatarDownloadMessage = "下载失败: ${e.message}"  
+                )  
+            }  
         }  
     }  
   

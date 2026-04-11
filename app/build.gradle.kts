@@ -14,7 +14,7 @@ android {
         minSdk = 26  
         targetSdk = 34  
         versionCode = 4  
-        versionName = "1.0.11"  
+        versionName = "2.0.1"  
   
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"  
         vectorDrawables {  
@@ -44,7 +44,7 @@ android {
     }  
     buildFeatures {  
         compose = true  
-        buildConfig = true  // ★ 新增：让代码能访问 BuildConfig.VERSION_NAME  
+        buildConfig = true  
     }  
     composeOptions {  
         kotlinCompilerExtensionVersion = "1.5.8"  
@@ -89,11 +89,13 @@ dependencies {
   
     // OkHttp  
     implementation("com.squareup.okhttp3:okhttp:4.12.0")  
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") 
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")  
   
     // Coil (图片加载)  
-    implementation("io.coil-kt:coil-compose:2.6.0") 
+    implementation("io.coil-kt:coil-compose:2.6.0")  
+  
+    // LZ4 (Unity asset bundle 解压)  
+    implementation("org.lz4:lz4-java:1.8.0")  
   
     // MessagePack  
     implementation("org.msgpack:msgpack-core:0.9.8")  
@@ -111,4 +113,3 @@ dependencies {
     // JSON  
     debugImplementation("androidx.compose.ui:ui-tooling")  
     debugImplementation("androidx.compose.ui:ui-test-manifest")  
-}
