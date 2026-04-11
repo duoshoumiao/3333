@@ -1,6 +1,3 @@
-以下是添加"怎么拆"按钮后的 HomeScreen.kt 完整代码：
-
-
 package com.pcrjjc.app.ui.home  
   
 import android.content.Context  
