@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton  
 import androidx.compose.material3.LinearProgressIndicator  
 import androidx.compose.material3.MaterialTheme  
+import androidx.compose.material3.OutlinedButton  
 import androidx.compose.material3.OutlinedTextField  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Text  
@@ -67,7 +68,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),  
             verticalArrangement = Arrangement.spacedBy(16.dp)  
         ) {  
-            // 头像缓存（置顶）  
+            // ========== 头像缓存 Card ==========  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
@@ -81,13 +82,48 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
                     Spacer(modifier = Modifier.height(4.dp))  
-					Text(  
-						text = "已缓存: ${uiState.cachedAvatarCount} 个头像",  
-						style = MaterialTheme.typography.bodySmall,  
-						color = MaterialTheme.colorScheme.onSurfaceVariant  
-					)
-					Spacer(modifier = Modifier.height(12.dp))  
+                    Text(  
+                        text = "已缓存: ${uiState.cachedAvatarCount} 个头像",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    if (uiState.rosterCount > 0) {  
+                        Text(  
+                            text = "花名册: ${uiState.rosterCount} 个角色",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    }  
+                    Spacer(modifier = Modifier.height(12.dp))  
   
+                    // 更新花名册按钮  
+                    OutlinedButton(  
+                        onClick = { viewModel.updateRoster() },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = !uiState.isUpdatingRoster && !uiState.isDownloadingAvatars  
+                    ) {  
+                        if (uiState.isUpdatingRoster) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.size(20.dp),  
+                                strokeWidth = 2.dp  
+                            )  
+                            Spacer(modifier = Modifier.width(8.dp))  
+                        }  
+                        Text("更新花名册")  
+                    }  
+  
+                    uiState.rosterMessage?.let { msg ->  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text(  
+                            text = msg,  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    }  
+  
+                    Spacer(modifier = Modifier.height(8.dp))  
+  
+                    // 下载全部头像按钮  
                     Button(  
                         onClick = { viewModel.downloadAllAvatars() },  
                         modifier = Modifier.fillMaxWidth(),  
@@ -122,7 +158,7 @@ fun SettingsScreen(
                 }  
             }  
   
-            // 轮询间隔设置  
+            // ========== 轮询间隔设置 Card ==========  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
@@ -145,14 +181,18 @@ fun SettingsScreen(
                             value = uiState.pollingIntervalInput,  
                             onValueChange = { viewModel.onIntervalInputChanged(it) },  
                             label = { Text("间隔(秒)") },  
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),  
+                            keyboardOptions = KeyboardOptions(  
+                                keyboardType = KeyboardType.Number  
+                            ),  
                             singleLine = true,  
                             modifier = Modifier.weight(1f),  
-                            isError = uiState.pollingIntervalInput.toLongOrNull().let { it == null || it < 1 }  
+                            isError = uiState.pollingIntervalInput.toLongOrNull()  
+                                .let { it == null || it < 1 }  
                         )  
                         Button(  
                             onClick = { viewModel.savePollingInterval() },  
-                            enabled = uiState.pollingIntervalInput.toLongOrNull().let { it != null && it >= 1 }  
+                            enabled = uiState.pollingIntervalInput.toLongOrNull()  
+                                .let { it != null && it >= 1 }  
                         ) {  
                             Text("保存")  
                         }  
@@ -168,7 +208,7 @@ fun SettingsScreen(
                 }  
             }  
   
-            // Per-bind notification settings  
+            // ========== 通知设置 ==========  
             if (uiState.binds.isNotEmpty()) {  
                 Text("通知设置", style = MaterialTheme.typography.titleMedium)  
                 uiState.binds.forEach { bind ->  
@@ -186,23 +226,32 @@ fun SettingsScreen(
                             NoticeCheckbox(  
                                 label = "JJC排名变动",  
                                 checked = bind.jjcNotice,  
-                                onCheckedChange = { viewModel.updateBindNotice(bind, jjcNotice = it) }  
+                                onCheckedChange = {  
+                                    viewModel.updateBindNotice(bind, jjcNotice = it)  
+                                }  
                             )  
                             NoticeCheckbox(  
                                 label = "PJJC排名变动",  
                                 checked = bind.pjjcNotice,  
-                                onCheckedChange = { viewModel.updateBindNotice(bind, pjjcNotice = it) }  
+                                onCheckedChange = {  
+                                    viewModel.updateBindNotice(bind, pjjcNotice = it)  
+                                }  
                             )  
                             NoticeCheckbox(  
                                 label = "排名上升也通知",  
                                 checked = bind.upNotice,  
-                                onCheckedChange = { viewModel.updateBindNotice(bind, upNotice = it) }  
+                                onCheckedChange = {  
+                                    viewModel.updateBindNotice(bind, upNotice = it)  
+                                }  
                             )  
                             NoticeCheckbox(  
                                 label = "上线提醒",  
                                 checked = bind.onlineNotice != 0,  
                                 onCheckedChange = { checked ->  
-                                    viewModel.updateBindNotice(bind, onlineNotice = if (checked) 1 else 0)  
+                                    viewModel.updateBindNotice(  
+                                        bind,  
+                                        onlineNotice = if (checked) 1 else 0  
+                                    )  
                                 }  
                             )  
                         }  
@@ -210,7 +259,7 @@ fun SettingsScreen(
                 }  
             }  
   
-            // 检查更新  
+            // ========== 检查更新 / 关于 Card ==========  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  

@@ -14,6 +14,7 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.domain.UpdateChecker  
 import com.pcrjjc.app.domain.UpdateInfo  
 import com.pcrjjc.app.service.RankMonitorService  
+import com.pcrjjc.app.util.CharaRoster  
 import com.pcrjjc.app.util.IconStorage  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import dagger.hilt.android.qualifiers.ApplicationContext  
@@ -31,7 +32,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request  
 import java.util.concurrent.TimeUnit  
 import java.util.concurrent.atomic.AtomicInteger  
-import javax.inject.Inject 
+import javax.inject.Inject  
   
 data class SettingsUiState(  
     val binds: List<PcrBind> = emptyList(),  
@@ -41,7 +42,10 @@ data class SettingsUiState(
     val isCheckingUpdate: Boolean = false,  
     val isDownloading: Boolean = false,  
     val downloadProgress: Float = 0f,  
-	val cachedAvatarCount: Int = 0,
+    val cachedAvatarCount: Int = 0,  
+    val rosterCount: Int = 0,  
+    val isUpdatingRoster: Boolean = false,  
+    val rosterMessage: String? = null,  
     val updateMessage: String? = null,  
     val updateInfo: UpdateInfo? = null,  
     val isDownloadingAvatars: Boolean = false,  
@@ -68,10 +72,14 @@ class SettingsViewModel @Inject constructor(
             }  
         }  
         viewModelScope.launch(Dispatchers.IO) {  
-			val count = IconStorage.getCachedCount(context)  
-			_uiState.value = _uiState.value.copy(cachedAvatarCount = count)  
-		}
-		viewModelScope.launch {  
+            val count = IconStorage.getCachedCount(context)  
+            val rosterCount = CharaRoster.getCachedRosterCount(context)  
+            _uiState.value = _uiState.value.copy(  
+                cachedAvatarCount = count,  
+                rosterCount = rosterCount  
+            )  
+        }  
+        viewModelScope.launch {  
             settingsDataStore.pollingIntervalFlow.collect { interval ->  
                 _uiState.value = _uiState.value.copy(  
                     pollingInterval = interval,  
@@ -134,8 +142,50 @@ class SettingsViewModel @Inject constructor(
     }  
   
     /**  
+     * 手动更新花名册  
+     */  
+    fun updateRoster() {  
+        if (_uiState.value.isUpdatingRoster) return  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(  
+                isUpdatingRoster = true,  
+                rosterMessage = "正在获取花名册..."  
+            )  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val client = OkHttpClient.Builder()  
+                        .connectTimeout(15, TimeUnit.SECONDS)  
+                        .readTimeout(15, TimeUnit.SECONDS)  
+                        .build()  
+  
+                    val roster = CharaRoster.fetchRoster(client, context, forceRefresh = true)  
+                    if (roster != null && roster.isNotEmpty()) {  
+                        _uiState.value = _uiState.value.copy(  
+                            isUpdatingRoster = false,  
+                            rosterCount = roster.size,  
+                            rosterMessage = "花名册更新成功，共 ${roster.size} 个角色"  
+                        )  
+                    } else {  
+                        _uiState.value = _uiState.value.copy(  
+                            isUpdatingRoster = false,  
+                            rosterMessage = "花名册更新失败，请检查网络"  
+                        )  
+                    }  
+                }  
+            } catch (e: Exception) {  
+                Log.e("SettingsVM", "Roster update failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isUpdatingRoster = false,  
+                    rosterMessage = "花名册更新失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    /**  
      * 从 redive.estertion.win 下载所有角色头像（仅6星和3星）  
-     * 已下载过的自动跳过  
+     * 使用花名册精准定位角色，已下载过的自动跳过  
      */  
     fun downloadAllAvatars() {  
         if (_uiState.value.isDownloadingAvatars) return  
@@ -144,7 +194,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(  
                 isDownloadingAvatars = true,  
                 avatarDownloadProgress = 0f,  
-                avatarDownloadMessage = "准备下载..."  
+                avatarDownloadMessage = "正在获取花名册..."  
             )  
   
             try {  
@@ -157,8 +207,24 @@ class SettingsViewModel @Inject constructor(
                     val baseUrl = "https://redive.estertion.win/icon/unit/"  
                     val stars = listOf(6, 3)  
   
+                    // 获取花名册  
+                    val roster = CharaRoster.fetchRoster(client, context)  
+                    val charaIds: List<Int> = if (roster != null && roster.isNotEmpty()) {  
+                        _uiState.value = _uiState.value.copy(  
+                            avatarDownloadMessage = "花名册包含 ${roster.size} 个角色，正在检查缺失头像...",  
+                            rosterCount = roster.size  
+                        )  
+                        roster  
+                    } else {  
+                        // fallback 到硬编码范围  
+                        _uiState.value = _uiState.value.copy(  
+                            avatarDownloadMessage = "花名册获取失败，使用默认范围..."  
+                        )  
+                        (1001..1899).toList()  
+                    }  
+  
                     val toDownload = mutableListOf<Pair<Int, Int>>()  
-                    for (baseId in 1001..1899) {  
+                    for (baseId in charaIds) {  
                         for (star in stars) {  
                             if (!IconStorage.hasIcon(context, baseId, star)) {  
                                 toDownload.add(baseId to star)  
@@ -222,10 +288,13 @@ class SettingsViewModel @Inject constructor(
                         jobs.awaitAll()  
                     }  
   
+                    // 更新缓存计数  
+                    val newCount = IconStorage.getCachedCount(context)  
                     _uiState.value = _uiState.value.copy(  
                         isDownloadingAvatars = false,  
                         avatarDownloadProgress = 1f,  
-                        avatarDownloadMessage = "完成，成功下载 ${success.get()} 个图标"  
+                        avatarDownloadMessage = "完成，成功下载 ${success.get()} 个图标",  
+                        cachedAvatarCount = newCount  
                     )  
                 }  
             } catch (e: Exception) {  
