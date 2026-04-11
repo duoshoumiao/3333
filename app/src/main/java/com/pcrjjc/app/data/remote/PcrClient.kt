@@ -53,7 +53,7 @@ class PcrClient(
     private val headers = mutableMapOf(  
         "User-Agent" to "Dalvik/2.1.0 (Linux, U, Android 5.1.1, PCRT00 Build/LMY48Z)",  
         "X-Unity-Version" to "2018.4.30f1",  
-        "APP-VER" to "11.4.0",  
+        "APP-VER" to "11.7.1",  
         "BATTLE-LOGIC-VERSION" to "4",  
         "BUNDLE-VER" to "",  
         "DEVICE" to "2",  
