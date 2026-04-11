@@ -4,39 +4,65 @@ import android.content.Context
 import android.graphics.Bitmap  
 import android.graphics.BitmapFactory  
 import android.util.Log  
+import org.opencv.android.OpenCVLoader  
+import org.opencv.android.Utils  
+import org.opencv.core.Core  
+import org.opencv.core.CvType  
+import org.opencv.core.Mat  
+import org.opencv.core.MatOfPoint  
+import org.opencv.core.Scalar  
+import org.opencv.imgproc.Imgproc  
 import java.io.File  
+import kotlin.math.abs  
 import kotlin.math.sqrt  
   
 /**  
  * 角色头像识别器。  
- * 从截图中裁剪出竞技场防守阵容的5个头像位置，  
- * 与本地头像库做模板匹配，返回识别到的角色 baseId 列表。  
+ * 使用 OpenCV 轮廓检测从截图中自动定位角色头像（移植自 arena 的 cutting 算法），  
+ * 再与本地头像库做 NCC 模板匹配，返回识别到的角色 baseId 列表。  
  */  
 class IconRecognizer(private val context: Context) {  
   
     companion object {  
         private const val TAG = "IconRecognizer"  
-        private const val TEMPLATE_SIZE = 64 // 模板统一缩放尺寸  
-        private const val MATCH_THRESHOLD = 0.75 // NCC 匹配阈值  
+        private const val TEMPLATE_SIZE = 64   // 模板统一缩放尺寸  
+        private const val MATCH_THRESHOLD = 0.70 // NCC 匹配阈值（OpenCV 裁剪更精准，可适当放宽）  
         private const val ICON_DIR = "icons/unit"  
-        private const val GAME_ASPECT_RATIO = 16f / 9f // 公主连结固定 16:9 渲染  
+        private const val GAME_ASPECT_RATIO = 16f / 9f  
+  
+        // OpenCV 轮廓检测参数（对应 arena 的 cutting mode=2）  
+        private const val BINARY_THRESHOLD = 210.0  // 二值化阈值（arena: x > 210 → 255）  
+        private const val MIN_CONTOUR_AREA = 500.0   // 最小轮廓面积  
+        private const val SQUARE_RATIO_MIN = 0.95     // 近似正方形判定下限 (w/h)  
+        private const val SQUARE_RATIO_MAX = 1.05     // 近似正方形判定上限 (w/h)  
+        private const val MIN_AREA_PERCENT = 0.5      // 最小面积占比 (%)  
+        private const val CLUSTER_TOLERANCE = 0.10    // 边长聚类容差 (10%)  
+  
+        @Volatile  
+        private var opencvInitialized = false  
     }  
   
-    /**  
-     * 本地头像模板缓存: baseId -> Bitmap(64x64)  
-     */  
+    /** 本地头像模板缓存: baseId -> Bitmap(64x64) */  
     private var templates: Map<Int, Bitmap>? = null  
   
-    /**  
-     * 获取已加载的模板数量（用于外部检查）  
-     */  
+    /** 获取已加载的模板数量 */  
     fun getTemplateCount(): Int {  
         return loadTemplates().size  
     }  
   
-    /**  
-     * 加载本地头像库作为模板  
-     */  
+    /** 确保 OpenCV 已初始化 */  
+    private fun ensureOpenCV(): Boolean {  
+        if (opencvInitialized) return true  
+        opencvInitialized = OpenCVLoader.initLocal()  
+        if (!opencvInitialized) {  
+            Log.e(TAG, "OpenCV 初始化失败")  
+        } else {  
+            Log.i(TAG, "OpenCV 初始化成功: ${OpenCVLoader.OPENCV_VERSION}")  
+        }  
+        return opencvInitialized  
+    }  
+  
+    /** 加载本地头像库作为模板 */  
     private fun loadTemplates(): Map<Int, Bitmap> {  
         templates?.let { return it }  
   
@@ -47,7 +73,6 @@ class IconRecognizer(private val context: Context) {
         val files = dir.listFiles() ?: return emptyMap()  
   
         for (file in files) {  
-            // 文件名格式: {baseId}_{star}.png  
             val name = file.nameWithoutExtension  
             val parts = name.split("_")  
             if (parts.size != 2) continue  
@@ -55,7 +80,6 @@ class IconRecognizer(private val context: Context) {
             val baseId = parts[0].toIntOrNull() ?: continue  
             val star = parts[1].toIntOrNull() ?: continue  
   
-            // 优先使用6星，如果已有6星则跳过3星  
             if (result.containsKey(baseId) && star < 6) continue  
   
             try {  
@@ -75,14 +99,7 @@ class IconRecognizer(private val context: Context) {
   
     /**  
      * 从截图中识别防守阵容角色。  
-     *  
-     * 公主连结竞技场界面中，防守阵容的5个头像位于屏幕特定区域。  
-     * 横屏模式下（游戏默认横屏），头像大致在屏幕中上部，水平均匀分布。  
-     *  
-     * @param screenshot 全屏截图  
-     * @param screenW 屏幕宽度  
-     * @param screenH 屏幕高度  
-     * @return 识别到的角色 baseId 列表（最多5个）  
+     * 优先使用 OpenCV 轮廓检测自动定位头像，失败时回退到固定比例裁剪。  
      */  
     fun recognize(screenshot: Bitmap, screenW: Int, screenH: Int): List<Int> {  
         val tmpl = loadTemplates()  
@@ -91,8 +108,19 @@ class IconRecognizer(private val context: Context) {
             return emptyList()  
         }  
   
-        // 裁剪5个头像区域  
-        val crops = cropDefenseIcons(screenshot, screenW, screenH)  
+        // 优先尝试 OpenCV 轮廓检测  
+        var crops = if (ensureOpenCV()) {  
+            cropByContourDetection(screenshot)  
+        } else {  
+            emptyList()  
+        }  
+  
+        // 回退到固定比例裁剪  
+        if (crops.isEmpty()) {  
+            Log.i(TAG, "OpenCV 轮廓检测未找到头像，回退到固定比例裁剪")  
+            crops = cropByFixedRatio(screenshot, screenW, screenH)  
+        }  
+  
         if (crops.isEmpty()) {  
             Log.w(TAG, "裁剪头像区域失败")  
             return emptyList()  
@@ -116,20 +144,146 @@ class IconRecognizer(private val context: Context) {
         return result  
     }  
   
+    // ======================== 方案A: OpenCV 轮廓检测 ========================  
+  
     /**  
-     * 从截图中裁剪出5个防守角色头像区域。  
-     *  
-     * 公主连结竞技场对战准备界面（横屏）：  
-     * - 对手阵容头像在屏幕上半部分  
-     * - 5个头像水平排列，大致在 y=18%~30%, x 从 28%~72% 均匀分布  
-     * - 每个头像大约占屏幕宽度的 6%  
-     *  
-     * 这些比例基于 1920x1080 分辨率的标准布局。  
-     * 公主连结固定以 16:9 渲染，非 16:9 屏幕会有黑边，  
-     * 需要先计算游戏实际渲染区域再按比例裁剪。  
+     * 数据类：检测到的正方形区域  
      */  
-    private fun cropDefenseIcons(screenshot: Bitmap, screenW: Int, screenH: Int): List<Bitmap> {  
-        // 计算游戏实际渲染区域（公主连结固定 16:9）  
+    private data class SquareRegion(  
+        val sideLength: Int,  
+        val x: Int,  
+        val y: Int,  
+        val w: Int,  
+        val h: Int  
+    )  
+  
+    /**  
+     * 使用 OpenCV 轮廓检测自动定位头像。  
+     * 移植自 arena 的 cutting(img, mode=2) 算法：  
+     * 1. 灰度 + 二值化（阈值 210）  
+     * 2. findContours 提取外轮廓  
+     * 3. 过滤近似正方形、面积占比 >= 0.5%  
+     * 4. 按边长聚类（容差 10%）  
+     * 5. 优先返回恰好 5 个或 5 的倍数个的聚类  
+     *  
+     * @return 裁剪出的头像 Bitmap 列表（最多5个），按 x 坐标从左到右排序  
+     */  
+    private fun cropByContourDetection(screenshot: Bitmap): List<Bitmap> {  
+        val mat = Mat()  
+        Utils.bitmapToMat(screenshot, mat)  
+  
+        val grey = Mat()  
+        Imgproc.cvtColor(mat, grey, Imgproc.COLOR_RGBA2GRAY)  
+  
+        // 二值化：> 210 → 255, 否则 → 0（与 arena 一致）  
+        val binary = Mat()  
+        Imgproc.threshold(grey, binary, BINARY_THRESHOLD, 255.0, Imgproc.THRESH_BINARY)  
+  
+        val totalArea = binary.rows() * binary.cols()  
+  
+        // 查找外轮廓  
+        val contours = mutableListOf<MatOfPoint>()  
+        val hierarchy = Mat()  
+        Imgproc.findContours(binary, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE)  
+  
+        Log.d(TAG, "OpenCV 检测到 ${contours.size} 个轮廓")  
+  
+        // 过滤近似正方形  
+        val squares = mutableListOf<SquareRegion>()  
+        for (contour in contours) {  
+            val area = Imgproc.contourArea(contour)  
+            if (area <= MIN_CONTOUR_AREA) continue  
+  
+            val rect = Imgproc.boundingRect(contour)  
+            val ratio = rect.width.toFloat() / rect.height  
+            if (ratio < SQUARE_RATIO_MIN || ratio > SQUARE_RATIO_MAX) continue  
+  
+            val sideLen = (rect.width + rect.height) / 2  
+            val areaPercent = sideLen.toFloat() * sideLen / totalArea * 100  
+            if (areaPercent < MIN_AREA_PERCENT) continue  
+  
+            squares.add(SquareRegion(sideLen, rect.x, rect.y, rect.width, rect.height))  
+        }  
+  
+        Log.d(TAG, "过滤后近似正方形: ${squares.size} 个")  
+  
+        // 释放 Mat  
+        mat.release()  
+        grey.release()  
+        binary.release()  
+        hierarchy.release()  
+        contours.forEach { it.release() }  
+  
+        if (squares.isEmpty()) return emptyList()  
+  
+        // 按边长聚类（arena 的聚类算法）  
+        val clusters = mutableMapOf<Int, MutableList<SquareRegion>>()  
+        for (sq in squares) {  
+            var matched = false  
+            for (key in clusters.keys) {  
+                val ratio = sq.sideLength.toFloat() / key  
+                if (ratio > (1 - CLUSTER_TOLERANCE) && ratio < (1 + CLUSTER_TOLERANCE)) {  
+                    clusters[key]!!.add(sq)  
+                    matched = true  
+                    break  
+                }  
+            }  
+            if (!matched) {  
+                clusters[sq.sideLength] = mutableListOf(sq)  
+            }  
+        }  
+  
+        Log.d(TAG, "聚类结果: ${clusters.map { "${it.key}px -> ${it.value.size}个" }}")  
+  
+        // 排序：优先 5 个 > 5 的倍数 > 其他（第二关键字为边长从大到小）  
+        val sorted = clusters.entries.sortedByDescending { (sideLen, members) ->  
+            val count = members.size  
+            when {  
+                count == 5 -> 5_000_000 + sideLen  
+                count % 5 == 0 -> 1_000_000 + sideLen  
+                else -> count * 10_000 + sideLen  
+            }  
+        }  
+  
+        val bestCluster = sorted.first().value  
+  
+        // 如果最佳聚类不是 5 的倍数，可能不是头像  
+        if (bestCluster.size < 4) {  
+            Log.w(TAG, "最佳聚类只有 ${bestCluster.size} 个，可能不是头像区域")  
+            return emptyList()  
+        }  
+  
+        // 取前5个（按 x 坐标排序，从左到右）  
+        val selected = bestCluster.sortedBy { it.x }.take(5)  
+        Log.i(TAG, "选取 ${selected.size} 个头像区域: ${selected.map { "(${it.x},${it.y},${it.w}x${it.h})" }}")  
+  
+        // 裁剪  
+        val crops = mutableListOf<Bitmap>()  
+        for (sq in selected) {  
+            // 内缩 2px 去掉白边（与 arena 的 img[y+2:y+h-2, x+2:x+w-2] 一致）  
+            val x = (sq.x + 2).coerceAtLeast(0)  
+            val y = (sq.y + 2).coerceAtLeast(0)  
+            val w = (sq.w - 4).coerceAtMost(screenshot.width - x).coerceAtLeast(1)  
+            val h = (sq.h - 4).coerceAtMost(screenshot.height - y).coerceAtLeast(1)  
+  
+            try {  
+                val crop = Bitmap.createBitmap(screenshot, x, y, w, h)  
+                crops.add(crop)  
+            } catch (e: Exception) {  
+                Log.w(TAG, "裁剪失败: x=$x y=$y w=$w h=$h", e)  
+            }  
+        }  
+  
+        return crops  
+    }  
+  
+    // ======================== 方案B: 固定比例裁剪（回退方案） ========================  
+  
+    /**  
+     * 使用固定比例裁剪（带 16:9 游戏区域适配）。  
+     * 当 OpenCV 轮廓检测失败时作为回退。  
+     */  
+    private fun cropByFixedRatio(screenshot: Bitmap, screenW: Int, screenH: Int): List<Bitmap> {  
         val screenRatio = screenW.toFloat() / screenH  
         val gameW: Int  
         val gameH: Int  
@@ -137,33 +291,28 @@ class IconRecognizer(private val context: Context) {
         val offsetY: Int  
   
         if (screenRatio > GAME_ASPECT_RATIO) {  
-            // 屏幕比 16:9 更宽（如 20:9 长屏手机），左右有黑边  
             gameH = screenH  
             gameW = (screenH * GAME_ASPECT_RATIO).toInt()  
             offsetX = (screenW - gameW) / 2  
             offsetY = 0  
         } else if (screenRatio < GAME_ASPECT_RATIO) {  
-            // 屏幕比 16:9 更窄，上下有黑边  
             gameW = screenW  
             gameH = (screenW / GAME_ASPECT_RATIO).toInt()  
             offsetX = 0  
             offsetY = (screenH - gameH) / 2  
         } else {  
-            // 刚好 16:9  
             gameW = screenW  
             gameH = screenH  
             offsetX = 0  
             offsetY = 0  
         }  
   
-        Log.d(TAG, "屏幕: ${screenW}x${screenH} (ratio=${"%.2f".format(screenRatio)}), " +  
-                "游戏区域: ${gameW}x${gameH}, 偏移: ($offsetX, $offsetY)")  
+        Log.d(TAG, "回退裁剪 - 屏幕: ${screenW}x${screenH}, 游戏区域: ${gameW}x${gameH}, 偏移: ($offsetX, $offsetY)")  
   
-        // 竞技场防守阵容头像位置参数（基于游戏渲染区域的比例）  
-        val iconCenterYRatio = 0.24f   // 头像中心 Y 比例  
-        val iconSizeRatio = 0.058f     // 头像大小占游戏区域宽度比例  
-        val iconStartXRatio = 0.30f    // 第一个头像中心 X 比例  
-        val iconEndXRatio = 0.70f      // 最后一个头像中心 X 比例  
+        val iconCenterYRatio = 0.24f  
+        val iconSizeRatio = 0.058f  
+        val iconStartXRatio = 0.30f  
+        val iconEndXRatio = 0.70f  
   
         val iconSize = (gameW * iconSizeRatio).toInt()  
         val halfSize = iconSize / 2  
@@ -184,7 +333,7 @@ class IconRecognizer(private val context: Context) {
                     val crop = Bitmap.createBitmap(screenshot, left, top, w, h)  
                     crops.add(crop)  
                 } catch (e: Exception) {  
-                    Log.w(TAG, "裁剪位置$i 失败: left=$left top=$top w=$w h=$h", e)  
+                    Log.w(TAG, "回退裁剪位置$i 失败: left=$left top=$top w=$w h=$h", e)  
                 }  
             }  
         }  
@@ -192,12 +341,8 @@ class IconRecognizer(private val context: Context) {
         return crops  
     }  
   
-    /**  
-     * 在模板库中找到与 candidate 最匹配的角色。  
-     * 使用归一化互相关 (NCC) 算法。  
-     *  
-     * @return Pair(baseId, similarity) 或 null（低于阈值）  
-     */  
+    // ======================== NCC 模板匹配（不变） ========================  
+  
     private fun findBestMatch(candidate: Bitmap, templates: Map<Int, Bitmap>): Pair<Int, Double>? {  
         var bestId = -1  
         var bestScore = -1.0  
@@ -206,7 +351,7 @@ class IconRecognizer(private val context: Context) {
         val candMean = candPixels.average()  
         val candStd = stdDev(candPixels, candMean)  
   
-        if (candStd < 1.0) return null // 纯色区域，跳过  
+        if (candStd < 1.0) return null  
   
         for ((baseId, tmplBmp) in templates) {  
             val tmplPixels = getPixelArray(tmplBmp)  
@@ -215,11 +360,10 @@ class IconRecognizer(private val context: Context) {
   
             if (tmplStd < 1.0) continue  
   
-            // NCC = sum((a-mean_a)*(b-mean_b)) / (n * std_a * std_b)  
             val n = minOf(candPixels.size, tmplPixels.size)  
             var sum = 0.0  
-            for (j in 0 until n) {  
-                sum += (candPixels[j] - candMean) * (tmplPixels[j] - tmplMean)  
+            for (i in 0 until n) {  
+                sum += (candPixels[i] - candMean) * (tmplPixels[i] - tmplMean)  
             }  
             val ncc = sum / (n * candStd * tmplStd)  
   
@@ -232,9 +376,6 @@ class IconRecognizer(private val context: Context) {
         return if (bestScore >= MATCH_THRESHOLD) Pair(bestId, bestScore) else null  
     }  
   
-    /**  
-     * 将 Bitmap 转为灰度像素数组  
-     */  
     private fun getPixelArray(bmp: Bitmap): DoubleArray {  
         val w = bmp.width  
         val h = bmp.height  
@@ -246,7 +387,6 @@ class IconRecognizer(private val context: Context) {
             val r = (p shr 16) and 0xFF  
             val g = (p shr 8) and 0xFF  
             val b = p and 0xFF  
-            // 灰度值  
             (0.299 * r + 0.587 * g + 0.114 * b)  
         }  
     }  
