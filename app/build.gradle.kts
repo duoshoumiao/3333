@@ -1,3 +1,4 @@
+implementation("io.coil-kt:coil-compose:2.6.0")
 plugins {  
     id("com.android.application")  
     id("org.jetbrains.kotlin.android")  
@@ -13,8 +14,8 @@ android {
         applicationId = "com.pcrjjc.app"  
         minSdk = 26  
         targetSdk = 34  
-        versionCode = 3  
-        versionName = "1.0.10"  
+        versionCode = 4  
+        versionName = "1.0.11"  
   
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"  
         vectorDrawables {  
