@@ -435,6 +435,10 @@ class IconRecognizer(private val context: Context) {
         if (currentGrey !== fullGrey) currentGrey.release()  
         fullGrey.release()  
   
+        // 将原始截图混合到调试图上，让用户能看到实际截图内容  
+        val blendPaint = Paint().apply { alpha = 50 }  
+        debugCanvas.drawBitmap(screenshot, 0f, 0f, blendPaint)  
+  
         val ratio = max(1f, max(origW, origH).toFloat() / 500f)  
         val finalDebug = Bitmap.createScaledBitmap(  
             debugBmp, (origW / ratio).toInt(), (origH / ratio).toInt(), true  
