@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth  
 import androidx.compose.foundation.layout.height  
 import androidx.compose.foundation.layout.padding  
-import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.itemsIndexed  
 import androidx.compose.material.icons.Icons  
@@ -81,7 +80,6 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
                 ),  
                 actions = {  
-                    // 怎么拆按钮  
                     IconButton(onClick = { launchArenaBreaker(context) }) {  
                         Icon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
                     }  
@@ -243,14 +241,7 @@ fun HomeScreen(
     }  
 }  
   
-/**  
- * 启动怎么拆浮窗流程：  
- * 1. 检查悬浮窗权限  
- * 2. 启动 ScreenCaptureActivity 获取 MediaProjection 授权  
- * 3. ScreenCaptureActivity 会依次启动 ScreenCaptureService 和 FloatingWindowService  
- */  
 private fun launchArenaBreaker(context: Context) {  
-    // 检查悬浮窗权限  
     if (!Settings.canDrawOverlays(context)) {  
         Toast.makeText(context, "请先授予悬浮窗权限", Toast.LENGTH_LONG).show()  
         val intent = Intent(  
@@ -261,8 +252,6 @@ private fun launchArenaBreaker(context: Context) {
         context.startActivity(intent)  
         return  
     }  
-  
-    // 启动截图授权 Activity  
     val intent = Intent(context, ScreenCaptureActivity::class.java)  
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)  
     context.startActivity(intent)  
@@ -337,7 +326,6 @@ private fun BindCard(
                 }  
             }  
   
-            // Notification status  
             Row(  
                 modifier = Modifier.padding(top = 8.dp),  
                 horizontalArrangement = Arrangement.spacedBy(8.dp)  
