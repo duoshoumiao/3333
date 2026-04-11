@@ -22,6 +22,7 @@ import android.view.WindowManager
 import androidx.core.app.NotificationCompat  
 import androidx.core.app.ServiceCompat  
 import com.pcrjjc.app.PcrJjcApp  
+import com.pcrjjc.app.R  
   
 class ScreenCaptureService : Service() {  
   
@@ -66,6 +67,8 @@ class ScreenCaptureService : Service() {
                     this, NOTIFICATION_ID, notification,  
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION  
                 )  
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {  
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)  
             } else {  
                 startForeground(NOTIFICATION_ID, notification)  
             }  
@@ -110,10 +113,6 @@ class ScreenCaptureService : Service() {
         return START_STICKY  
     }  
   
-    /**  
-     * 截取当前屏幕，返回 Bitmap。  
-     * 调用方应在协程/后台线程中调用。  
-     */  
     fun captureScreen(): Bitmap? {  
         val reader = imageReader ?: return null  
         var image: Image? = null  
@@ -132,7 +131,6 @@ class ScreenCaptureService : Service() {
             )  
             bitmap.copyPixelsFromBuffer(buffer)  
   
-            // 裁剪掉 padding  
             return if (rowPadding > 0) {  
                 val cropped = Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight)  
                 bitmap.recycle()  
@@ -162,7 +160,7 @@ class ScreenCaptureService : Service() {
   
     private fun createNotification(): Notification {  
         return NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
-            .setSmallIcon(com.pcrjjc.app.R.drawable.ic_notification)  
+            .setSmallIcon(R.drawable.ic_notification)  
             .setContentTitle("怎么拆 - 截图服务")  
             .setContentText("正在运行截图服务")  
             .setPriority(NotificationCompat.PRIORITY_LOW)  
