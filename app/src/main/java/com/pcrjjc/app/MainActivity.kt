@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize  
 import androidx.compose.foundation.layout.fillMaxWidth  
 import androidx.compose.foundation.layout.height  
-import androidx.compose.foundation.layout.padding  
 import androidx.compose.foundation.layout.size  
 import androidx.compose.material3.AlertDialog  
 import androidx.compose.material3.Button  
@@ -37,26 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.unit.dp  
 import androidx.core.content.ContextCompat  
+import com.pcrjjc.app.domain.CaptchaManager  
+import com.pcrjjc.app.domain.CaptchaRequest  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.ui.navigation.PcrJjcNavHost  
 import com.pcrjjc.app.ui.theme.PcrJjcTheme  
 import dagger.hilt.android.AndroidEntryPoint  
-import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.launch  
 import javax.inject.Inject  
-  
-/**  
- * 从通知 Intent 传入的验证码数据  
- */  
-data class CaptchaIntentData(  
-    val gt: String,  
-    val challenge: String,  
-    val gtUserId: String,  
-    val accountId: Int,  
-    val account: String,  
-    val password: String,  
-    val platform: Int  
-)  
   
 @AndroidEntryPoint  
 class MainActivity : ComponentActivity() {  
@@ -64,7 +51,8 @@ class MainActivity : ComponentActivity() {
     @Inject  
     lateinit var clientManager: ClientManager  
   
-    private val _pendingCaptcha = MutableStateFlow<CaptchaIntentData?>(null)  
+    @Inject  
+    lateinit var captchaManager: CaptchaManager  
   
     private val requestPermissionLauncher =  
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _: Boolean ->  
@@ -83,15 +71,15 @@ class MainActivity : ComponentActivity() {
                 ) {  
                     PcrJjcNavHost()  
   
-                    // 手动过码对话框覆盖层  
-                    val captchaData by _pendingCaptcha.collectAsState()  
-                    captchaData?.let { data ->  
+                    // 手动过码对话框覆盖层（全局）  
+                    val captchaRequest by captchaManager.pendingCaptcha.collectAsState()  
+                    captchaRequest?.let { data ->  
                         ManualCaptchaDialog(  
-                            captchaData = data,  
+                            captchaRequest = data,  
                             clientManager = clientManager,  
-                            onDismiss = { _pendingCaptcha.value = null },  
+                            onDismiss = { captchaManager.clearCaptcha() },  
                             onSuccess = {  
-                                _pendingCaptcha.value = null  
+                                captchaManager.clearCaptcha()  
                                 Toast.makeText(  
                                     this@MainActivity,  
                                     "手动过码成功，登录完成",  
@@ -120,14 +108,16 @@ class MainActivity : ComponentActivity() {
         val password = intent.getStringExtra("captcha_password") ?: return  
         val platform = intent.getIntExtra("captcha_platform", 0)  
   
-        _pendingCaptcha.value = CaptchaIntentData(  
-            gt = gt,  
-            challenge = challenge,  
-            gtUserId = gtUserId,  
-            accountId = accountId,  
-            account = account,  
-            password = password,  
-            platform = platform  
+        captchaManager.requestCaptcha(  
+            CaptchaRequest(  
+                gt = gt,  
+                challenge = challenge,  
+                gtUserId = gtUserId,  
+                accountId = accountId,  
+                account = account,  
+                password = password,  
+                platform = platform  
+            )  
         )  
   
         // 清除 intent extras 防止重复触发  
@@ -149,7 +139,7 @@ class MainActivity : ComponentActivity() {
   
 @Composable  
 private fun ManualCaptchaDialog(  
-    captchaData: CaptchaIntentData,  
+    captchaRequest: CaptchaRequest,  
     clientManager: ClientManager,  
     onDismiss: () -> Unit,  
     onSuccess: () -> Unit  
@@ -162,9 +152,9 @@ private fun ManualCaptchaDialog(
   
     val geetestUrl = "https://help.tencentbot.top/geetest/" +  
             "?captcha_type=1" +  
-            "&challenge=${captchaData.challenge}" +  
-            "&gt=${captchaData.gt}" +  
-            "&userid=${captchaData.gtUserId}" +  
+            "&challenge=${captchaRequest.challenge}" +  
+            "&gt=${captchaRequest.gt}" +  
+            "&userid=${captchaRequest.gtUserId}" +  
             "&gs=1"  
   
     AlertDialog(  
@@ -173,7 +163,7 @@ private fun ManualCaptchaDialog(
         text = {  
             Column(modifier = Modifier.fillMaxWidth()) {  
                 Text(  
-                    "账号 ${captchaData.account} 登录触发验证码，自动过码失败。",  
+                    "账号 ${captchaRequest.account} 登录触发验证码，自动过码失败。",  
                     style = MaterialTheme.typography.bodyMedium  
                 )  
                 Spacer(modifier = Modifier.height(8.dp))  
@@ -242,12 +232,12 @@ private fun ManualCaptchaDialog(
                         errorMessage = null  
                         try {  
                             clientManager.loginWithCaptchaResult(  
-                                accountId = captchaData.accountId,  
-                                account = captchaData.account,  
-                                password = captchaData.password,  
-                                platform = captchaData.platform,  
-                                challenge = captchaData.challenge,  
-                                gtUserId = captchaData.gtUserId,  
+                                accountId = captchaRequest.accountId,  
+                                account = captchaRequest.account,  
+                                password = captchaRequest.password,  
+                                platform = captchaRequest.platform,  
+                                challenge = captchaRequest.challenge,  
+                                gtUserId = captchaRequest.gtUserId,  
                                 validate = validate  
                             )  
                             onSuccess()  

@@ -23,6 +23,8 @@ import com.pcrjjc.app.data.local.dao.HistoryDao
 import com.pcrjjc.app.data.local.dao.RankCacheDao  
 import com.pcrjjc.app.data.local.entity.Account  
 import com.pcrjjc.app.data.remote.CaptchaRequiredException  
+import com.pcrjjc.app.domain.CaptchaManager  
+import com.pcrjjc.app.domain.CaptchaRequest  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
@@ -55,6 +57,7 @@ class RankMonitorService : Service() {
     @Inject lateinit var historyDao: HistoryDao  
     @Inject lateinit var rankCacheDao: RankCacheDao  
     @Inject lateinit var clientManager: ClientManager  
+    @Inject lateinit var captchaManager: CaptchaManager  
   
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)  
     private var pollingJob: Job? = null  
@@ -106,7 +109,7 @@ class RankMonitorService : Service() {
   
             while (isActive) {  
                 try {  
-                    val accounts = accountDao.getNonMasterAccountsSync()
+                    val accounts = accountDao.getNonMasterAccountsSync()  
                     if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  
                     } else {  
@@ -125,6 +128,18 @@ class RankMonitorService : Service() {
                                     } catch (e: CaptchaRequiredException) {  
                                         Log.w(TAG, "Captcha required for account ${account.id}, sending notification")  
                                         sendCaptchaNotification(account, e)  
+                                        // 同时通过全局 CaptchaManager 触发弹窗（如果 app 在前台则立即弹出）  
+                                        captchaManager.requestCaptcha(  
+                                            CaptchaRequest(  
+                                                gt = e.gt,  
+                                                challenge = e.challenge,  
+                                                gtUserId = e.gtUserId,  
+                                                accountId = account.id,  
+                                                account = account.account,  
+                                                password = account.password,  
+                                                platform = account.platform  
+                                            )  
+                                        )  
                                     } catch (e: Exception) {  
                                         Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                                         clientManager.clearClient(account.id)  
