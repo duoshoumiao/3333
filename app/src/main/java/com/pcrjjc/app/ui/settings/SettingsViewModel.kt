@@ -31,7 +31,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request  
 import java.util.concurrent.TimeUnit  
 import java.util.concurrent.atomic.AtomicInteger  
-import javax.inject.Inject  
+import javax.inject.Inject 
   
 data class SettingsUiState(  
     val binds: List<PcrBind> = emptyList(),  
@@ -129,7 +129,7 @@ class SettingsViewModel @Inject constructor(
     }  
   
     /**  
-     * 从 redive.estertion.win 下载所有角色头像（webp → PNG 本地保存）  
+     * 从 redive.estertion.win 下载所有角色头像（仅6星和3星）  
      * 已下载过的自动跳过  
      */  
     fun downloadAllAvatars() {  
@@ -150,7 +150,7 @@ class SettingsViewModel @Inject constructor(
                         .build()  
   
                     val baseUrl = "https://redive.estertion.win/icon/unit/"  
-                    val stars = listOf(6, 3, 1)  
+                    val stars = listOf(6, 3)  
   
                     val toDownload = mutableListOf<Pair<Int, Int>>()  
                     for (baseId in 1001..1899) {  
