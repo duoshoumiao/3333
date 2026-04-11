@@ -10,8 +10,8 @@ data class PcrBind(
     val pcrid: Long,  
     val platform: Int,  
     val name: String? = null,  
-    val jjcNotice: Boolean = true,  
-    val pjjcNotice: Boolean = true,  
+    val jjcNotice: Boolean = false,  
+    val pjjcNotice: Boolean = false,  
     val upNotice: Boolean = false,  
     val onlineNotice: Int = 0,  
     val arenaType: Int = 0          // 0=手动绑定, 1=JJC透视绑定, 2=PJJC透视绑定  
