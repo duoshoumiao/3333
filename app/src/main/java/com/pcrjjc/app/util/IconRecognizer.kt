@@ -28,6 +28,13 @@ class IconRecognizer(private val context: Context) {
     private var templates: Map<Int, Bitmap>? = null  
   
     /**  
+     * 获取已加载的模板数量（用于外部检查）  
+     */  
+    fun getTemplateCount(): Int {  
+        return loadTemplates().size  
+    }  
+  
+    /**  
      * 加载本地头像库作为模板  
      */  
     private fun loadTemplates(): Map<Int, Bitmap> {  
