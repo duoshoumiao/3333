@@ -90,7 +90,7 @@ class CropSelectionOverlay(
             text = "确认"  
             setTextColor(0xFF90CAF9.toInt())  
             textSize = 15f  
-            setPadding(dp(16f).toInt(), dp(8f).toInt(), dp(16f).toInt(), dp(8f).toInt())
+            setPadding(dp(16f).toInt(), dp(8f).toInt(), dp(16f).toInt(), dp(8f).toInt())setPadding(dp(16f).toInt(), dp(8f).toInt(), dp(16f).toInt(), dp(8f).toInt())
             setOnClickListener {  
                 if (selectionRect.width() > 20 && selectionRect.height() > 20) {  
                     // 将屏幕坐标转换回截图坐标  

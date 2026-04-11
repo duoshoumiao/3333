@@ -19,6 +19,7 @@ class ArenaQueryClient {
     companion object {  
         private const val TAG = "ArenaQueryClient"  
         private const val API_URL = "https://api.pcrdfans.com/x/v1/search"  
+        private const val NONCE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"  
     }  
   
     data class ArenaResult(  
@@ -33,6 +34,50 @@ class ArenaQueryClient {
         .connectTimeout(10, TimeUnit.SECONDS)  
         .readTimeout(10, TimeUnit.SECONDS)  
         .build()  
+  
+    /** 生成16位随机 nonce */  
+    private fun generateNonce(): String {  
+        return (1..16).map { NONCE_CHARS[Random.nextInt(NONCE_CHARS.length)] }.joinToString("")  
+    }  
+  
+    /** 获取当前时间戳（秒） */  
+    private fun getTimestamp(): Long {  
+        return System.currentTimeMillis() / 1000  
+    }  
+  
+    /**  
+     * 手动构造紧凑 JSON 字符串，确保字段顺序与 Python 端一致。  
+     * Python 端字段顺序: def, language, nonce, page, region, sort, ts  
+     * 签名后追加 _sign 字段。  
+     */  
+    private fun buildOrderedJson(  
+        defArray: List<Int>,  
+        language: Int,  
+        nonce: String,  
+        page: Int,  
+        region: Int,  
+        sort: Int,  
+        ts: Long,  
+        sign: String? = null  
+    ): String {  
+        val defStr = defArray.joinToString(",", "[", "]")  
+        val sb = StringBuilder()  
+        sb.append("{")  
+        // 签名后 _sign 排在最前面（Python dict 插入顺序：先 def..ts，再 _sign）  
+        // 实际上 Python 的 _dumps 在签名前不含 _sign，签名后 _sign 追加在末尾  
+        sb.append("\"def\":$defStr")  
+        sb.append(",\"language\":$language")  
+        sb.append(",\"nonce\":\"$nonce\"")  
+        sb.append(",\"page\":$page")  
+        sb.append(",\"region\":$region")  
+        sb.append(",\"sort\":$sort")  
+        sb.append(",\"ts\":$ts")  
+        if (sign != null) {  
+            sb.append(",\"_sign\":\"$sign\"")  
+        }  
+        sb.append("}")  
+        return sb.toString()  
+    }  
   
     /**  
      * 查询怎么拆。  
@@ -49,31 +94,36 @@ class ArenaQueryClient {
         }  
   
         try {  
-            // 构造请求体，与 arena.py 一致  
             // def 字段: baseId * 100 + 1  
             val defArray = defenseIds.map { it * 100 + 1 }  
+            val nonce = generateNonce()  
+            val ts = getTimestamp()  
   
-            val payload = JSONObject().apply {  
-                put("_sign", "a")  
-                put("def", org.json.JSONArray(defArray))  
-                put("nonce", "a")  
-                put("page", 1)  
-                put("sort", sort)  
-                put("ts", System.currentTimeMillis() / 1000)  
-                put("region", region)  
-            }  
+            // 构造不含 _sign 的 JSON（用于签名）  
+            val jsonForSign = buildOrderedJson(defArray, 0, nonce, 1, region, sort, ts)  
   
-            val body = payload.toString()  
+            // 生成签名  
+            val sign = PcrdApiSigner.sign(jsonForSign, nonce)  
+  
+            // 构造含 _sign 的最终 JSON  
+            val finalJson = buildOrderedJson(defArray, 0, nonce, 1, region, sort, ts, sign)  
+  
+            Log.i(TAG, "查询防守阵容: $defenseIds -> API def=$defArray, nonce=$nonce")  
+  
+            val body = finalJson.toByteArray(Charsets.UTF_8)  
                 .toRequestBody("application/json; charset=utf-8".toMediaType())  
   
             val request = Request.Builder()  
                 .url(API_URL)  
                 .post(body)  
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.87 Safari/537.36")  
-                .header("authorization", "") // pcrdfans 公开 API，部分接口不需要 key  
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0")  
+                .header("Referer", "https://pcrdfans.com/")  
+                .header("Origin", "https://pcrdfans.com")  
+                .header("Accept", "*/*")  
+                .header("Content-Type", "application/json; charset=utf-8")  
+                .header("Authorization", "")  
+                .header("Host", "api.pcrdfans.com")  
                 .build()  
-  
-            Log.i(TAG, "查询防守阵容: $defenseIds -> API def=$defArray")  
   
             val response = client.newCall(request).execute()  
             response.use { resp ->  
@@ -93,24 +143,6 @@ class ArenaQueryClient {
   
     /**  
      * 解析 pcrdfans API 返回的 JSON。  
-     * 返回格式:  
-     * {  
-     *   "code": 0,  
-     *   "message": "success",  
-     *   "data": {  
-     *     "result": [  
-     *       {  
-     *         "id": "...",  
-     *         "atk": [{"id": 106001, "star": 6, "equip": 0}, ...],  
-     *         "def": [{"id": 107001, "star": 6, "equip": 0}, ...],  
-     *         "up": 10,  
-     *         "down": 2,  
-     *         "updated": "2024-01-01 12:00:00"  
-     *       },  
-     *       ...  
-     *     ]  
-     *   }  
-     * }  
      */  
     private fun parseResponse(responseBody: String): List<ArenaResult> {  
         val json = JSONObject(responseBody)  
@@ -127,7 +159,6 @@ class ArenaQueryClient {
         for (i in 0 until resultArray.length()) {  
             val entry = resultArray.getJSONObject(i)  
   
-            // 解析进攻阵容  
             val atkArray = entry.optJSONArray("atk") ?: continue  
             val atkUnits = mutableListOf<Int>()  
             for (j in 0 until atkArray.length()) {  
@@ -140,7 +171,6 @@ class ArenaQueryClient {
             val down = entry.optInt("down", 0)  
             val updated = entry.optString("updated", "")  
   
-            // 计算推荐度，与 arena.py 的 caculateVal 一致  
             val score = calculateVal(up, down)  
   
             results.add(  
@@ -154,17 +184,11 @@ class ArenaQueryClient {
             )  
         }  
   
-        // 按推荐度降序排列  
         return results.sortedByDescending { it.score }.take(10)  
     }  
   
     /**  
      * 移植自 arena.py 的 caculateVal 函数。  
-     * 计算阵容推荐度权值。  
-     *  
-     * val_1 = up / (down + up + 0.0001) * 2 - 1   // 赞踩比 [-1, 1]  
-     * val_2 = log(up + down + 0.01, 100)            // 置信度 [-1, +inf]  
-     * return val_1 + val_2 + random()/1000  
      */  
     private fun calculateVal(up: Int, down: Int): Double {  
         val total = up + down  
