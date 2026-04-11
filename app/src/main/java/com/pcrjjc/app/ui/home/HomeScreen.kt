@@ -1,5 +1,13 @@
+以下是添加"怎么拆"按钮后的 HomeScreen.kt 完整代码：
+
+
 package com.pcrjjc.app.ui.home  
   
+import android.content.Context  
+import android.content.Intent  
+import android.net.Uri  
+import android.provider.Settings  
+import android.widget.Toast  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Column  
@@ -14,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.filled.Add  
+import androidx.compose.material.icons.filled.ContentCut  
 import androidx.compose.material.icons.filled.Delete  
 import androidx.compose.material.icons.filled.History  
 import androidx.compose.material.icons.filled.ManageAccounts  
@@ -37,9 +46,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.text.font.FontWeight  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
+import com.pcrjjc.app.ScreenCaptureActivity  
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.data.local.entity.RankCache  
 import com.pcrjjc.app.util.Platform  
@@ -60,6 +71,7 @@ fun HomeScreen(
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()  
     val manualBinds by viewModel.manualBinds.collectAsState()  
     val rankCaches by viewModel.rankCaches.collectAsState()  
+    val context = LocalContext.current  
   
     val totalCount = jjcBinds.size + pjjcBinds.size + manualBinds.size  
   
@@ -72,6 +84,10 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
                 ),  
                 actions = {  
+                    // 怎么拆按钮  
+                    IconButton(onClick = { launchArenaBreaker(context) }) {  
+                        Icon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
+                    }  
                     IconButton(onClick = onNavigateToMaster) {  
                         Icon(Icons.Default.Visibility, contentDescription = "账号")  
                     }  
@@ -228,6 +244,31 @@ fun HomeScreen(
             }  
         }  
     }  
+}  
+  
+/**  
+ * 启动怎么拆浮窗流程：  
+ * 1. 检查悬浮窗权限  
+ * 2. 启动 ScreenCaptureActivity 获取 MediaProjection 授权  
+ * 3. ScreenCaptureActivity 会依次启动 ScreenCaptureService 和 FloatingWindowService  
+ */  
+private fun launchArenaBreaker(context: Context) {  
+    // 检查悬浮窗权限  
+    if (!Settings.canDrawOverlays(context)) {  
+        Toast.makeText(context, "请先授予悬浮窗权限", Toast.LENGTH_LONG).show()  
+        val intent = Intent(  
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,  
+            Uri.parse("package:${context.packageName}")  
+        )  
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)  
+        context.startActivity(intent)  
+        return  
+    }  
+  
+    // 启动截图授权 Activity  
+    val intent = Intent(context, ScreenCaptureActivity::class.java)  
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)  
+    context.startActivity(intent)  
 }  
   
 @Composable  
