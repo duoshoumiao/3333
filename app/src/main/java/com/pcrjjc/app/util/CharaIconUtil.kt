@@ -2,10 +2,6 @@ package com.pcrjjc.app.util
   
 import android.content.Context  
   
-package com.pcrjjc.app.util  
-  
-import android.content.Context  
-  
 object CharaIconUtil {  
     private const val BASE_URL = "https://redive.estertion.win/icon/unit/"  
   
