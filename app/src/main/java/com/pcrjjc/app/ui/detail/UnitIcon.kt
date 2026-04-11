@@ -31,14 +31,14 @@ fun UnitIcon(
     val context = LocalContext.current  
   
     // 仅使用本地缓存的图标  
-    val localPath = CharaIconUtil.getLocalIconPath(context, unitId)  
-    val localFallback = CharaIconUtil.getLocalFallbackPath(context, unitId)  
+    val localPath: String? = CharaIconUtil.getLocalIconPath(context, unitId)  
+    val localFallback: String? = CharaIconUtil.getLocalFallbackPath(context, unitId)  
   
     if (localPath != null) {  
-        // 有本地主图标，加载它  
+        val primaryFile = File(localPath)  
         SubcomposeAsyncImage(  
             model = ImageRequest.Builder(context)  
-                .data(File(localPath))  
+                .data(primaryFile)  
                 .crossfade(true)  
                 .diskCachePolicy(CachePolicy.ENABLED)  
                 .memoryCachePolicy(CachePolicy.ENABLED)  
@@ -49,14 +49,15 @@ fun UnitIcon(
                 .clip(RoundedCornerShape(8.dp)),  
             contentScale = ContentScale.Crop,  
             loading = {  
-                Placeholder(size = size)  
+                IconPlaceholder(size = size)  
             },  
             error = {  
                 // 主图标加载失败，尝试本地回退图标  
                 if (localFallback != null) {  
+                    val fallbackFile = File(localFallback)  
                     AsyncImage(  
                         model = ImageRequest.Builder(context)  
-                            .data(File(localFallback))  
+                            .data(fallbackFile)  
                             .crossfade(true)  
                             .diskCachePolicy(CachePolicy.ENABLED)  
                             .build(),  
@@ -67,15 +68,16 @@ fun UnitIcon(
                         contentScale = ContentScale.Crop  
                     )  
                 } else {  
-                    Placeholder(size = size)  
+                    IconPlaceholder(size = size)  
                 }  
             }  
         )  
     } else if (localFallback != null) {  
         // 无主图标但有回退图标  
+        val fallbackFile = File(localFallback)  
         SubcomposeAsyncImage(  
             model = ImageRequest.Builder(context)  
-                .data(File(localFallback))  
+                .data(fallbackFile)  
                 .crossfade(true)  
                 .diskCachePolicy(CachePolicy.ENABLED)  
                 .memoryCachePolicy(CachePolicy.ENABLED)  
@@ -86,15 +88,15 @@ fun UnitIcon(
                 .clip(RoundedCornerShape(8.dp)),  
             contentScale = ContentScale.Crop,  
             loading = {  
-                Placeholder(size = size)  
+                IconPlaceholder(size = size)  
             },  
             error = {  
-                Placeholder(size = size)  
+                IconPlaceholder(size = size)  
             }  
         )  
     } else {  
         // 本地无任何缓存，显示占位符  
-        Placeholder(  
+        IconPlaceholder(  
             size = size,  
             modifier = modifier  
         )  
@@ -102,7 +104,7 @@ fun UnitIcon(
 }  
   
 @Composable  
-private fun Placeholder(  
+private fun IconPlaceholder(  
     size: Dp,  
     modifier: Modifier = Modifier  
 ) {  

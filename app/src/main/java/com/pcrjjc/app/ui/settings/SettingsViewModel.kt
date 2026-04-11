@@ -2,6 +2,7 @@ package com.pcrjjc.app.ui.settings
   
 import android.content.Context  
 import android.content.Intent  
+import android.graphics.BitmapFactory  
 import android.os.Build  
 import android.util.Log  
 import androidx.lifecycle.ViewModel  
@@ -13,11 +14,23 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.domain.UpdateChecker  
 import com.pcrjjc.app.domain.UpdateInfo  
 import com.pcrjjc.app.service.RankMonitorService  
+import com.pcrjjc.app.util.IconStorage  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import dagger.hilt.android.qualifiers.ApplicationContext  
+import kotlinx.coroutines.Dispatchers  
+import kotlinx.coroutines.async  
+import kotlinx.coroutines.awaitAll  
+import kotlinx.coroutines.coroutineScope  
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.launch  
+import kotlinx.coroutines.sync.Semaphore  
+import kotlinx.coroutines.sync.withPermit  
+import kotlinx.coroutines.withContext  
+import okhttp3.OkHttpClient  
+import okhttp3.Request  
+import java.util.concurrent.TimeUnit  
+import java.util.concurrent.atomic.AtomicInteger  
 import javax.inject.Inject  
   
 data class SettingsUiState(  
@@ -29,7 +42,11 @@ data class SettingsUiState(
     val isDownloading: Boolean = false,  
     val downloadProgress: Float = 0f,  
     val updateMessage: String? = null,  
-    val updateInfo: UpdateInfo? = null  
+    val updateInfo: UpdateInfo? = null,  
+    // 头像下载状态  
+    val isDownloadingAvatars: Boolean = false,  
+    val avatarDownloadProgress: Float = 0f,  
+    val avatarDownloadMessage: String? = null  
 )  
   
 @HiltViewModel  
@@ -82,7 +99,6 @@ class SettingsViewModel @Inject constructor(
                 pollingInterval = seconds,  
                 intervalSaved = true  
             )  
-            // 重启服务以应用新间隔  
             restartMonitorService(seconds)  
         }  
     }  
@@ -112,6 +128,112 @@ class SettingsViewModel @Inject constructor(
                 onlineNotice = onlineNotice ?: bind.onlineNotice  
             )  
             bindDao.update(updated)  
+        }  
+    }  
+  
+    /**  
+     * 从 redive.estertion.win 下载所有角色头像（webp → PNG 本地保存）  
+     * 已下载过的自动跳过  
+     */  
+    fun downloadAllAvatars() {  
+        if (_uiState.value.isDownloadingAvatars) return  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(  
+                isDownloadingAvatars = true,  
+                avatarDownloadProgress = 0f,  
+                avatarDownloadMessage = "准备下载..."  
+            )  
+  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val client = OkHttpClient.Builder()  
+                        .connectTimeout(10, TimeUnit.SECONDS)  
+                        .readTimeout(10, TimeUnit.SECONDS)  
+                        .build()  
+  
+                    val baseUrl = "https://redive.estertion.win/icon/unit/"  
+                    val stars = listOf(6, 3, 1)  
+  
+                    // 构建待下载列表，跳过已缓存的  
+                    val toDownload = mutableListOf<Pair<Int, Int>>() // (baseId, star)  
+                    for (baseId in 1001..1899) {  
+                        for (star in stars) {  
+                            if (!IconStorage.hasIcon(context, baseId, star)) {  
+                                toDownload.add(baseId to star)  
+                            }  
+                        }  
+                    }  
+  
+                    if (toDownload.isEmpty()) {  
+                        _uiState.value = _uiState.value.copy(  
+                            isDownloadingAvatars = false,  
+                            avatarDownloadProgress = 1f,  
+                            avatarDownloadMessage = "所有头像已是最新"  
+                        )  
+                        return@withContext  
+                    }  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        avatarDownloadMessage = "需要下载 ${toDownload.size} 个图标..."  
+                    )  
+  
+                    val completed = AtomicInteger(0)  
+                    val success = AtomicInteger(0)  
+                    val total = toDownload.size  
+                    val semaphore = Semaphore(5)  
+  
+                    coroutineScope {  
+                        val jobs = toDownload.map { (baseId, star) ->  
+                            async(Dispatchers.IO) {  
+                                semaphore.withPermit {  
+                                    try {  
+                                        val url = "${baseUrl}${baseId}${star}1.webp"  
+                                        val request = Request.Builder().url(url).build()  
+                                        val response = client.newCall(request).execute()  
+                                        response.use { resp ->  
+                                            if (resp.isSuccessful) {  
+                                                val bytes = resp.body?.bytes()  
+                                                if (bytes != null) {  
+                                                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                                                    if (bitmap != null) {  
+                                                        IconStorage.saveBitmap(context, baseId, star, bitmap)  
+                                                        bitmap.recycle()  
+                                                        success.incrementAndGet()  
+                                                    }  
+                                                }  
+                                            }  
+                                        }  
+                                    } catch (e: Exception) {  
+                                        Log.w("SettingsVM", "Failed: ${baseId}_$star: ${e.message}")  
+                                    }  
+  
+                                    val done = completed.incrementAndGet()  
+                                    if (done % 20 == 0 || done == total) {  
+                                        _uiState.value = _uiState.value.copy(  
+                                            avatarDownloadProgress = done.toFloat() / total,  
+                                            avatarDownloadMessage = "下载中 $done/$total (成功 ${success.get()})"  
+                                        )  
+                                    }  
+                                }  
+                            }  
+                        }  
+                        jobs.awaitAll()  
+                    }  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        isDownloadingAvatars = false,  
+                        avatarDownloadProgress = 1f,  
+                        avatarDownloadMessage = "完成，成功下载 ${success.get()} 个图标"  
+                    )  
+                }  
+            } catch (e: Exception) {  
+                Log.e("SettingsVM", "Avatar download failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isDownloadingAvatars = false,  
+                    avatarDownloadMessage = "下载失败: ${e.message}"  
+                )  
+            }  
         }  
     }  
   
