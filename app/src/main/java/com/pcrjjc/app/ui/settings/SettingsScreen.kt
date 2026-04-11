@@ -80,7 +80,13 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
-                    Spacer(modifier = Modifier.height(12.dp))  
+                    Spacer(modifier = Modifier.height(4.dp))  
+					Text(  
+						text = "已缓存: ${uiState.cachedAvatarCount} 个头像",  
+						style = MaterialTheme.typography.bodySmall,  
+						color = MaterialTheme.colorScheme.onSurfaceVariant  
+					)
+					Spacer(modifier = Modifier.height(12.dp))  
   
                     Button(  
                         onClick = { viewModel.downloadAllAvatars() },  

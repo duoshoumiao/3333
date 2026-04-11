@@ -41,6 +41,7 @@ data class SettingsUiState(
     val isCheckingUpdate: Boolean = false,  
     val isDownloading: Boolean = false,  
     val downloadProgress: Float = 0f,  
+	val cachedAvatarCount: Int = 0,
     val updateMessage: String? = null,  
     val updateInfo: UpdateInfo? = null,  
     val isDownloadingAvatars: Boolean = false,  
@@ -66,7 +67,11 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(binds = binds)  
             }  
         }  
-        viewModelScope.launch {  
+        viewModelScope.launch(Dispatchers.IO) {  
+			val count = IconStorage.getCachedCount(context)  
+			_uiState.value = _uiState.value.copy(cachedAvatarCount = count)  
+		}
+		viewModelScope.launch {  
             settingsDataStore.pollingIntervalFlow.collect { interval ->  
                 _uiState.value = _uiState.value.copy(  
                     pollingInterval = interval,  
