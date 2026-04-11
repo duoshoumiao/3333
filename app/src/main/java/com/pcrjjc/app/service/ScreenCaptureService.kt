@@ -44,6 +44,17 @@ class ScreenCaptureService : Service() {
     private var screenHeight = 0  
     private var screenDensity = 0  
   
+    private val projectionCallback = object : MediaProjection.Callback() {  
+        override fun onStop() {  
+            Log.w(TAG, "MediaProjection 被系统终止")  
+            virtualDisplay?.release()  
+            imageReader?.close()  
+            virtualDisplay = null  
+            imageReader = null  
+            mediaProjection = null  
+        }  
+    }  
+  
     override fun onBind(intent: Intent?): IBinder? = null  
   
     override fun onCreate() {  
@@ -94,6 +105,9 @@ class ScreenCaptureService : Service() {
             getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager  
         mediaProjection = projectionManager.getMediaProjection(resultCode, data)  
   
+        // 注册回调，监听 MediaProjection 被系统终止  
+        mediaProjection?.registerCallback(projectionCallback, Handler(Looper.getMainLooper()))  
+  
         imageReader = ImageReader.newInstance(  
             screenWidth, screenHeight,  
             PixelFormat.RGBA_8888, 2  
@@ -113,37 +127,30 @@ class ScreenCaptureService : Service() {
   
     /**  
      * 检测屏幕方向是否变化，如果变化则重建 ImageReader 和 VirtualDisplay。  
-     * 解决服务在竖屏启动、游戏切到横屏后截图尺寸不匹配的问题。  
-     *  
-     * @return true 如果发生了重建（调用方需要等待新帧）  
+     * @return true 表示发生了重建  
      */  
     private fun refreshVirtualDisplay(): Boolean {  
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager  
         val metrics = DisplayMetrics()  
         @Suppress("DEPRECATION")  
         wm.defaultDisplay.getRealMetrics(metrics)  
-  
         val currentW = metrics.widthPixels  
         val currentH = metrics.heightPixels  
   
         if (currentW == screenWidth && currentH == screenHeight) return false  
   
-        Log.i(TAG, "屏幕方向变化: ${screenWidth}x${screenHeight} -> ${currentW}x${currentH}, 重建 VirtualDisplay")  
-  
+        Log.i(TAG, "屏幕尺寸变化: ${screenWidth}x${screenHeight} -> ${currentW}x${currentH}, 重建 VirtualDisplay")  
         screenWidth = currentW  
         screenHeight = currentH  
   
-        // 释放旧资源  
         virtualDisplay?.release()  
         imageReader?.close()  
   
-        // 重建 ImageReader  
         imageReader = ImageReader.newInstance(  
             screenWidth, screenHeight,  
             PixelFormat.RGBA_8888, 2  
         )  
   
-        // 重建 VirtualDisplay  
         virtualDisplay = mediaProjection?.createVirtualDisplay(  
             "ScreenCapture",  
             screenWidth, screenHeight, screenDensity,  
@@ -152,7 +159,6 @@ class ScreenCaptureService : Service() {
             null, Handler(Looper.getMainLooper())  
         )  
   
-        Log.i(TAG, "VirtualDisplay 已重建: ${screenWidth}x${screenHeight}")  
         return true  
     }  
   
@@ -161,62 +167,52 @@ class ScreenCaptureService : Service() {
      * 调用方应在协程/后台线程中调用。  
      */  
     fun captureScreen(): Bitmap? {  
-        // 检测屏幕方向变化，必要时重建 VirtualDisplay  
         val rebuilt = refreshVirtualDisplay()  
   
-        val reader = imageReader ?: return null  
-  
-        // 如果刚重建了 VirtualDisplay，首帧可能还没渲染，需要重试  
         val maxAttempts = if (rebuilt) 5 else 2  
-        var image: Image? = null  
+        val delayMs = if (rebuilt) 150L else 100L  
   
         for (attempt in 1..maxAttempts) {  
+            val reader = imageReader ?: return null  
+            var image: Image? = null  
             try {  
                 image = reader.acquireLatestImage()  
+                if (image != null) {  
+                    val planes = image.planes  
+                    val buffer = planes[0].buffer  
+                    val pixelStride = planes[0].pixelStride  
+                    val rowStride = planes[0].rowStride  
+                    val rowPadding = rowStride - pixelStride * screenWidth  
+  
+                    val bitmap = Bitmap.createBitmap(  
+                        screenWidth + rowPadding / pixelStride,  
+                        screenHeight,  
+                        Bitmap.Config.ARGB_8888  
+                    )  
+                    bitmap.copyPixelsFromBuffer(buffer)  
+  
+                    return if (rowPadding > 0) {  
+                        val cropped = Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight)  
+                        bitmap.recycle()  
+                        cropped  
+                    } else {  
+                        bitmap  
+                    }  
+                }  
             } catch (e: Exception) {  
-                Log.w(TAG, "获取图像失败，尝试 $attempt/$maxAttempts", e)  
+                Log.w(TAG, "截图尝试 $attempt/$maxAttempts 失败", e)  
+            } finally {  
+                image?.close()  
             }  
-            if (image != null) break  
+  
             if (attempt < maxAttempts) {  
-                try {  
-                    Thread.sleep(150)  
-                } catch (_: InterruptedException) {}  
+                Log.d(TAG, "截图为空，等待 ${delayMs}ms 后重试 ($attempt/$maxAttempts)")  
+                Thread.sleep(delayMs)  
             }  
         }  
   
-        if (image == null) {  
-            Log.w(TAG, "多次尝试后仍无法获取图像")  
-            return null  
-        }  
-  
-        try {  
-            val planes = image.planes  
-            val buffer = planes[0].buffer  
-            val pixelStride = planes[0].pixelStride  
-            val rowStride = planes[0].rowStride  
-            val rowPadding = rowStride - pixelStride * screenWidth  
-  
-            val bitmap = Bitmap.createBitmap(  
-                screenWidth + rowPadding / pixelStride,  
-                screenHeight,  
-                Bitmap.Config.ARGB_8888  
-            )  
-            bitmap.copyPixelsFromBuffer(buffer)  
-  
-            // 裁剪掉 padding  
-            return if (rowPadding > 0) {  
-                val cropped = Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight)  
-                bitmap.recycle()  
-                cropped  
-            } else {  
-                bitmap  
-            }  
-        } catch (e: Exception) {  
-            Log.e(TAG, "截图失败", e)  
-            return null  
-        } finally {  
-            image.close()  
-        }  
+        Log.e(TAG, "截图失败，已重试 $maxAttempts 次")  
+        return null  
     }  
   
     fun getScreenWidth(): Int = screenWidth  
@@ -224,6 +220,7 @@ class ScreenCaptureService : Service() {
   
     override fun onDestroy() {  
         super.onDestroy()  
+        mediaProjection?.unregisterCallback(projectionCallback)  
         virtualDisplay?.release()  
         imageReader?.close()  
         mediaProjection?.stop()  

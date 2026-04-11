@@ -13,7 +13,6 @@ import org.opencv.core.MatOfPoint
 import org.opencv.core.Scalar  
 import org.opencv.imgproc.Imgproc  
 import java.io.File  
-import java.io.FileOutputStream  
 import kotlin.math.abs  
 import kotlin.math.sqrt  
   
@@ -29,7 +28,6 @@ class IconRecognizer(private val context: Context) {
         private const val TEMPLATE_SIZE = 64   // 模板统一缩放尺寸  
         private const val MATCH_THRESHOLD = 0.70 // NCC 匹配阈值（OpenCV 裁剪更精准，可适当放宽）  
         private const val ICON_DIR = "icons/unit"  
-        private const val DEBUG_DIR = "debug_crops"  
         private const val GAME_ASPECT_RATIO = 16f / 9f  
   
         // OpenCV 轮廓检测参数（对应 arena 的 cutting mode=2）  
@@ -123,9 +121,6 @@ class IconRecognizer(private val context: Context) {
             crops = cropByFixedRatio(screenshot, screenW, screenH)  
         }  
   
-        // 保存调试图片（用于排查截图和裁剪是否正确）  
-        saveDebugImages(screenshot, crops)  
-  
         if (crops.isEmpty()) {  
             Log.w(TAG, "裁剪头像区域失败")  
             return emptyList()  
@@ -148,30 +143,42 @@ class IconRecognizer(private val context: Context) {
   
         return result  
     }  
-    
-	/**  
+  
+    // ======================== 框选区域识别 ========================  
+  
+    /**  
      * 从用户框选的区域中识别角色。  
-     * 在区域内使用 OpenCV 轮廓检测，失败则等分为5份。  
+     * 优先在区域内做 OpenCV 轮廓检测，失败则水平等分为5份。  
+     *  
+     * @param region 用户框选并裁剪出的 Bitmap  
+     * @return 识别到的角色 baseId 列表  
      */  
     fun recognizeFromRegion(region: Bitmap): List<Int> {  
         val tmpl = loadTemplates()  
         if (tmpl.isEmpty()) {  
-            Log.w(TAG, "本地头像库为空")  
+            Log.w(TAG, "本地头像库为空，请先下载角色头像")  
             return emptyList()  
         }  
   
+        Log.i(TAG, "框选区域识别: ${region.width}x${region.height}")  
+  
+        // 在框选区域内做轮廓检测  
         var crops = if (ensureOpenCV()) {  
             cropByContourDetection(region)  
         } else {  
             emptyList()  
         }  
   
+        // 轮廓检测失败则等分为5份  
         if (crops.isEmpty()) {  
             Log.i(TAG, "框选区域内未检测到头像轮廓，等分为5份")  
             crops = cropByEqualSplit(region)  
         }  
   
-        if (crops.isEmpty()) return emptyList()  
+        if (crops.isEmpty()) {  
+            Log.w(TAG, "框选区域裁剪失败")  
+            return emptyList()  
+        }  
   
         val result = mutableListOf<Int>()  
         for ((index, crop) in crops.withIndex()) {  
@@ -187,19 +194,28 @@ class IconRecognizer(private val context: Context) {
                 Log.w(TAG, "框选位置$index: 未匹配到角色")  
             }  
         }  
+  
         return result  
     }  
   
-    /** 将区域水平等分为5个正方形（取高度为边长） */  
+    /**  
+     * 将区域水平等分为5个正方形（取高度为边长）。  
+     * 当 OpenCV 轮廓检测在框选区域内失败时作为回退。  
+     */  
     private fun cropByEqualSplit(region: Bitmap): List<Bitmap> {  
         val h = region.height  
-        val iconSize = h  
+        val iconSize = h  // 用高度作为正方形边长  
         val totalW = region.width  
-        if (totalW < iconSize) return emptyList()  
+        if (totalW < iconSize) {  
+            Log.w(TAG, "框选区域宽度(${totalW})小于高度(${h})，无法等分")  
+            return emptyList()  
+        }  
   
         val crops = mutableListOf<Bitmap>()  
         val count = 5  
         val spacing = (totalW - iconSize).toFloat() / (count - 1).coerceAtLeast(1)  
+  
+        Log.d(TAG, "等分裁剪: 区域=${totalW}x${h}, 边长=$iconSize, 间距=${"%.1f".format(spacing)}")  
   
         for (i in 0 until count) {  
             val left = (i * spacing).toInt().coerceIn(0, totalW - iconSize)  
@@ -213,47 +229,6 @@ class IconRecognizer(private val context: Context) {
             }  
         }  
         return crops  
-    }
-	
-    // ======================== 调试图片保存 ========================  
-  
-    /**  
-     * 保存截图和裁剪区域到本地，用于调试排查。  
-     * 文件保存在 /data/data/com.pcrjjc.app/files/debug_crops/  
-     * 可通过 adb 拉取查看：  
-     *   adb shell run-as com.pcrjjc.app cp files/debug_crops/screenshot.png /sdcard/  
-     *   adb pull /sdcard/screenshot.png  
-     */  
-    private fun saveDebugImages(screenshot: Bitmap, crops: List<Bitmap>) {  
-        try {  
-            val debugDir = File(context.filesDir, DEBUG_DIR)  
-            if (!debugDir.exists()) debugDir.mkdirs()  
-  
-            // 保存完整截图（缩小到1/4节省空间）  
-            val small = Bitmap.createScaledBitmap(  
-                screenshot, screenshot.width / 4, screenshot.height / 4, true  
-            )  
-            FileOutputStream(File(debugDir, "screenshot.png")).use { out ->  
-                small.compress(Bitmap.CompressFormat.PNG, 80, out)  
-            }  
-            small.recycle()  
-            Log.i(TAG, "调试截图已保存: ${debugDir.absolutePath}/screenshot.png " +  
-                    "(原始尺寸: ${screenshot.width}x${screenshot.height})")  
-  
-            // 保存每个裁剪区域  
-            for ((i, crop) in crops.withIndex()) {  
-                FileOutputStream(File(debugDir, "crop_$i.png")).use { out ->  
-                    crop.compress(Bitmap.CompressFormat.PNG, 100, out)  
-                }  
-            }  
-            if (crops.isNotEmpty()) {  
-                Log.i(TAG, "调试裁剪图已保存: ${debugDir.absolutePath}/crop_0~${crops.size - 1}.png")  
-            } else {  
-                Log.w(TAG, "无裁剪区域可保存")  
-            }  
-        } catch (e: Exception) {  
-            Log.w(TAG, "保存调试图片失败", e)  
-        }  
     }  
   
     // ======================== 方案A: OpenCV 轮廓检测 ========================  
