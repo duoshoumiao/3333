@@ -148,7 +148,73 @@ class IconRecognizer(private val context: Context) {
   
         return result  
     }  
+    
+	/**  
+     * 从用户框选的区域中识别角色。  
+     * 在区域内使用 OpenCV 轮廓检测，失败则等分为5份。  
+     */  
+    fun recognizeFromRegion(region: Bitmap): List<Int> {  
+        val tmpl = loadTemplates()  
+        if (tmpl.isEmpty()) {  
+            Log.w(TAG, "本地头像库为空")  
+            return emptyList()  
+        }  
   
+        var crops = if (ensureOpenCV()) {  
+            cropByContourDetection(region)  
+        } else {  
+            emptyList()  
+        }  
+  
+        if (crops.isEmpty()) {  
+            Log.i(TAG, "框选区域内未检测到头像轮廓，等分为5份")  
+            crops = cropByEqualSplit(region)  
+        }  
+  
+        if (crops.isEmpty()) return emptyList()  
+  
+        val result = mutableListOf<Int>()  
+        for ((index, crop) in crops.withIndex()) {  
+            val scaled = Bitmap.createScaledBitmap(crop, TEMPLATE_SIZE, TEMPLATE_SIZE, true)  
+            val match = findBestMatch(scaled, tmpl)  
+            if (crop != scaled) crop.recycle()  
+            scaled.recycle()  
+  
+            if (match != null) {  
+                Log.i(TAG, "框选位置$index: 匹配到 baseId=${match.first}, 相似度=${"%.3f".format(match.second)}")  
+                result.add(match.first)  
+            } else {  
+                Log.w(TAG, "框选位置$index: 未匹配到角色")  
+            }  
+        }  
+        return result  
+    }  
+  
+    /** 将区域水平等分为5个正方形（取高度为边长） */  
+    private fun cropByEqualSplit(region: Bitmap): List<Bitmap> {  
+        val h = region.height  
+        val iconSize = h  
+        val totalW = region.width  
+        if (totalW < iconSize) return emptyList()  
+  
+        val crops = mutableListOf<Bitmap>()  
+        val count = 5  
+        val spacing = (totalW - iconSize).toFloat() / (count - 1).coerceAtLeast(1)  
+  
+        for (i in 0 until count) {  
+            val left = (i * spacing).toInt().coerceIn(0, totalW - iconSize)  
+            val w = iconSize.coerceAtMost(totalW - left)  
+            if (w > 0 && h > 0) {  
+                try {  
+                    crops.add(Bitmap.createBitmap(region, left, 0, w, h))  
+                } catch (e: Exception) {  
+                    Log.w(TAG, "等分裁剪$i 失败", e)  
+                }  
+            }  
+        }  
+        return crops  
+    }
+	
     // ======================== 调试图片保存 ========================  
   
     /**  

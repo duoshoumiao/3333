@@ -68,7 +68,7 @@ class CropSelectionOverlay(
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER  
             setBackgroundColor(0xCC222222.toInt())  
-            setPadding(dp(16).toInt(), dp(10).toInt(), dp(16).toInt(), dp(10).toInt())  
+            setPadding(dp(16f).toInt(), dp(10f).toInt(), dp(16f).toInt(), dp(10f).toInt())  
         }  
   
         val hintText = TextView(context).apply {  
@@ -82,7 +82,7 @@ class CropSelectionOverlay(
             text = "取消"  
             setTextColor(Color.LTGRAY)  
             textSize = 15f  
-            setPadding(dp(16).toInt(), dp(8).toInt(), dp(16).toInt(), dp(8).toInt())  
+            setPadding(dp(16f).toInt(), dp(8f).toInt(), dp(16f).toInt(), dp(8f).toInt()) 
             setOnClickListener { onCancel() }  
         }  
   
@@ -90,7 +90,7 @@ class CropSelectionOverlay(
             text = "确认"  
             setTextColor(0xFF90CAF9.toInt())  
             textSize = 15f  
-            setPadding(dp(16).toInt(), dp(8).toInt(), dp(16).toInt(), dp(8).toInt())  
+            setPadding(dp(16f).toInt(), dp(8f).toInt(), dp(16f).toInt(), dp(8f).toInt())
             setOnClickListener {  
                 if (selectionRect.width() > 20 && selectionRect.height() > 20) {  
                     // 将屏幕坐标转换回截图坐标  
