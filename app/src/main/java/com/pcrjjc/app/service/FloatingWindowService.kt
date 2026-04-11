@@ -6,8 +6,12 @@ import android.content.Context
 import android.content.Intent  
 import android.graphics.Bitmap  
 import android.graphics.BitmapFactory  
+import android.graphics.Canvas  
 import android.graphics.Color  
+import android.graphics.Paint  
 import android.graphics.PixelFormat  
+import android.graphics.Rect  
+import android.graphics.RectF  
 import android.os.Handler  
 import android.os.IBinder  
 import android.os.Looper  
@@ -40,7 +44,6 @@ class FloatingWindowService : Service() {
   
     companion object {  
         private const val TAG = "FloatingWindow"  
-  
         @Volatile  
         var isRunning = false  
             private set  
@@ -49,6 +52,7 @@ class FloatingWindowService : Service() {
     private lateinit var windowManager: WindowManager  
     private var floatButton: View? = null  
     private var resultPanel: View? = null  
+    private var cropOverlay: View? = null  
     private val scope = CoroutineScope(Dispatchers.Main + Job())  
     private val handler = Handler(Looper.getMainLooper())  
   
@@ -71,6 +75,7 @@ class FloatingWindowService : Service() {
         isRunning = false  
         removeFloatButton()  
         removeResultPanel()  
+        removeCropOverlay()  
         scope.cancel()  
     }  
   
@@ -83,7 +88,7 @@ class FloatingWindowService : Service() {
             textSize = 18f  
             setTextColor(Color.WHITE)  
             gravity = Gravity.CENTER  
-            setBackgroundColor(0xDD3F51B5.toInt()) // Material Indigo with alpha  
+            setBackgroundColor(0xDD3F51B5.toInt())  
             setPadding(dp(4), dp(4), dp(4), dp(4))  
         }  
   
@@ -100,7 +105,6 @@ class FloatingWindowService : Service() {
             y = dp(200)  
         }  
   
-        // 拖动 + 点击 + 长按  
         var initialX = 0  
         var initialY = 0  
         var initialTouchX = 0f  
@@ -137,9 +141,7 @@ class FloatingWindowService : Service() {
                 }  
                 MotionEvent.ACTION_UP -> {  
                     handler.removeCallbacks(longPressRunnable)  
-                    if (!isDragging) {  
-                        onFloatButtonClick()  
-                    }  
+                    if (!isDragging) onFloatButtonClick()  
                     true  
                 }  
                 else -> false  
@@ -157,98 +159,369 @@ class FloatingWindowService : Service() {
         floatButton = null  
     }  
   
-    // ======================== 截图 + 识别 + 查询 ========================  
+    // ======================== 截图 → 框选 ========================  
   
     private fun onFloatButtonClick() {  
-        // 隐藏浮窗按钮，避免截到自己  
         floatButton?.visibility = View.INVISIBLE  
         removeResultPanel()  
   
         handler.postDelayed({  
             scope.launch {  
                 try {  
-                    doScreenshotAndQuery()  
+                    val captureService = ScreenCaptureService.instance  
+                    if (captureService == null) {  
+                        withContext(Dispatchers.Main) {  
+                            Toast.makeText(this@FloatingWindowService, "截图服务未运行", Toast.LENGTH_SHORT).show()  
+                            floatButton?.visibility = View.VISIBLE  
+                        }  
+                        return@launch  
+                    }  
+  
+                    val screenshot = withContext(Dispatchers.IO) { captureService.captureScreen() }  
+                    if (screenshot == null) {  
+                        withContext(Dispatchers.Main) {  
+                            Toast.makeText(this@FloatingWindowService, "截图失败，请重试", Toast.LENGTH_SHORT).show()  
+                            floatButton?.visibility = View.VISIBLE  
+                        }  
+                        return@launch  
+                    }  
+  
+                    val templateCount = iconRecognizer.getTemplateCount()  
+                    if (templateCount == 0) {  
+                        withContext(Dispatchers.Main) {  
+                            Toast.makeText(this@FloatingWindowService, "本地头像库为空，请先下载角色头像", Toast.LENGTH_LONG).show()  
+                            floatButton?.visibility = View.VISIBLE  
+                        }  
+                        screenshot.recycle()  
+                        return@launch  
+                    }  
+  
+                    // 显示框选界面  
+                    withContext(Dispatchers.Main) {  
+                        showCropSelection(screenshot, templateCount)  
+                    }  
                 } catch (e: Exception) {  
-                    Log.e(TAG, "怎么拆流程出错", e)  
+                    Log.e(TAG, "截图流程出错", e)  
                     withContext(Dispatchers.Main) {  
                         Toast.makeText(this@FloatingWindowService, "出错: ${e.message}", Toast.LENGTH_SHORT).show()  
-                    }  
-                } finally {  
-                    withContext(Dispatchers.Main) {  
                         floatButton?.visibility = View.VISIBLE  
                     }  
                 }  
             }  
-        }, 300) // 延迟300ms确保浮窗已隐藏  
+        }, 300)  
     }  
   
-    private suspend fun doScreenshotAndQuery() {  
-        // 1. 截图  
-        val captureService = ScreenCaptureService.instance  
-        if (captureService == null) {  
-            withContext(Dispatchers.Main) {  
-                Toast.makeText(this@FloatingWindowService, "截图服务未运行", Toast.LENGTH_SHORT).show()  
-            }  
-            return  
+    // ======================== 框选覆盖层 ========================  
+  
+    @SuppressLint("ClickableViewAccessibility")  
+    private fun showCropSelection(screenshot: Bitmap, templateCount: Int) {  
+        val root = FrameLayout(this)  
+  
+        // 自定义绘制 View：显示截图 + 框选矩形  
+        val cropView = CropSelectionView(this, screenshot)  
+        root.addView(cropView, FrameLayout.LayoutParams(  
+            FrameLayout.LayoutParams.MATCH_PARENT,  
+            FrameLayout.LayoutParams.MATCH_PARENT  
+        ))  
+  
+        // 底部按钮栏  
+        val buttonBar = LinearLayout(this).apply {  
+            orientation = LinearLayout.HORIZONTAL  
+            gravity = Gravity.CENTER  
+            setBackgroundColor(0xCC000000.toInt())  
+            setPadding(dp(8), dp(10), dp(8), dp(10))  
         }  
   
-        val screenshot = withContext(Dispatchers.IO) { captureService.captureScreen() }  
-        if (screenshot == null) {  
-            withContext(Dispatchers.Main) {  
-                Toast.makeText(this@FloatingWindowService, "截图失败，请重试", Toast.LENGTH_SHORT).show()  
-            }  
-            return  
+        fun makeBtn(label: String, color: Int): TextView = TextView(this).apply {  
+            text = label  
+            setTextColor(color)  
+            textSize = 14f  
+            setPadding(dp(16), dp(8), dp(16), dp(8))  
+            setBackgroundColor(0xFF333333.toInt())  
         }  
   
-        // 显示加载面板  
-        withContext(Dispatchers.Main) { showLoadingPanel() }  
+        val cancelBtn = makeBtn("取消", Color.LTGRAY)  
+        val confirmBtn = makeBtn("确认框选", 0xFF90CAF9.toInt())  
+        val autoBtn = makeBtn("自动识别", 0xFF81C784.toInt())  
   
-        // 2. 检查模板库  
-        val templateCount = iconRecognizer.getTemplateCount()  
-        if (templateCount == 0) {  
-            withContext(Dispatchers.Main) {  
-                removeResultPanel()  
-                Toast.makeText(this@FloatingWindowService, "本地头像库为空，请先在设置中下载角色头像", Toast.LENGTH_LONG).show()  
-            }  
+        cancelBtn.setOnClickListener {  
+            removeCropOverlay()  
             screenshot.recycle()  
-            return  
+            floatButton?.visibility = View.VISIBLE  
         }  
   
-        // 3. 识别角色  
-        val screenW = captureService.getScreenWidth()  
-        val screenH = captureService.getScreenHeight()  
-        Log.i(TAG, "开始识别，模板数=$templateCount, 截图=${screenshot.width}x${screenshot.height}, 屏幕=${screenW}x${screenH}")  
-        val recognized = withContext(Dispatchers.IO) {  
-            iconRecognizer.recognize(screenshot, screenW, screenH)  
-        }  
-        screenshot.recycle()  
-  
-        if (recognized.isEmpty()) {  
-            withContext(Dispatchers.Main) {  
-                removeResultPanel()  
-                Toast.makeText(  
-                    this@FloatingWindowService,  
-                    "未识别到角色（已加载${templateCount}个模板）\n请确认在竞技场对战界面使用",  
-                    Toast.LENGTH_LONG  
-                ).show()  
+        confirmBtn.setOnClickListener {  
+            val sel = cropView.getSelectionInBitmapCoords()  
+            if (sel == null || sel.width() < 20 || sel.height() < 20) {  
+                Toast.makeText(this, "请先在截图上拖动框选头像区域", Toast.LENGTH_SHORT).show()  
+                return@setOnClickListener  
             }  
-            return  
+            removeCropOverlay()  
+            onCropConfirmed(screenshot, sel, templateCount)  
         }  
   
-        Log.i(TAG, "识别到角色: $recognized")  
-  
-        // 4. 查询怎么拆  
-        val results = withContext(Dispatchers.IO) {  
-            arenaClient.query(recognized, region = 2) // 默认B服  
+        autoBtn.setOnClickListener {  
+            removeCropOverlay()  
+            onAutoRecognize(screenshot, templateCount)  
         }  
   
-        // 5. 显示结果  
-        withContext(Dispatchers.Main) {  
-            removeResultPanel()  
-            if (results.isEmpty()) {  
-                Toast.makeText(this@FloatingWindowService, "未找到进攻阵容推荐", Toast.LENGTH_SHORT).show()  
+        val spacer = { View(this).apply {  
+            layoutParams = LinearLayout.LayoutParams(dp(12), 1)  
+        }}  
+        buttonBar.addView(cancelBtn)  
+        buttonBar.addView(spacer())  
+        buttonBar.addView(confirmBtn)  
+        buttonBar.addView(spacer())  
+        buttonBar.addView(autoBtn)  
+  
+        root.addView(buttonBar, FrameLayout.LayoutParams(  
+            FrameLayout.LayoutParams.MATCH_PARENT,  
+            FrameLayout.LayoutParams.WRAP_CONTENT  
+        ).apply { gravity = Gravity.BOTTOM })  
+  
+        // 提示文字  
+        val hint = TextView(this).apply {  
+            text = "拖动框选防守阵容头像区域"  
+            setTextColor(Color.WHITE)  
+            textSize = 14f  
+            setBackgroundColor(0x88000000.toInt())  
+            setPadding(dp(12), dp(6), dp(12), dp(6))  
+        }  
+        root.addView(hint, FrameLayout.LayoutParams(  
+            FrameLayout.LayoutParams.WRAP_CONTENT,  
+            FrameLayout.LayoutParams.WRAP_CONTENT  
+        ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; topMargin = dp(16) })  
+  
+        val params = WindowManager.LayoutParams(  
+            WindowManager.LayoutParams.MATCH_PARENT,  
+            WindowManager.LayoutParams.MATCH_PARENT,  
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or  
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,  
+            PixelFormat.TRANSLUCENT  
+        ).apply { gravity = Gravity.TOP or Gravity.START }  
+  
+        windowManager.addView(root, params)  
+        cropOverlay = root  
+    }  
+  
+    private fun removeCropOverlay() {  
+        cropOverlay?.let {  
+            try { windowManager.removeView(it) } catch (_: Exception) {}  
+        }  
+        cropOverlay = null  
+    }
+// ======================== CropSelectionView 内部类 ========================  
+  
+    @SuppressLint("ViewConstructor")  
+    private class CropSelectionView(  
+        context: Context,  
+        private val screenshot: Bitmap  
+    ) : View(context) {  
+  
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)  
+        private val dimPaint = Paint().apply { color = 0x88000000.toInt() }  
+        private val rectPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {  
+            color = 0xFF00BFFF.toInt()  
+            style = Paint.Style.STROKE  
+            strokeWidth = 4f  
+        }  
+  
+        // 截图绘制区域（View 坐标系）  
+        private var drawRect = RectF()  
+        private var scaleX = 1f  
+        private var scaleY = 1f  
+  
+        // 用户框选（View 坐标系）  
+        private var selStart: PointF? = null  
+        private var selEnd: PointF? = null  
+        private var selRect: RectF? = null  
+  
+        private class PointF(val x: Float, val y: Float)  
+  
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {  
+            super.onSizeChanged(w, h, oldw, oldh)  
+            // 计算截图缩放到 View 的映射  
+            val viewRatio = w.toFloat() / h  
+            val bmpRatio = screenshot.width.toFloat() / screenshot.height  
+            if (bmpRatio > viewRatio) {  
+                val drawW = w.toFloat()  
+                val drawH = w / bmpRatio  
+                val top = (h - drawH) / 2  
+                drawRect = RectF(0f, top, drawW, top + drawH)  
             } else {  
-                showResultPanel(recognized, results)  
+                val drawH = h.toFloat()  
+                val drawW = h * bmpRatio  
+                val left = (w - drawW) / 2  
+                drawRect = RectF(left, 0f, left + drawW, drawH)  
+            }  
+            scaleX = screenshot.width / drawRect.width()  
+            scaleY = screenshot.height / drawRect.height()  
+        }  
+  
+        override fun onDraw(canvas: Canvas) {  
+            super.onDraw(canvas)  
+            // 绘制截图  
+            canvas.drawBitmap(screenshot, null, drawRect, paint)  
+            // 半透明遮罩  
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)  
+            // 框选区域（清除遮罩，显示原图）  
+            selRect?.let { r ->  
+                canvas.save()  
+                canvas.clipRect(r)  
+                canvas.drawBitmap(screenshot, null, drawRect, paint)  
+                canvas.restore()  
+                canvas.drawRect(r, rectPaint)  
+            }  
+        }  
+  
+        @SuppressLint("ClickableViewAccessibility")  
+        override fun onTouchEvent(event: MotionEvent): Boolean {  
+            when (event.action) {  
+                MotionEvent.ACTION_DOWN -> {  
+                    selStart = PointF(event.x, event.y)  
+                    selEnd = null  
+                    selRect = null  
+                    invalidate()  
+                }  
+                MotionEvent.ACTION_MOVE -> {  
+                    selEnd = PointF(event.x, event.y)  
+                    val s = selStart ?: return true  
+                    val e = selEnd ?: return true  
+                    selRect = RectF(  
+                        minOf(s.x, e.x), minOf(s.y, e.y),  
+                        maxOf(s.x, e.x), maxOf(s.y, e.y)  
+                    )  
+                    invalidate()  
+                }  
+                MotionEvent.ACTION_UP -> {  
+                    selEnd = PointF(event.x, event.y)  
+                    val s = selStart ?: return true  
+                    val e = selEnd ?: return true  
+                    selRect = RectF(  
+                        minOf(s.x, e.x), minOf(s.y, e.y),  
+                        maxOf(s.x, e.x), maxOf(s.y, e.y)  
+                    )  
+                    invalidate()  
+                }  
+            }  
+            return true  
+        }  
+  
+        /** 将 View 坐标系的框选转换为 Bitmap 坐标系 */  
+        fun getSelectionInBitmapCoords(): Rect? {  
+            val r = selRect ?: return null  
+            val left = ((r.left - drawRect.left) * scaleX).toInt().coerceIn(0, screenshot.width)  
+            val top = ((r.top - drawRect.top) * scaleY).toInt().coerceIn(0, screenshot.height)  
+            val right = ((r.right - drawRect.left) * scaleX).toInt().coerceIn(0, screenshot.width)  
+            val bottom = ((r.bottom - drawRect.top) * scaleY).toInt().coerceIn(0, screenshot.height)  
+            if (right <= left || bottom <= top) return null  
+            return Rect(left, top, right, bottom)  
+        }  
+    }  
+  
+    // ======================== 框选确认后识别 ========================  
+  
+    private fun onCropConfirmed(screenshot: Bitmap, rect: Rect, templateCount: Int) {  
+        scope.launch {  
+            try {  
+                withContext(Dispatchers.Main) { showLoadingPanel() }  
+  
+                val w = rect.width().coerceAtMost(screenshot.width - rect.left)  
+                val h = rect.height().coerceAtMost(screenshot.height - rect.top)  
+                val region = Bitmap.createBitmap(screenshot, rect.left, rect.top, w, h)  
+                Log.i(TAG, "框选区域: ${rect.left},${rect.top} ${w}x${h}")  
+  
+                val recognized = withContext(Dispatchers.IO) {  
+                    iconRecognizer.recognizeFromRegion(region)  
+                }  
+                region.recycle()  
+                screenshot.recycle()  
+  
+                if (recognized.isEmpty()) {  
+                    withContext(Dispatchers.Main) {  
+                        removeResultPanel()  
+                        Toast.makeText(this@FloatingWindowService,  
+                            "未识别到角色（已加载${templateCount}个模板）\n请尝试更精确地框选头像区域",  
+                            Toast.LENGTH_LONG).show()  
+                    }  
+                    return@launch  
+                }  
+  
+                Log.i(TAG, "框选识别到角色: $recognized")  
+                val results = withContext(Dispatchers.IO) {  
+                    arenaClient.query(recognized, region = 2)  
+                }  
+  
+                withContext(Dispatchers.Main) {  
+                    removeResultPanel()  
+                    if (results.isEmpty()) {  
+                        Toast.makeText(this@FloatingWindowService, "未找到进攻阵容推荐", Toast.LENGTH_SHORT).show()  
+                    } else {  
+                        showResultPanel(recognized, results)  
+                    }  
+                }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "框选识别出错", e)  
+                withContext(Dispatchers.Main) {  
+                    removeResultPanel()  
+                    Toast.makeText(this@FloatingWindowService, "出错: ${e.message}", Toast.LENGTH_SHORT).show()  
+                }  
+                screenshot.recycle()  
+            } finally {  
+                withContext(Dispatchers.Main) { floatButton?.visibility = View.VISIBLE }  
+            }  
+        }  
+    }  
+  
+    // ======================== 自动识别（不框选） ========================  
+  
+    private fun onAutoRecognize(screenshot: Bitmap, templateCount: Int) {  
+        scope.launch {  
+            try {  
+                withContext(Dispatchers.Main) { showLoadingPanel() }  
+  
+                val screenW = ScreenCaptureService.instance?.getScreenWidth() ?: screenshot.width  
+                val screenH = ScreenCaptureService.instance?.getScreenHeight() ?: screenshot.height  
+                Log.i(TAG, "自动识别, 模板数=$templateCount, 截图=${screenshot.width}x${screenshot.height}")  
+  
+                val recognized = withContext(Dispatchers.IO) {  
+                    iconRecognizer.recognize(screenshot, screenW, screenH)  
+                }  
+                screenshot.recycle()  
+  
+                if (recognized.isEmpty()) {  
+                    withContext(Dispatchers.Main) {  
+                        removeResultPanel()  
+                        Toast.makeText(this@FloatingWindowService,  
+                            "未识别到角色（已加载${templateCount}个模板）\n请在竞技场对战界面使用，或尝试手动框选",  
+                            Toast.LENGTH_LONG).show()  
+                    }  
+                    return@launch  
+                }  
+  
+                Log.i(TAG, "自动识别到角色: $recognized")  
+                val results = withContext(Dispatchers.IO) {  
+                    arenaClient.query(recognized, region = 2)  
+                }  
+  
+                withContext(Dispatchers.Main) {  
+                    removeResultPanel()  
+                    if (results.isEmpty()) {  
+                        Toast.makeText(this@FloatingWindowService, "未找到进攻阵容推荐", Toast.LENGTH_SHORT).show()  
+                    } else {  
+                        showResultPanel(recognized, results)  
+                    }  
+                }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "自动识别出错", e)  
+                withContext(Dispatchers.Main) {  
+                    removeResultPanel()  
+                    Toast.makeText(this@FloatingWindowService, "出错: ${e.message}", Toast.LENGTH_SHORT).show()  
+                }  
+                screenshot.recycle()  
+            } finally {  
+                withContext(Dispatchers.Main) { floatButton?.visibility = View.VISIBLE }  
             }  
         }  
     }  
@@ -279,9 +552,7 @@ class FloatingWindowService : Service() {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
-        ).apply {  
-            gravity = Gravity.CENTER  
-        }  
+        ).apply { gravity = Gravity.CENTER }  
   
         windowManager.addView(panel, params)  
         resultPanel = panel  
@@ -298,7 +569,6 @@ class FloatingWindowService : Service() {
             setPadding(dp(12), dp(8), dp(12), dp(8))  
         }  
   
-        // 标题栏  
         val titleRow = LinearLayout(ctx).apply {  
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER_VERTICAL  
@@ -320,11 +590,9 @@ class FloatingWindowService : Service() {
         titleRow.addView(closeBtn)  
         root.addView(titleRow)  
   
-        // 防守阵容头像行  
         val defRow = createIconRow(ctx, defenseIds)  
         root.addView(defRow)  
   
-        // 分割线  
         val divider = View(ctx).apply {  
             setBackgroundColor(Color.GRAY)  
             layoutParams = LinearLayout.LayoutParams(  
@@ -333,16 +601,11 @@ class FloatingWindowService : Service() {
         }  
         root.addView(divider)  
   
-        // 结果列表（可滚动）  
         val scrollView = ScrollView(ctx).apply {  
             layoutParams = LinearLayout.LayoutParams(  
-                ViewGroup.LayoutParams.MATCH_PARENT,  
-                dp(280)  
-            )  
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(280))  
         }  
-        val listLayout = LinearLayout(ctx).apply {  
-            orientation = LinearLayout.VERTICAL  
-        }  
+        val listLayout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }  
   
         val maxResults = minOf(results.size, 10)  
         for (i in 0 until maxResults) {  
@@ -352,20 +615,17 @@ class FloatingWindowService : Service() {
                 setPadding(0, dp(4), 0, dp(4))  
             }  
   
-            // 进攻头像行  
             val atkRow = createIconRow(ctx, r.atkUnits)  
             itemLayout.addView(atkRow)  
   
-            // 赞踩信息  
             val infoText = TextView(ctx).apply {  
-                text = "👍${r.upVote}  👎${r.downVote}  评分:${"%.1f".format(r.score)}"  
+                text = "\uD83D\uDC4D${r.upVote}  \uD83D\uDC4E${r.downVote}  评分:${"%.1f".format(r.score)}"  
                 setTextColor(Color.LTGRAY)  
                 textSize = 11f  
                 setPadding(0, dp(2), 0, 0)  
             }  
             itemLayout.addView(infoText)  
   
-            // 条目分割线  
             if (i < maxResults - 1) {  
                 val itemDivider = View(ctx).apply {  
                     setBackgroundColor(0xFF444444.toInt())  
@@ -382,7 +642,6 @@ class FloatingWindowService : Service() {
         scrollView.addView(listLayout)  
         root.addView(scrollView)  
   
-        // 底部按钮行  
         val bottomRow = LinearLayout(ctx).apply {  
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER  
@@ -409,23 +668,17 @@ class FloatingWindowService : Service() {
         bottomRow.addView(closeBtn2)  
         root.addView(bottomRow)  
   
-        // 添加到窗口  
         val params = WindowManager.LayoutParams(  
             dp(320), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
-        ).apply {  
-            gravity = Gravity.CENTER  
-        }  
+        ).apply { gravity = Gravity.CENTER }  
   
         windowManager.addView(root, params)  
         resultPanel = root  
     }  
   
-    /**  
-     * 创建一行角色头像 ImageView  
-     */  
     private fun createIconRow(ctx: Context, baseIds: List<Int>): HorizontalScrollView {  
         val hsv = HorizontalScrollView(ctx)  
         val row = LinearLayout(ctx).apply {  
@@ -443,7 +696,6 @@ class FloatingWindowService : Service() {
                 setBackgroundColor(0xFF333333.toInt())  
             }  
   
-            // 从本地加载头像  
             val iconPath = IconStorage.getIconPath(ctx, id, 6)  
                 ?: IconStorage.getIconPath(ctx, id, 3)  
             if (iconPath != null) {  
@@ -465,11 +717,8 @@ class FloatingWindowService : Service() {
     }  
   
     private fun setPlaceholderText(iv: ImageView, baseId: Int) {  
-        // 没有本地头像时显示ID  
         iv.setImageDrawable(null)  
         iv.setBackgroundColor(0xFF555555.toInt())  
-        // ImageView 不能直接显示文字，用 FrameLayout 包裹  
-        // 简化处理：直接设置 contentDescription  
         iv.contentDescription = baseId.toString()  
     }  
   
@@ -488,4 +737,4 @@ class FloatingWindowService : Service() {
             resources.displayMetrics  
         ).toInt()  
     }  
-}
+}	
