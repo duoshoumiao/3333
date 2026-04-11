@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size  
 import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.rememberScrollState  
-import androidx.compose.foundation.shape.RoundedCornerShape  
 import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
-import androidx.compose.material.icons.filled.Face  
 import androidx.compose.material.icons.filled.Refresh  
 import androidx.compose.material3.Button  
 import androidx.compose.material3.Card  
@@ -35,18 +33,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
-import androidx.compose.ui.draw.clip  
-import androidx.compose.ui.layout.ContentScale  
-import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.text.font.FontWeight  
-import androidx.compose.ui.unit.Dp  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
-import coil.compose.AsyncImage  
-import coil.compose.SubcomposeAsyncImage  
-import coil.imageLoader  
-import coil.request.CachePolicy  
-import coil.request.ImageRequest  
 import java.text.SimpleDateFormat  
 import java.util.Date  
 import java.util.Locale  
@@ -80,110 +69,6 @@ private fun getSupportUnitInfo(unit: Map<String, Any?>): Triple<String, String, 
     return Triple("$unitId", "$unitLevel", "$promotionLevel")  
 }  
   
-// ==================== 角色图标 URL 生成 ====================  
-  
-/**  
- * 根据6位 unit ID 生成图标 URL  
- * XXXX01 对应 XXXX11(1星) / XXXX31(3星) / XXXX61(6星)  
- * 优先级: 61 > 31 > 11  
- */  
-private const val ICON_BASE_URL = "https://redive.estertion.win/icon/unit/"  
-  
-private fun getIconUrl(unitId: Int, star: Int): String {  
-    val baseId = unitId / 100  // 100101 -> 1001  
-    val starSuffix = when {  
-        star >= 6 -> 6  
-        star >= 3 -> 3  
-        else -> 1  
-    }  
-    return "${ICON_BASE_URL}${baseId}${starSuffix}1.webp"  
-}  
-  
-private fun getPriorityIconUrl(unitId: Int): String {  
-    val baseId = unitId / 100  
-    return "${ICON_BASE_URL}${baseId}61.webp"  
-}  
-  
-private fun getFallbackIconUrl(unitId: Int): String {  
-    val baseId = unitId / 100  
-    return "${ICON_BASE_URL}${baseId}31.webp"  
-}  
-  
-private fun getLastFallbackIconUrl(unitId: Int): String {  
-    val baseId = unitId / 100  
-    return "${ICON_BASE_URL}${baseId}11.webp"  
-}  
-  
-// ==================== UnitIcon 组件 ====================  
-  
-@Composable  
-private fun UnitIcon(  
-    unitId: Int,  
-    modifier: Modifier = Modifier,  
-    size: Dp = 48.dp  
-) {  
-    if (unitId <= 0) return  
-    val context = LocalContext.current  
-    val primaryUrl = getPriorityIconUrl(unitId)  
-    val fallbackUrl = getFallbackIconUrl(unitId)  
-    val lastFallbackUrl = getLastFallbackIconUrl(unitId)  
-  
-    SubcomposeAsyncImage(  
-        model = ImageRequest.Builder(context)  
-            .data(primaryUrl)  
-            .crossfade(true)  
-            .diskCachePolicy(CachePolicy.ENABLED)  
-            .memoryCachePolicy(CachePolicy.ENABLED)  
-            .build(),  
-        contentDescription = "角色头像 $unitId",  
-        modifier = modifier  
-            .size(size)  
-            .clip(RoundedCornerShape(8.dp)),  
-        contentScale = ContentScale.Crop,  
-        loading = {  
-            Box(  
-                modifier = Modifier.size(size),  
-                contentAlignment = Alignment.Center  
-            ) {  
-                CircularProgressIndicator(  
-                    modifier = Modifier.size(size / 3),  
-                    strokeWidth = 2.dp  
-                )  
-            }  
-        },  
-        error = {  
-            // 6星失败 -> 尝试3星  
-            SubcomposeAsyncImage(  
-                model = ImageRequest.Builder(context)  
-                    .data(fallbackUrl)  
-                    .crossfade(true)  
-                    .diskCachePolicy(CachePolicy.ENABLED)  
-                    .build(),  
-                contentDescription = "角色头像 $unitId",  
-                modifier = Modifier  
-                    .size(size)  
-                    .clip(RoundedCornerShape(8.dp)),  
-                contentScale = ContentScale.Crop,  
-                error = {  
-                    // 3星也失败 -> 尝试1星  
-                    AsyncImage(  
-                        model = ImageRequest.Builder(context)  
-                            .data(lastFallbackUrl)  
-                            .crossfade(true)  
-                            .diskCachePolicy(CachePolicy.ENABLED)  
-                            .build(),  
-                        contentDescription = "角色头像 $unitId",  
-                        modifier = Modifier  
-                            .size(size)  
-                            .clip(RoundedCornerShape(8.dp)),  
-                        contentScale = ContentScale.Crop  
-                    )  
-                }  
-            )  
-        }  
-    )  
-}  
-  
 // ==================== 主屏幕 ====================  
   
 @OptIn(ExperimentalMaterial3Api::class)  
@@ -194,7 +79,6 @@ fun DetailScreen(
     onNavigateBack: () -> Unit  
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
-    val context = LocalContext.current  
   
     Scaffold(  
         topBar = {  
@@ -206,14 +90,6 @@ fun DetailScreen(
                     }  
                 },  
                 actions = {  
-                    // 更新头像按钮：清除 Coil 缓存并刷新  
-                    IconButton(onClick = {  
-                        context.imageLoader.diskCache?.clear()  
-                        context.imageLoader.memoryCache?.clear()  
-                        viewModel.retry()  
-                    }) {  
-                        Icon(Icons.Default.Face, contentDescription = "更新头像")  
-                    }  
                     // 刷新按钮  
                     IconButton(onClick = { viewModel.retry() }) {  
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")  
