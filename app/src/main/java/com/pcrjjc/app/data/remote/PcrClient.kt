@@ -53,7 +53,7 @@ class PcrClient(
     private val headers = mutableMapOf(  
         "User-Agent" to "Dalvik/2.1.0 (Linux, U, Android 5.1.1, PCRT00 Build/LMY48Z)",  
         "X-Unity-Version" to "2018.4.30f1",  
-        "APP-VER" to "11.4.0",                    // ★ 修改1：11.7.1 → 11.4.0  
+        "APP-VER" to "11.7.1",  
         "BATTLE-LOGIC-VERSION" to "4",  
         "BUNDLE-VER" to "",  
         "DEVICE" to "2",  
@@ -109,8 +109,7 @@ class PcrClient(
                     val body = if (crypted) {  
                         CryptoUtils.pack(request, key)  
                     } else {  
-                        // ★ 修改2：用 JSONObject 生成合法 JSON，而非 Kotlin Map.toString()  
-                        org.json.JSONObject(request).toString().toByteArray(Charsets.UTF_8)  
+                        request.toString().toByteArray(Charsets.UTF_8)  
                     }  
   
                     val requestBuilder = Request.Builder()  
@@ -124,57 +123,56 @@ class PcrClient(
                         ?: throw ApiException("Empty response", 500)  
   
                     val parsed = if (crypted) {  
-                        CryptoUtils.unpack(responseBody).first  
-                    } else {  
-                        val jsonStr = String(responseBody, Charsets.UTF_8)  
-                        parseJsonToMap(jsonStr)  
-                    }  
-  
-                    // ★ 修改3（核心）：非加密响应是扁平 JSON，直接返回完整结果  
-                    if (!crypted) {  
-                        return@withLock parsed  
-                    }  
-  
-                    // 以下仅处理加密响应（有 data_headers / data 结构）  
-                    val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()  
-  
-                    dataHeaders["viewer_id"]?.let {  
-                        val vid = (it as? Number)?.toLong() ?: it.toString().toLongOrNull()  
-                        if (vid != null) {  
-                            this.viewerId = vid  
-                        }  
-                    }  
-  
-                    // Update SID  
-                    val sid = dataHeaders["sid"]?.toString()  
-                    if (!sid.isNullOrEmpty()) {  
-                        val md5 = MessageDigest.getInstance("MD5")  
-                        md5.update((sid + "c!SID!n").toByteArray(Charsets.UTF_8))  
-                        headers["SID"] = md5.digest().joinToString("") { "%02x".format(it) }  
-                    }  
-  
-                    dataHeaders["request_id"]?.let {  
-                        headers["REQUEST-ID"] = it.toString()  
-                    }  
-  
-                    val storeUrl = dataHeaders["store_url"]?.toString()  
-                    if (storeUrl != null) {  
-                        val match = Regex("_v?(\\d+\\.\\d+\\.\\d+).*?_").find(storeUrl)  
-                        match?.let { headers["APP-VER"] = it.groupValues[1] }  
-                    }  
-  
-                    val data = parsed["data"] as? Map<String, Any?> ?: emptyMap()  
-  
-                    if (!noerr && data.containsKey("server_error")) {  
-                        val error = data["server_error"] as? Map<String, Any?> ?: emptyMap()  
-                        Log.i(TAG, "$apiUrl api failed $error")  
-                        throw ApiException(  
-                            error["message"]?.toString() ?: "Unknown error",  
-                            (error["status"] as? Number)?.toInt() ?: 500  
-                        )  
-                    }  
-  
-                    return@withLock data  
+						CryptoUtils.unpack(responseBody).first  
+					} else {  
+						val jsonStr = String(responseBody, Charsets.UTF_8)  
+						parseJsonToMap(jsonStr)  
+					}  
+					  
+					if (crypted) {  
+						// 加密响应有 data_headers / data 结构  
+						val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()  
+					  
+						dataHeaders["viewer_id"]?.let {  
+							val vid = (it as? Number)?.toLong() ?: it.toString().toLongOrNull()  
+							if (vid != null) {  
+								this.viewerId = vid  
+							}  
+						}  
+					  
+						val sid = dataHeaders["sid"]?.toString()  
+						if (!sid.isNullOrEmpty()) {  
+							val md5 = MessageDigest.getInstance("MD5")  
+							md5.update((sid + "c!SID!n").toByteArray(Charsets.UTF_8))  
+							headers["SID"] = md5.digest().joinToString("") { "%02x".format(it) }  
+						}  
+					  
+						dataHeaders["request_id"]?.let {  
+							headers["REQUEST-ID"] = it.toString()  
+						}  
+					  
+						val storeUrl = dataHeaders["store_url"]?.toString()  
+						if (storeUrl != null) {  
+							val match = Regex("_v?(\\d+\\.\\d+\\.\\d+).*?_").find(storeUrl)  
+							match?.let { headers["APP-VER"] = it.groupValues[1] }  
+						}  
+					  
+						val data = parsed["data"] as? Map<String, Any?> ?: emptyMap()  
+					  
+						if (!noerr && data.containsKey("server_error")) {  
+							val error = data["server_error"] as? Map<String, Any?> ?: emptyMap()  
+							Log.i(TAG, "$apiUrl api failed $error")  
+							throw ApiException(  
+								error["message"]?.toString() ?: "Unknown error",  
+								(error["status"] as? Number)?.toInt() ?: 500  
+							)  
+						}  
+					  
+						return@withLock data  
+					} else {  
+						// 非加密响应（如 get_maintenance_status）是扁平 JSON，直接返回  
+						return@withLock parsed  
+					}  
                 } catch (e: java.net.SocketTimeoutException) {  
                     lastException = e  
                     if (attempt < maxRetries - 1) {  
@@ -206,11 +204,7 @@ class PcrClient(
 		headers.remove("REQUEST-ID")  
 		  
 		val manifest = callApi("/source_ini/get_maintenance_status?format=json", mutableMapOf(), crypted = false)  
-		val ver = manifest["required_manifest_ver"]?.toString()  
-		if (ver.isNullOrEmpty()) {  
-		    Log.e(TAG, "No manifest_ver in response, manifest=$manifest")  
-		    throw ApiException("获取版本信息失败(No manifest_ver)，服务器可能在维护中", 503)  
-		}  
+		val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
 		headers["MANIFEST-VER"] = ver  
 		  
 		val lres = callApi("/tool/sdk_login", mutableMapOf(  
@@ -241,11 +235,7 @@ class PcrClient(
             mutableMapOf(), crypted = false  
         )  
   
-        val ver = manifest["required_manifest_ver"]?.toString()  
-        if (ver.isNullOrEmpty()) {  
-            Log.e(TAG, "No manifest_ver in response, manifest=$manifest")  
-            throw ApiException("获取版本信息失败(No manifest_ver)，服务器可能在维护中", 503)  
-        }  
+        val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
         Log.i(TAG, "using manifest ver = $ver")  
         headers["MANIFEST-VER"] = ver  
   
@@ -288,7 +278,6 @@ class PcrClient(
             val jsonObj = org.json.JSONObject(json)  
             return jsonToMap(jsonObj)  
         } catch (e: Exception) {  
-            Log.e(TAG, "Failed to parse JSON response: $json", e)  
             return mapOf("raw" to json)  
         }  
     }  
