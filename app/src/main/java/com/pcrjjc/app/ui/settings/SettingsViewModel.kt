@@ -43,7 +43,6 @@ data class SettingsUiState(
     val downloadProgress: Float = 0f,  
     val updateMessage: String? = null,  
     val updateInfo: UpdateInfo? = null,  
-    // 头像下载状态  
     val isDownloadingAvatars: Boolean = false,  
     val avatarDownloadProgress: Float = 0f,  
     val avatarDownloadMessage: String? = null  
@@ -88,9 +87,7 @@ class SettingsViewModel @Inject constructor(
         val input = _uiState.value.pollingIntervalInput  
         val seconds = input.toLongOrNull()  
         if (seconds == null || seconds < 1) {  
-            _uiState.value = _uiState.value.copy(  
-                intervalSaved = false  
-            )  
+            _uiState.value = _uiState.value.copy(intervalSaved = false)  
             return  
         }  
         viewModelScope.launch {  
@@ -155,8 +152,7 @@ class SettingsViewModel @Inject constructor(
                     val baseUrl = "https://redive.estertion.win/icon/unit/"  
                     val stars = listOf(6, 3, 1)  
   
-                    // 构建待下载列表，跳过已缓存的  
-                    val toDownload = mutableListOf<Pair<Int, Int>>() // (baseId, star)  
+                    val toDownload = mutableListOf<Pair<Int, Int>>()  
                     for (baseId in 1001..1899) {  
                         for (star in stars) {  
                             if (!IconStorage.hasIcon(context, baseId, star)) {  

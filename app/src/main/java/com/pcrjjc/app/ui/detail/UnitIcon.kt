@@ -30,7 +30,6 @@ fun UnitIcon(
 ) {  
     val context = LocalContext.current  
   
-    // 仅使用本地缓存的图标  
     val localPath: String? = CharaIconUtil.getLocalIconPath(context, unitId)  
     val localFallback: String? = CharaIconUtil.getLocalFallbackPath(context, unitId)  
   
@@ -52,7 +51,6 @@ fun UnitIcon(
                 IconPlaceholder(size = size)  
             },  
             error = {  
-                // 主图标加载失败，尝试本地回退图标  
                 if (localFallback != null) {  
                     val fallbackFile = File(localFallback)  
                     AsyncImage(  
@@ -73,7 +71,6 @@ fun UnitIcon(
             }  
         )  
     } else if (localFallback != null) {  
-        // 无主图标但有回退图标  
         val fallbackFile = File(localFallback)  
         SubcomposeAsyncImage(  
             model = ImageRequest.Builder(context)  
@@ -95,7 +92,6 @@ fun UnitIcon(
             }  
         )  
     } else {  
-        // 本地无任何缓存，显示占位符  
         IconPlaceholder(  
             size = size,  
             modifier = modifier  
