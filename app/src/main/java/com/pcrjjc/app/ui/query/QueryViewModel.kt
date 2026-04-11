@@ -85,7 +85,7 @@ class QueryViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)  
   
             try {  
-                val accounts = accountDao.getAccountsByPlatform(bind.platform)  
+                val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)
                 if (accounts.isEmpty()) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
@@ -139,7 +139,7 @@ class QueryViewModel @Inject constructor(
                 }  
             } catch (e: Throwable) {  
                 try {  
-                    val accounts = accountDao.getAccountsByPlatform(bind.platform)  
+                    val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)
                     if (accounts.isNotEmpty()) {  
                         clientManager.clearClient(accounts.first().id)  
                     }  

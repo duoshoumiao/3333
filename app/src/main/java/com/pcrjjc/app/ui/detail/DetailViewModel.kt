@@ -95,7 +95,7 @@ class DetailViewModel @Inject constructor(
   
                 _uiState.value = _uiState.value.copy(bind = bind)  
   
-                val accounts = accountDao.getAccountsByPlatform(bind.platform)  
+                val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)
                 if (accounts.isEmpty()) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
