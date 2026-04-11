@@ -100,12 +100,17 @@ class FloatingWindowService : Service() {
             y = dp(200)  
         }  
   
-        // 拖动 + 点击  
+        // 拖动 + 点击 + 长按  
         var initialX = 0  
         var initialY = 0  
         var initialTouchX = 0f  
         var initialTouchY = 0f  
         var isDragging = false  
+        val longPressRunnable = Runnable {  
+            Toast.makeText(this, "怎么拆浮窗已关闭", Toast.LENGTH_SHORT).show()  
+            stopService(Intent(this, ScreenCaptureService::class.java))  
+            stopSelf()  
+        }  
   
         button.setOnTouchListener { _, event ->  
             when (event.action) {  
@@ -115,18 +120,23 @@ class FloatingWindowService : Service() {
                     initialTouchX = event.rawX  
                     initialTouchY = event.rawY  
                     isDragging = false  
+                    handler.postDelayed(longPressRunnable, 800)  
                     true  
                 }  
                 MotionEvent.ACTION_MOVE -> {  
                     val dx = event.rawX - initialTouchX  
                     val dy = event.rawY - initialTouchY  
-                    if (dx * dx + dy * dy > 25) isDragging = true  
+                    if (dx * dx + dy * dy > 25) {  
+                        isDragging = true  
+                        handler.removeCallbacks(longPressRunnable)  
+                    }  
                     params.x = initialX + dx.toInt()  
                     params.y = initialY + dy.toInt()  
                     windowManager.updateViewLayout(button, params)  
                     true  
                 }  
                 MotionEvent.ACTION_UP -> {  
+                    handler.removeCallbacks(longPressRunnable)  
                     if (!isDragging) {  
                         onFloatButtonClick()  
                     }  
@@ -134,14 +144,6 @@ class FloatingWindowService : Service() {
                 }  
                 else -> false  
             }  
-        }  
-  
-        // 长按关闭  
-        button.setOnLongClickListener {  
-            stopSelf()  
-            // 同时停止截图服务  
-            stopService(Intent(this, ScreenCaptureService::class.java))  
-            true  
         }  
   
         windowManager.addView(button, params)  
@@ -201,9 +203,21 @@ class FloatingWindowService : Service() {
         // 显示加载面板  
         withContext(Dispatchers.Main) { showLoadingPanel() }  
   
-        // 2. 识别角色  
+        // 2. 检查模板库  
+        val templateCount = iconRecognizer.getTemplateCount()  
+        if (templateCount == 0) {  
+            withContext(Dispatchers.Main) {  
+                removeResultPanel()  
+                Toast.makeText(this@FloatingWindowService, "本地头像库为空，请先在设置中下载角色头像", Toast.LENGTH_LONG).show()  
+            }  
+            screenshot.recycle()  
+            return  
+        }  
+  
+        // 3. 识别角色  
         val screenW = captureService.getScreenWidth()  
         val screenH = captureService.getScreenHeight()  
+        Log.i(TAG, "开始识别，模板数=$templateCount, 截图=${screenshot.width}x${screenshot.height}, 屏幕=${screenW}x${screenH}")  
         val recognized = withContext(Dispatchers.IO) {  
             iconRecognizer.recognize(screenshot, screenW, screenH)  
         }  
@@ -212,19 +226,23 @@ class FloatingWindowService : Service() {
         if (recognized.isEmpty()) {  
             withContext(Dispatchers.Main) {  
                 removeResultPanel()  
-                Toast.makeText(this@FloatingWindowService, "未识别到角色，请在竞技场对战界面使用", Toast.LENGTH_LONG).show()  
+                Toast.makeText(  
+                    this@FloatingWindowService,  
+                    "未识别到角色（已加载${templateCount}个模板）\n请确认在竞技场对战界面使用",  
+                    Toast.LENGTH_LONG  
+                ).show()  
             }  
             return  
         }  
   
         Log.i(TAG, "识别到角色: $recognized")  
   
-        // 3. 查询怎么拆  
+        // 4. 查询怎么拆  
         val results = withContext(Dispatchers.IO) {  
             arenaClient.query(recognized, region = 2) // 默认B服  
         }  
   
-        // 4. 显示结果  
+        // 5. 显示结果  
         withContext(Dispatchers.Main) {  
             removeResultPanel()  
             if (results.isEmpty()) {  

@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory  
 import android.util.Log  
 import java.io.File  
-import kotlin.math.abs  
+import java.io.FileOutputStream  
 import kotlin.math.sqrt  
   
 /**  
@@ -18,8 +18,9 @@ class IconRecognizer(private val context: Context) {
     companion object {  
         private const val TAG = "IconRecognizer"  
         private const val TEMPLATE_SIZE = 64 // 模板统一缩放尺寸  
-        private const val MATCH_THRESHOLD = 0.75 // NCC 匹配阈值  
+        private const val MATCH_THRESHOLD = 0.55 // NCC 匹配阈值（从0.75降低到0.55）  
         private const val ICON_DIR = "icons/unit"  
+        private const val DEBUG_DIR = "debug_crops" // 调试用：保存裁剪图片  
     }  
   
     /**  
@@ -28,22 +29,37 @@ class IconRecognizer(private val context: Context) {
     private var templates: Map<Int, Bitmap>? = null  
   
     /**  
+     * 获取已加载的模板数量（用于外部检查）  
+     */  
+    fun getTemplateCount(): Int {  
+        return loadTemplates().size  
+    }  
+  
+    /**  
      * 加载本地头像库作为模板  
      */  
     private fun loadTemplates(): Map<Int, Bitmap> {  
         templates?.let { return it }  
   
         val dir = File(context.filesDir, ICON_DIR)  
-        if (!dir.exists()) return emptyMap()  
+        if (!dir.exists()) {  
+            Log.w(TAG, "头像目录不存在: ${dir.absolutePath}")  
+            return emptyMap()  
+        }  
   
         val result = mutableMapOf<Int, Bitmap>()  
         val files = dir.listFiles() ?: return emptyMap()  
+  
+        Log.i(TAG, "头像目录文件数: ${files.size}, 路径: ${dir.absolutePath}")  
   
         for (file in files) {  
             // 文件名格式: {baseId}_{star}.png  
             val name = file.nameWithoutExtension  
             val parts = name.split("_")  
-            if (parts.size != 2) continue  
+            if (parts.size != 2) {  
+                Log.d(TAG, "跳过非标准文件名: ${file.name}")  
+                continue  
+            }  
   
             val baseId = parts[0].toIntOrNull() ?: continue  
             val star = parts[1].toIntOrNull() ?: continue  
@@ -69,12 +85,9 @@ class IconRecognizer(private val context: Context) {
     /**  
      * 从截图中识别防守阵容角色。  
      *  
-     * 公主连结竞技场界面中，防守阵容的5个头像位于屏幕特定区域。  
-     * 横屏模式下（游戏默认横屏），头像大致在屏幕中上部，水平均匀分布。  
-     *  
      * @param screenshot 全屏截图  
-     * @param screenW 屏幕宽度  
-     * @param screenH 屏幕高度  
+     * @param screenW 屏幕宽度（VirtualDisplay 的宽度）  
+     * @param screenH 屏幕高度（VirtualDisplay 的高度）  
      * @return 识别到的角色 baseId 列表（最多5个）  
      */  
     fun recognize(screenshot: Bitmap, screenW: Int, screenH: Int): List<Int> {  
@@ -84,12 +97,36 @@ class IconRecognizer(private val context: Context) {
             return emptyList()  
         }  
   
+        Log.i(TAG, "截图尺寸: ${screenshot.width}x${screenshot.height}, 屏幕参数: ${screenW}x${screenH}")  
+  
+        // 检测横竖屏：公主连结是横屏游戏，如果截图宽度<高度，说明是竖屏截图  
+        val actualW: Int  
+        val actualH: Int  
+        val actualScreenshot: Bitmap  
+  
+        if (screenshot.width < screenshot.height) {  
+            // 竖屏截图，需要旋转90度或者交换宽高来裁剪  
+            // 实际上 MediaProjection 截图的内容已经是正确的（游戏横屏内容被旋转到竖屏画布上）  
+            // 我们直接用截图的实际尺寸来裁剪  
+            Log.i(TAG, "检测到竖屏截图，使用截图实际尺寸")  
+            actualW = screenshot.width  
+            actualH = screenshot.height  
+            actualScreenshot = screenshot  
+        } else {  
+            actualW = screenshot.width  
+            actualH = screenshot.height  
+            actualScreenshot = screenshot  
+        }  
+  
         // 裁剪5个头像区域  
-        val crops = cropDefenseIcons(screenshot, screenW, screenH)  
+        val crops = cropDefenseIcons(actualScreenshot, actualW, actualH)  
         if (crops.isEmpty()) {  
             Log.w(TAG, "裁剪头像区域失败")  
             return emptyList()  
         }  
+  
+        // 调试：保存截图和裁剪结果到本地  
+        saveDebugImages(actualScreenshot, crops)  
   
         val result = mutableListOf<Int>()  
         for ((index, crop) in crops.withIndex()) {  
@@ -102,7 +139,7 @@ class IconRecognizer(private val context: Context) {
                 Log.i(TAG, "位置$index: 匹配到 baseId=${match.first}, 相似度=${"%.3f".format(match.second)}")  
                 result.add(match.first)  
             } else {  
-                Log.w(TAG, "位置$index: 未匹配到角色")  
+                Log.w(TAG, "位置$index: 未匹配到角色（最佳分数低于阈值 $MATCH_THRESHOLD）")  
             }  
         }  
   
@@ -110,35 +147,94 @@ class IconRecognizer(private val context: Context) {
     }  
   
     /**  
+     * 保存调试图片，方便排查裁剪位置是否正确  
+     */  
+    private fun saveDebugImages(screenshot: Bitmap, crops: List<Bitmap>) {  
+        try {  
+            val debugDir = File(context.filesDir, DEBUG_DIR)  
+            if (!debugDir.exists()) debugDir.mkdirs()  
+  
+            // 保存完整截图（缩小到1/4节省空间）  
+            val smallScreenshot = Bitmap.createScaledBitmap(  
+                screenshot, screenshot.width / 4, screenshot.height / 4, true  
+            )  
+            FileOutputStream(File(debugDir, "screenshot.png")).use { out ->  
+                smallScreenshot.compress(Bitmap.CompressFormat.PNG, 80, out)  
+            }  
+            smallScreenshot.recycle()  
+            Log.i(TAG, "调试截图已保存到: ${debugDir.absolutePath}/screenshot.png")  
+  
+            // 保存每个裁剪区域  
+            for ((i, crop) in crops.withIndex()) {  
+                FileOutputStream(File(debugDir, "crop_$i.png")).use { out ->  
+                    crop.compress(Bitmap.CompressFormat.PNG, 100, out)  
+                }  
+            }  
+            Log.i(TAG, "调试裁剪图已保存到: ${debugDir.absolutePath}/crop_0~4.png")  
+        } catch (e: Exception) {  
+            Log.w(TAG, "保存调试图片失败", e)  
+        }  
+    }  
+  
+    /**  
      * 从截图中裁剪出5个防守角色头像区域。  
      *  
      * 公主连结竞技场对战准备界面（横屏）：  
      * - 对手阵容头像在屏幕上半部分  
-     * - 5个头像水平排列，大致在 y=18%~30%, x 从 28%~72% 均匀分布  
-     * - 每个头像大约占屏幕宽度的 6%  
+     * - 5个头像水平排列  
      *  
-     * 这些比例基于 1920x1080 分辨率的标准布局，其他分辨率按比例缩放。  
+     * 注意：如果截图是竖屏的（宽<高），说明游戏横屏内容被系统旋转了，  
+     * 此时"宽"实际是短边，"高"是长边，裁剪比例需要对应调整。  
      */  
     private fun cropDefenseIcons(screenshot: Bitmap, screenW: Int, screenH: Int): List<Bitmap> {  
-        // 竞技场防守阵容头像位置参数（横屏比例）  
-        val iconCenterYRatio = 0.24f   // 头像中心 Y 比例  
-        val iconSizeRatio = 0.058f     // 头像大小占屏幕宽度比例  
-        val iconStartXRatio = 0.30f    // 第一个头像中心 X 比例  
-        val iconEndXRatio = 0.70f      // 最后一个头像中心 X 比例  
+        val isLandscape = screenW > screenH  
   
-        val iconSize = (screenW * iconSizeRatio).toInt()  
+        // 竞技场防守阵容头像位置参数  
+        val iconCenterYRatio: Float  
+        val iconSizeRatio: Float  
+        val iconStartXRatio: Float  
+        val iconEndXRatio: Float  
+  
+        if (isLandscape) {  
+            // 横屏模式（正常游戏状态）  
+            iconCenterYRatio = 0.24f  
+            iconSizeRatio = 0.058f  
+            iconStartXRatio = 0.30f  
+            iconEndXRatio = 0.70f  
+        } else {  
+            // 竖屏截图（游戏内容被旋转到竖屏画布）  
+            // 横屏的 Y=24% 对应竖屏的 X 方向  
+            // 横屏的 X=30%~70% 对应竖屏的 Y 方向  
+            // 但实际上 MediaProjection 截图内容方向与屏幕一致  
+            // 如果手机竖着但游戏横屏，截图内容仍然是横屏的，只是被放到竖屏画布上  
+            // 游戏内容会在竖屏画布的中间区域，上下有黑边  
+            // 这种情况下，游戏内容的有效区域大约在 y=25%~75%（中间50%）  
+            // 头像在有效区域内的相对位置与横屏相同  
+            iconCenterYRatio = 0.37f  // 0.25 + 0.24 * 0.5 ≈ 0.37  
+            iconSizeRatio = 0.032f    // 横屏的 0.058 * (screenH/screenW 比例调整)  
+            iconStartXRatio = 0.30f  
+            iconEndXRatio = 0.70f  
+        }  
+  
+        Log.i(TAG, "裁剪参数: landscape=$isLandscape, centerY=$iconCenterYRatio, size=$iconSizeRatio, xRange=$iconStartXRatio~$iconEndXRatio")  
+  
+        val iconSize = (screenW * iconSizeRatio).toInt().coerceAtLeast(32)  
         val halfSize = iconSize / 2  
         val centerY = (screenH * iconCenterYRatio).toInt()  
+  
+        Log.i(TAG, "裁剪计算: iconSize=$iconSize, centerY=$centerY, screenW=$screenW, screenH=$screenH")  
   
         val crops = mutableListOf<Bitmap>()  
         for (i in 0 until 5) {  
             val ratio = iconStartXRatio + (iconEndXRatio - iconStartXRatio) * i / 4f  
             val centerX = (screenW * ratio).toInt()  
   
-            val left = (centerX - halfSize).coerceIn(0, screenW - iconSize)  
-            val top = (centerY - halfSize).coerceIn(0, screenH - iconSize)  
-            val w = iconSize.coerceAtMost(screenW - left)  
-            val h = iconSize.coerceAtMost(screenH - top)  
+            val left = (centerX - halfSize).coerceIn(0, screenshot.width - iconSize)  
+            val top = (centerY - halfSize).coerceIn(0, screenshot.height - iconSize)  
+            val w = iconSize.coerceAtMost(screenshot.width - left)  
+            val h = iconSize.coerceAtMost(screenshot.height - top)  
+  
+            Log.d(TAG, "位置$i: centerX=$centerX, left=$left, top=$top, w=$w, h=$h")  
   
             if (w > 0 && h > 0) {  
                 try {  
@@ -167,7 +263,10 @@ class IconRecognizer(private val context: Context) {
         val candMean = candPixels.average()  
         val candStd = stdDev(candPixels, candMean)  
   
-        if (candStd < 1.0) return null // 纯色区域，跳过  
+        if (candStd < 1.0) {  
+            Log.d(TAG, "候选区域为纯色，跳过")  
+            return null  
+        }  
   
         for ((baseId, tmplBmp) in templates) {  
             val tmplPixels = getPixelArray(tmplBmp)  
@@ -190,6 +289,7 @@ class IconRecognizer(private val context: Context) {
             }  
         }  
   
+        Log.d(TAG, "最佳匹配: baseId=$bestId, score=${"%.3f".format(bestScore)}, threshold=$MATCH_THRESHOLD")  
         return if (bestScore >= MATCH_THRESHOLD) Pair(bestId, bestScore) else null  
     }  
   
