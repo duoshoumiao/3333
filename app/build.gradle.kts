@@ -1,4 +1,3 @@
-implementation("io.coil-kt:coil-compose:2.6.0")
 plugins {  
     id("com.android.application")  
     id("org.jetbrains.kotlin.android")  
@@ -90,7 +89,11 @@ dependencies {
   
     // OkHttp  
     implementation("com.squareup.okhttp3:okhttp:4.12.0")  
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") 
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")  
+  
+    // Coil (图片加载)  
+    implementation("io.coil-kt:coil-compose:2.6.0") 
   
     // MessagePack  
     implementation("org.msgpack:msgpack-core:0.9.8")  
