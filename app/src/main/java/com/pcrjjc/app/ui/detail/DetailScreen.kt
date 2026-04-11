@@ -1,6 +1,5 @@
 package com.pcrjjc.app.ui.detail  
   
-import android.widget.Toast  
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Box  
 import androidx.compose.foundation.layout.Column  
@@ -15,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
-import androidx.compose.material.icons.filled.Face  
 import androidx.compose.material.icons.filled.Refresh  
 import androidx.compose.material3.Button  
 import androidx.compose.material3.Card  
@@ -30,12 +28,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TopAppBar  
 import androidx.compose.runtime.Composable  
-import androidx.compose.runtime.LaunchedEffect  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
-import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.text.font.FontWeight  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
@@ -70,6 +66,12 @@ private fun getSupportUnitInfo(unit: Map<String, Any?>): Triple<String, String, 
     return Triple("$unitId", "$unitLevel", "$promotionLevel")  
 }  
   
+@Suppress("UNCHECKED_CAST")  
+private fun getSupportUnitId(unit: Map<String, Any?>): Int {  
+    val unitData = unit["unit_data"] as? Map<String, Any?> ?: return 0  
+    return (unitData["id"] as? Number)?.toInt() ?: 0  
+}  
+  
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
 fun DetailScreen(  
@@ -78,15 +80,6 @@ fun DetailScreen(
     onNavigateBack: () -> Unit  
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
-    val context = LocalContext.current  
-  
-    // 预下载完成后显示 Toast 提示  
-    LaunchedEffect(uiState.preloadProgress, uiState.isPreloadingAvatars) {  
-        if (!uiState.isPreloadingAvatars && uiState.preloadProgress != null) {  
-            Toast.makeText(context, uiState.preloadProgress, Toast.LENGTH_SHORT).show()  
-            viewModel.clearPreloadMessage()  
-        }  
-    }  
   
     Scaffold(  
         topBar = {  
@@ -98,20 +91,6 @@ fun DetailScreen(
                     }  
                 },  
                 actions = {  
-                    // 预下载头像按钮  
-                    IconButton(  
-                        onClick = { viewModel.preloadAvatars(context) },  
-                        enabled = !uiState.isPreloadingAvatars && !uiState.isLoading  
-                    ) {  
-                        if (uiState.isPreloadingAvatars) {  
-                            CircularProgressIndicator(  
-                                modifier = Modifier.size(24.dp),  
-                                strokeWidth = 2.dp  
-                            )  
-                        } else {  
-                            Icon(Icons.Default.Face, contentDescription = "预下载头像")  
-                        }  
-                    }  
                     // 刷新按钮  
                     IconButton(onClick = { viewModel.retry() }) {  
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")  
@@ -285,9 +264,19 @@ private fun FavoriteUnitCard(uiState: DetailUiState) {
             val unitId = (uiState.favoriteUnit["id"] as? Number)?.toInt() ?: 0  
             val unitLevel = (uiState.favoriteUnit["unit_level"] as? Number)?.toInt() ?: 0  
             val unitRarity = (uiState.favoriteUnit["unit_rarity"] as? Number)?.toInt() ?: 0  
-            InfoRow("角色ID", "$unitId")  
-            InfoRow("等级", "$unitLevel")  
-            InfoRow("星级", "$unitRarity")  
+            Row(  
+                verticalAlignment = Alignment.CenterVertically,  
+                horizontalArrangement = Arrangement.spacedBy(12.dp)  
+            ) {  
+                if (unitId > 0) {  
+                    UnitIcon(unitId = unitId, size = 56.dp)  
+                }  
+                Column {  
+                    InfoRow("角色ID", "$unitId")  
+                    InfoRow("等级", "$unitLevel")  
+                    InfoRow("星级", "$unitRarity")  
+                }  
+            }  
         }  
     }  
 }  
@@ -409,16 +398,23 @@ private fun SectionLabel(text: String) {
 private fun SupportUnitRow(unit: Map<String, Any?>) {  
     val (id, level, rank) = getSupportUnitInfo(unit)  
     val pos = (unit["position"] as? Number)?.toInt() ?: 0  
+    val unitId = getSupportUnitId(unit)  
     Row(  
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),  
-        horizontalArrangement = Arrangement.SpaceBetween  
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),  
+        verticalAlignment = Alignment.CenterVertically,  
+        horizontalArrangement = Arrangement.spacedBy(8.dp)  
     ) {  
-        Text(  
-            text = "位置$pos  ID:$id",  
-            style = MaterialTheme.typography.bodyMedium,  
-            color = MaterialTheme.colorScheme.onSurfaceVariant  
-        )  
-        Text(text = "Lv.$level  Rank$rank", style = MaterialTheme.typography.bodyMedium)  
+        if (unitId > 0) {  
+            UnitIcon(unitId = unitId, size = 40.dp)  
+        }  
+        Column(modifier = Modifier.weight(1f)) {  
+            Text(  
+                text = "位置$pos  ID:$id",  
+                style = MaterialTheme.typography.bodyMedium,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant  
+            )  
+            Text(text = "Lv.$level  Rank$rank", style = MaterialTheme.typography.bodyMedium)  
+        }  
     }  
 }  
   
