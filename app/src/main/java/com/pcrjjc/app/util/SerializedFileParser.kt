@@ -19,50 +19,21 @@ data class Texture2DInfo(
   
 /**  
  * 简化的 Unity SerializedFile 解析器  
- * 支持提取 Texture2D 和 TextAsset 对象  
+ * 仅提取 Texture2D 对象的关键字段  
  */  
 object SerializedFileParser {  
     private const val TAG = "SerializedFileParser"  
   
     fun extractTexture2D(data: ByteArray): Texture2DInfo? {  
         try {  
-            return parseSerializedFile(data, targetClassId = 28)  
-                as? Texture2DInfo  
+            return parseSerializedFile(data)  
         } catch (e: Exception) {  
             Log.w(TAG, "Failed to parse serialized file: ${e.message}")  
             return null  
         }  
     }  
   
-    /**  
-     * 从序列化文件中提取 TextAsset 的文本内容  
-     * TextAsset classId = 49  
-     */  
-    fun extractTextAsset(data: ByteArray): String? {  
-        try {  
-            return parseSerializedFile(data, targetClassId = 49)  
-                as? String  
-        } catch (e: Exception) {  
-            Log.w(TAG, "Failed to parse TextAsset: ${e.message}")  
-            return null  
-        }  
-    }  
-  
-    // ===== 内部数据结构 =====  
-  
-    private data class TypeInfo(val classId: Int, val scriptTypeIndex: Short)  
-  
-    private data class ObjectInfo(  
-        val pathId: Long, val byteStart: Long,  
-        val byteSize: Int, val typeIndex: Int  
-    )  
-  
-    /**  
-     * 通用解析入口，根据 targetClassId 返回不同类型的结果  
-     * classId=28 -> Texture2DInfo  
-     * classId=49 -> String (TextAsset 文本内容)  
-     */  
-    private fun parseSerializedFile(data: ByteArray, targetClassId: Int): Any? {  
+    private fun parseSerializedFile(data: ByteArray): Texture2DInfo? {  
         val buf = ByteBuffer.wrap(data)  
   
         // SerializedFile header (big-endian)  
@@ -96,6 +67,7 @@ object SerializedFileParser {
         val typeCount = buf.int  
   
         // 收集类型信息  
+        data class TypeInfo(val classId: Int, val scriptTypeIndex: Short)  
         val types = mutableListOf<TypeInfo>()  
   
         for (i in 0 until typeCount) {  
@@ -118,7 +90,7 @@ object SerializedFileParser {
             if (hasTypeTree) {  
                 val nodeCount = buf.int  
                 val stringSize = buf.int  
-                // skip nodes: each node is 24 bytes  
+                // skip nodes: each node is 24 bytes (version >= 19) or 24 bytes  
                 buf.position(buf.position() + nodeCount * 24 + stringSize)  
                 if (version >= 21) {  
                     buf.position(buf.position() + 4) // type dependencies  
@@ -130,6 +102,10 @@ object SerializedFileParser {
   
         // Object info  
         val objectCount = buf.int  
+        data class ObjectInfo(  
+            val pathId: Long, val byteStart: Long,  
+            val byteSize: Int, val typeIndex: Int  
+        )  
         val objects = mutableListOf<ObjectInfo>()  
   
         for (i in 0 until objectCount) {  
@@ -152,29 +128,25 @@ object SerializedFileParser {
             objects.add(ObjectInfo(pathId, byteStart, byteSize, typeIndex))  
         }  
   
-        // 查找目标 classId 的对象  
+        // 查找 Texture2D 对象 (classId = 28)  
         for (obj in objects) {  
             val typeIdx = obj.typeIndex  
             if (typeIdx < 0 || typeIdx >= types.size) continue  
             val classId = types[typeIdx].classId  
-            if (classId != targetClassId) continue  
+            if (classId != 28) continue // 28 = Texture2D  
   
+            // 读取 Texture2D 数据  
             val objStart = dataOffset + obj.byteStart.toInt()  
             if (objStart + obj.byteSize > data.size) continue  
   
-            val objData = data.copyOfRange(objStart, objStart + obj.byteSize)  
-  
-            return when (targetClassId) {  
-                28 -> readTexture2D(objData, order)  
-                49 -> readTextAsset(objData, order)  
-                else -> null  
-            }  
+            return readTexture2D(  
+                data.copyOfRange(objStart, objStart + obj.byteSize),  
+                order  
+            )  
         }  
   
         return null  
     }  
-  
-    // ===== Texture2D 读取 (classId = 28) =====  
   
     private fun readTexture2D(  
         data: ByteArray, order: ByteOrder  
@@ -200,6 +172,7 @@ object SerializedFileParser {
         val height = buf.int  
         // m_CompleteImageSize  
         buf.int  
+        // m_MipsStripped (version >= 2020.2)  
         // m_TextureFormat  
         val textureFormat = buf.int  
         // m_MipCount  
@@ -207,6 +180,8 @@ object SerializedFileParser {
         // m_IsReadable  
         buf.get()  
         alignStream(buf, 4)  
+        // m_IsPreProcessed (2019.3+)  
+        // m_IgnoreMasterTextureLimit  
         // m_StreamingMipmaps  
         buf.get()  
         alignStream(buf, 4)  
@@ -228,6 +203,7 @@ object SerializedFileParser {
         // m_ColorSpace  
         buf.int  
   
+        // m_PlatformBlob (version >= 2020.2)  
         // image data  
         val imageDataSize = buf.int  
         if (imageDataSize > 0 && buf.remaining() >= imageDataSize) {  
@@ -241,33 +217,6 @@ object SerializedFileParser {
         Log.w(TAG, "Texture2D $name has no inline image data")  
         return null  
     }  
-  
-    // ===== TextAsset 读取 (classId = 49) =====  
-  
-    private fun readTextAsset(  
-        data: ByteArray, order: ByteOrder  
-    ): String? {  
-        val buf = ByteBuffer.wrap(data).order(order)  
-  
-        // m_Name (string: length + chars + align)  
-        val nameLen = buf.int  
-        if (nameLen < 0 || nameLen > data.size) return null  
-        val nameBytes = ByteArray(nameLen)  
-        buf.get(nameBytes)  
-        alignStream(buf, 4)  
-  
-        // m_Script (byte array: length + bytes)  
-        val scriptLen = buf.int  
-        if (scriptLen <= 0 || scriptLen > buf.remaining()) return null  
-        val scriptBytes = ByteArray(scriptLen)  
-        buf.get(scriptBytes)  
-  
-        val text = String(scriptBytes, Charsets.UTF_8)  
-        Log.d(TAG, "TextAsset: ${String(nameBytes)} length=$scriptLen")  
-        return text  
-    }  
-  
-    // ===== 工具方法 =====  
   
     private fun readNullTermString(buf: ByteBuffer): String {  
         val sb = StringBuilder()  
