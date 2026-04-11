@@ -1,8 +1,14 @@
+// app/src/main/java/com/pcrjjc/app/ui/detail/DetailViewModel.kt  
+  
 package com.pcrjjc.app.ui.detail  
   
+import android.content.Context  
 import androidx.lifecycle.SavedStateHandle  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
+import coil.ImageLoader  
+import coil.request.CachePolicy  
+import coil.request.ImageRequest  
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.entity.PcrBind  
@@ -10,6 +16,7 @@ import com.pcrjjc.app.data.remote.BiliAuth
 import com.pcrjjc.app.data.remote.PcrClient  
 import com.pcrjjc.app.data.remote.TwPcrClient  
 import com.pcrjjc.app.domain.QueryEngine  
+import com.pcrjjc.app.util.CharaIconUtil  
 import com.pcrjjc.app.util.KnightRankCalculator  
 import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.lifecycle.HiltViewModel  
@@ -17,7 +24,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.launch  
+import kotlinx.coroutines.suspendCancellableCoroutine  
+import kotlinx.coroutines.withContext  
 import javax.inject.Inject  
+import kotlin.coroutines.resume  
   
 data class DetailUiState(  
     val bind: PcrBind? = null,  
@@ -60,7 +70,10 @@ data class DetailUiState(
     val grandArenaDefenseUnits: List<Map<String, Any?>> = emptyList(),  
     // 状态  
     val isLoading: Boolean = false,  
-    val errorMessage: String? = null  
+    val errorMessage: String? = null,  
+    // 头像预下载状态  
+    val isPreloadingAvatars: Boolean = false,  
+    val preloadProgress: String? = null  
 )  
   
 @HiltViewModel  
@@ -76,6 +89,116 @@ class DetailViewModel @Inject constructor(
   
     init {  
         loadDetail()  
+    }  
+  
+    /**  
+     * 收集当前页面所有需要显示头像的 unitId  
+     */  
+    @Suppress("UNCHECKED_CAST")  
+    private fun collectAllUnitIds(): Set<Int> {  
+        val state = _uiState.value  
+        val unitIds = mutableSetOf<Int>()  
+  
+        // 看板角色  
+        (state.favoriteUnit["id"] as? Number)?.toInt()?.let { unitIds.add(it) }  
+  
+        // 好友支援角色  
+        state.friendSupportUnits.forEach { unit ->  
+            val unitData = unit["unit_data"] as? Map<String, Any?>  
+            (unitData?.get("id") as? Number)?.toInt()?.let { unitIds.add(it) }  
+        }  
+  
+        // 公会支援角色  
+        state.clanSupportUnits.forEach { unit ->  
+            val unitData = unit["unit_data"] as? Map<String, Any?>  
+            (unitData?.get("id") as? Number)?.toInt()?.let { unitIds.add(it) }  
+        }  
+  
+        // 竞技场防守阵容  
+        state.arenaDefenseUnits.forEach { unit ->  
+            val unitData = unit["unit_data"] as? Map<String, Any?>  
+            (unitData?.get("id") as? Number)?.toInt()?.let { unitIds.add(it) }  
+        }  
+        state.grandArenaDefenseUnits.forEach { unit ->  
+            val unitData = unit["unit_data"] as? Map<String, Any?>  
+            (unitData?.get("id") as? Number)?.toInt()?.let { unitIds.add(it) }  
+        }  
+  
+        // 过滤掉无效 ID  
+        return unitIds.filter { it > 0 }.toSet()  
+    }  
+  
+    /**  
+     * 预下载所有头像到本地磁盘缓存  
+     */  
+    fun preloadAvatars(context: Context) {  
+        val unitIds = collectAllUnitIds()  
+        if (unitIds.isEmpty()) {  
+            _uiState.value = _uiState.value.copy(preloadProgress = "没有需要下载的头像")  
+            return  
+        }  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(  
+                isPreloadingAvatars = true,  
+                preloadProgress = "准备下载 ${unitIds.size} 个角色头像..."  
+            )  
+  
+            val imageLoader = ImageLoader(context)  
+            val allUrls = unitIds.flatMap { CharaIconUtil.getIconUrls(it) }  
+            var completed = 0  
+            var failed = 0  
+  
+            withContext(Dispatchers.IO) {  
+                for (url in allUrls) {  
+                    try {  
+                        val request = ImageRequest.Builder(context)  
+                            .data(url)  
+                            .diskCachePolicy(CachePolicy.ENABLED)  
+                            .memoryCachePolicy(CachePolicy.ENABLED)  
+                            .build()  
+  
+                        suspendCancellableCoroutine { cont ->  
+                            val disposable = imageLoader.enqueue(  
+                                request.newBuilder()  
+                                    .listener(  
+                                        onSuccess = { _, _ -> cont.resume(true) },  
+                                        onError = { _, _ -> cont.resume(false) },  
+                                        onCancel = { _ -> cont.resume(false) }  
+                                    )  
+                                    .build()  
+                            )  
+                            cont.invokeOnCancellation { disposable.dispose() }  
+                        }.let { success ->  
+                            if (success == false) failed++  
+                        }  
+                    } catch (_: Exception) {  
+                        failed++  
+                    }  
+                    completed++  
+                    _uiState.value = _uiState.value.copy(  
+                        preloadProgress = "下载中 $completed/${allUrls.size}..."  
+                    )  
+                }  
+            }  
+  
+            val msg = if (failed == 0) {  
+                "全部下载完成 (${unitIds.size}个角色)"  
+            } else {  
+                "下载完成，${failed}个失败"  
+            }  
+            _uiState.value = _uiState.value.copy(  
+                isPreloadingAvatars = false,  
+                preloadProgress = msg  
+            )  
+        }  
+    }  
+  
+    /**  
+     * 清除预下载提示信息  
+     */  
+    fun clearPreloadMessage() {  
+        _uiState.value = _uiState.value.copy(preloadProgress = null)  
     }  
   
     @Suppress("UNCHECKED_CAST")  

@@ -123,56 +123,51 @@ class PcrClient(
                         ?: throw ApiException("Empty response", 500)  
   
                     val parsed = if (crypted) {  
-						CryptoUtils.unpack(responseBody).first  
-					} else {  
-						val jsonStr = String(responseBody, Charsets.UTF_8)  
-						parseJsonToMap(jsonStr)  
-					}  
-					  
-					if (crypted) {  
-						// 加密响应有 data_headers / data 结构  
-						val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()  
-					  
-						dataHeaders["viewer_id"]?.let {  
-							val vid = (it as? Number)?.toLong() ?: it.toString().toLongOrNull()  
-							if (vid != null) {  
-								this.viewerId = vid  
-							}  
-						}  
-					  
-						val sid = dataHeaders["sid"]?.toString()  
-						if (!sid.isNullOrEmpty()) {  
-							val md5 = MessageDigest.getInstance("MD5")  
-							md5.update((sid + "c!SID!n").toByteArray(Charsets.UTF_8))  
-							headers["SID"] = md5.digest().joinToString("") { "%02x".format(it) }  
-						}  
-					  
-						dataHeaders["request_id"]?.let {  
-							headers["REQUEST-ID"] = it.toString()  
-						}  
-					  
-						val storeUrl = dataHeaders["store_url"]?.toString()  
-						if (storeUrl != null) {  
-							val match = Regex("_v?(\\d+\\.\\d+\\.\\d+).*?_").find(storeUrl)  
-							match?.let { headers["APP-VER"] = it.groupValues[1] }  
-						}  
-					  
-						val data = parsed["data"] as? Map<String, Any?> ?: emptyMap()  
-					  
-						if (!noerr && data.containsKey("server_error")) {  
-							val error = data["server_error"] as? Map<String, Any?> ?: emptyMap()  
-							Log.i(TAG, "$apiUrl api failed $error")  
-							throw ApiException(  
-								error["message"]?.toString() ?: "Unknown error",  
-								(error["status"] as? Number)?.toInt() ?: 500  
-							)  
-						}  
-					  
-						return@withLock data  
-					} else {  
-						// 非加密响应（如 get_maintenance_status）是扁平 JSON，直接返回  
-						return@withLock parsed  
-					}  
+                        CryptoUtils.unpack(responseBody).first  
+                    } else {  
+                        val jsonStr = String(responseBody, Charsets.UTF_8)  
+                        parseJsonToMap(jsonStr)  
+                    }  
+  
+                    val dataHeaders = parsed["data_headers"] as? Map<String, Any?> ?: emptyMap()  
+  
+                    dataHeaders["viewer_id"]?.let {  
+                        val vid = (it as? Number)?.toLong() ?: it.toString().toLongOrNull()  
+                        if (vid != null) {  
+                            this.viewerId = vid  
+                        }  
+                    }  
+  
+                    // Update SID  
+                    val sid = dataHeaders["sid"]?.toString()  
+                    if (!sid.isNullOrEmpty()) {  
+                        val md5 = MessageDigest.getInstance("MD5")  
+                        md5.update((sid + "c!SID!n").toByteArray(Charsets.UTF_8))  
+                        headers["SID"] = md5.digest().joinToString("") { "%02x".format(it) }  
+                    }  
+  
+                    dataHeaders["request_id"]?.let {  
+                        headers["REQUEST-ID"] = it.toString()  
+                    }  
+  
+                    val storeUrl = dataHeaders["store_url"]?.toString()  
+                    if (storeUrl != null) {  
+                        val match = Regex("_v?(\\d+\\.\\d+\\.\\d+).*?_").find(storeUrl)  
+                        match?.let { headers["APP-VER"] = it.groupValues[1] }  
+                    }  
+  
+                    val data = parsed["data"] as? Map<String, Any?> ?: emptyMap()  
+  
+                    if (!noerr && data.containsKey("server_error")) {  
+                        val error = data["server_error"] as? Map<String, Any?> ?: emptyMap()  
+                        Log.i(TAG, "$apiUrl api failed $error")  
+                        throw ApiException(  
+                            error["message"]?.toString() ?: "Unknown error",  
+                            (error["status"] as? Number)?.toInt() ?: 500  
+                        )  
+                    }  
+  
+                    return@withLock data  
                 } catch (e: java.net.SocketTimeoutException) {  
                     lastException = e  
                     if (attempt < maxRetries - 1) {  
@@ -199,31 +194,36 @@ class PcrClient(
     }  
   
     suspend fun loginWithCredentials(loginUid: String, loginAccessKey: String) {  
-		this.uid = loginUid  
-		this.accessKey = loginAccessKey  
-		headers.remove("REQUEST-ID")  
-		  
-		val manifest = callApi("/source_ini/get_maintenance_status?format=json", mutableMapOf(), crypted = false)  
-		val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
-		headers["MANIFEST-VER"] = ver  
-		  
-		val lres = callApi("/tool/sdk_login", mutableMapOf(  
-			"uid" to uid, "access_key" to accessKey,  
-			"channel" to "1", "platform" to biliAuth.platform  
-		))  
-		  
-		val isRisk = (lres["is_risk"] as? Number)?.toInt()  
-		if (isRisk == 1) throw ApiException("账号存在风险", 403)  
-		if (lres.containsKey("maintenance_message")) throw ApiException("服务器在维护", 503)  
-		  
-		val gameStart = callApi("/check/game_start", mutableMapOf(  
-			"apptype" to 0, "campaign_data" to "", "campaign_user" to (0..99999).random()  
-		))  
-		val nowTutorial = gameStart["now_tutorial"]  
-		if (nowTutorial != null && nowTutorial == false) throw ApiException("该账号没过完教程!", 403)  
-	}  
-	  
-	suspend fun login() {  
+        this.uid = loginUid  
+        this.accessKey = loginAccessKey  
+        headers.remove("REQUEST-ID")  
+  
+        val manifest = callApi("/source_ini/get_maintenance_status?format=json", mutableMapOf(), crypted = false)  
+        val ver = manifest["required_manifest_ver"]?.toString()  
+        if (ver.isNullOrEmpty()) {  
+            Log.e(TAG, "No manifest_ver in response, manifest=$manifest")  
+            throw ApiException("获取版本信息失败(No manifest_ver)，服务器可能在维护中", 503)  
+        }  
+        Log.i(TAG, "using manifest ver = $ver")  
+        headers["MANIFEST-VER"] = ver  
+  
+        val lres = callApi("/tool/sdk_login", mutableMapOf(  
+            "uid" to uid, "access_key" to accessKey,  
+            "channel" to "1", "platform" to biliAuth.platform  
+        ))  
+  
+        val isRisk = (lres["is_risk"] as? Number)?.toInt()  
+        if (isRisk == 1) throw ApiException("账号存在风险", 403)  
+        if (lres.containsKey("maintenance_message")) throw ApiException("服务器在维护", 503)  
+  
+        val gameStart = callApi("/check/game_start", mutableMapOf(  
+            "apptype" to 0, "campaign_data" to "", "campaign_user" to (0..99999).random()  
+        ))  
+        val nowTutorial = gameStart["now_tutorial"]  
+        if (nowTutorial != null && nowTutorial == false) throw ApiException("该账号没过完教程!", 403)  
+    }  
+  
+    suspend fun login() {  
         val (loginUid, loginAccessKey) = biliAuth.bLogin()  
         this.uid = loginUid  
         this.accessKey = loginAccessKey  
@@ -235,7 +235,11 @@ class PcrClient(
             mutableMapOf(), crypted = false  
         )  
   
-        val ver = manifest["required_manifest_ver"]?.toString() ?: ""  
+        val ver = manifest["required_manifest_ver"]?.toString()  
+        if (ver.isNullOrEmpty()) {  
+            Log.e(TAG, "No manifest_ver in response, manifest=$manifest")  
+            throw ApiException("获取版本信息失败(No manifest_ver)，服务器可能在维护中", 503)  
+        }  
         Log.i(TAG, "using manifest ver = $ver")  
         headers["MANIFEST-VER"] = ver  
   
@@ -278,6 +282,7 @@ class PcrClient(
             val jsonObj = org.json.JSONObject(json)  
             return jsonToMap(jsonObj)  
         } catch (e: Exception) {  
+            Log.e(TAG, "Failed to parse JSON response: $json", e)  
             return mapOf("raw" to json)  
         }  
     }  
