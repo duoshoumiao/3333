@@ -12,7 +12,7 @@ import kotlin.random.Random
   
 /**  
  * 竞技场"怎么拆"查询客户端。  
- * 移植自 arena.py，调用 pcrdfans.com API 查询进攻阵容推荐。  
+ * 移植自 arena.py + pcrdapi，调用 pcrdfans.com API 查询进攻阵容推荐。  
  */  
 class ArenaQueryClient {  
   
@@ -20,6 +20,7 @@ class ArenaQueryClient {
         private const val TAG = "ArenaQueryClient"  
         private const val API_URL = "https://api.pcrdfans.com/x/v1/search"  
         private const val NONCE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"  
+        private const val NONCE_LENGTH = 16  
     }  
   
     data class ArenaResult(  
@@ -35,22 +36,23 @@ class ArenaQueryClient {
         .readTimeout(10, TimeUnit.SECONDS)  
         .build()  
   
-    /** 生成16位随机 nonce */  
-    private fun generateNonce(): String {  
-        return (1..16).map { NONCE_CHARS[Random.nextInt(NONCE_CHARS.length)] }.joinToString("")  
+    /** 生成随机16位 nonce（小写字母+数字），对应 pcrdapi/__init__.py 的 _getNonce() */  
+    private fun getNonce(): String {  
+        return (1..NONCE_LENGTH).map { NONCE_CHARS[Random.nextInt(NONCE_CHARS.length)] }.joinToString("")  
     }  
   
-    /** 获取当前时间戳（秒） */  
-    private fun getTimestamp(): Long {  
+    /** 获取当前时间戳（秒），对应 pcrdapi/__init__.py 的 _getTs() */  
+    private fun getTs(): Long {  
         return System.currentTimeMillis() / 1000  
     }  
   
     /**  
-     * 手动构造紧凑 JSON 字符串，确保字段顺序与 Python 端一致。  
-     * Python 端字段顺序: def, language, nonce, page, region, sort, ts  
-     * 签名后追加 _sign 字段。  
+     * 手动构造 JSON 字符串，确保字段顺序与 Python 一致（签名依赖字段顺序）。  
+     * 对应 pcrdapi/__init__.py 的 _dumps()：json.dumps(x, ensure_ascii=False).replace(' ', '')  
+     *  
+     * 字段顺序：def, language, nonce, page, region, sort, ts [, _sign]  
      */  
-    private fun buildOrderedJson(  
+    private fun buildJsonString(  
         defArray: List<Int>,  
         language: Int,  
         nonce: String,  
@@ -60,18 +62,21 @@ class ArenaQueryClient {
         ts: Long,  
         sign: String? = null  
     ): String {  
-        val defStr = defArray.joinToString(",", "[", "]")  
         val sb = StringBuilder()  
         sb.append("{")  
-        // 签名后 _sign 排在最前面（Python dict 插入顺序：先 def..ts，再 _sign）  
-        // 实际上 Python 的 _dumps 在签名前不含 _sign，签名后 _sign 追加在末尾  
-        sb.append("\"def\":$defStr")  
-        sb.append(",\"language\":$language")  
-        sb.append(",\"nonce\":\"$nonce\"")  
-        sb.append(",\"page\":$page")  
-        sb.append(",\"region\":$region")  
-        sb.append(",\"sort\":$sort")  
-        sb.append(",\"ts\":$ts")  
+        // _sign 在 Python dict 中是最后添加的，但 JSON key 排序可能不同  
+        // 实际上 Python 3.7+ dict 保持插入顺序，_sign 在 ts 之后  
+        // 为了与 Python 的 json.dumps 输出一致，按字母序不对，按插入序：  
+        // def, language, nonce, page, region, sort, ts, _sign  
+        sb.append("\"def\":[")  
+        sb.append(defArray.joinToString(","))  
+        sb.append("],")  
+        sb.append("\"language\":$language,")  
+        sb.append("\"nonce\":\"$nonce\",")  
+        sb.append("\"page\":$page,")  
+        sb.append("\"region\":$region,")  
+        sb.append("\"sort\":$sort,")  
+        sb.append("\"ts\":$ts")  
         if (sign != null) {  
             sb.append(",\"_sign\":\"$sign\"")  
         }  
@@ -94,25 +99,29 @@ class ArenaQueryClient {
         }  
   
         try {  
-            // def 字段: baseId * 100 + 1  
+            // def 字段: baseId * 100 + 1（对应 arena.py）  
             val defArray = defenseIds.map { it * 100 + 1 }  
-            val nonce = generateNonce()  
-            val ts = getTimestamp()  
+            val nonce = getNonce()  
+            val ts = getTs()  
+            val page = 1  
+            val language = 0  
   
-            // 构造不含 _sign 的 JSON（用于签名）  
-            val jsonForSign = buildOrderedJson(defArray, 0, nonce, 1, region, sort, ts)  
+            // 1. 构造不含 _sign 的 JSON 字符串（用于签名）  
+            val jsonForSign = buildJsonString(defArray, language, nonce, page, region, sort, ts)  
   
-            // 生成签名  
+            // 2. 调用签名算法（对应 pcrdapi/__init__.py 第48行）  
             val sign = PcrdApiSigner.sign(jsonForSign, nonce)  
   
-            // 构造含 _sign 的最终 JSON  
-            val finalJson = buildOrderedJson(defArray, 0, nonce, 1, region, sort, ts, sign)  
+            // 3. 构造含 _sign 的最终 JSON 字符串  
+            val finalJson = buildJsonString(defArray, language, nonce, page, region, sort, ts, sign)  
   
-            Log.i(TAG, "查询防守阵容: $defenseIds -> API def=$defArray, nonce=$nonce")  
+            Log.i(TAG, "查询防守阵容: $defenseIds -> def=$defArray, nonce=$nonce")  
+            Log.d(TAG, "签名: $sign")  
+            Log.d(TAG, "请求体: $finalJson")  
   
-            val body = finalJson.toByteArray(Charsets.UTF_8)  
-                .toRequestBody("application/json; charset=utf-8".toMediaType())  
+            val body = finalJson.toRequestBody("application/json; charset=utf-8".toMediaType())  
   
+            // 4. 使用与 pcrdapi/__init__.py 一致的 headers  
             val request = Request.Builder()  
                 .url(API_URL)  
                 .post(body)  
@@ -133,6 +142,7 @@ class ArenaQueryClient {
                 }  
   
                 val responseBody = resp.body?.string() ?: return emptyList()  
+                Log.d(TAG, "API 响应: ${responseBody.take(500)}")  
                 return parseResponse(responseBody)  
             }  
         } catch (e: Exception) {  
@@ -170,7 +180,6 @@ class ArenaQueryClient {
             val up = entry.optInt("up", 0)  
             val down = entry.optInt("down", 0)  
             val updated = entry.optString("updated", "")  
-  
             val score = calculateVal(up, down)  
   
             results.add(  

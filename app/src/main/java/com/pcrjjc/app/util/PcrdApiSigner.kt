@@ -1,7 +1,7 @@
 package com.pcrjjc.app.util  
   
-import java.security.MessageDigest  
 import android.util.Base64  
+import java.security.MessageDigest  
   
 /**  
  * 移植自 HoshinoBot-V1/pcrdapi/pcrdapi.py 的签名算法。  
@@ -47,6 +47,12 @@ object PcrdApiSigner {
   
     private const val HEADER3 = "切噜~"  
   
+    /** Python 风格取模（结果始终非负） */  
+    private fun floorMod(a: Long, b: Int): Int {  
+        val r = (a % b).toInt()  
+        return if (r < 0) r + b else r  
+    }  
+  
     /**  
      * 生成 API 签名。  
      * @param text JSON 字符串（不含 _sign 字段）  
@@ -72,7 +78,7 @@ object PcrdApiSigner {
         val b64Bytes = Base64.encode(digest, Base64.NO_WRAP)  
         val b64 = b64Bytes + TAIL2  
   
-        // 状态机  
+        // 状态机计算 offset 和 tableId  
         val s = longArrayOf(0x6295C58DL, 0x62B82175L, 0x07BB0142L, 0x6C62272EL)  
   
         for (byte in b64) {  
@@ -93,7 +99,7 @@ object PcrdApiSigner {
         val offset = tFinal shr 2  
         val tableId = (offset % 3).toInt()  
   
-        // 生成 idxs  
+        // 生成 idxs 数组  
         var t = 0L  
         var i = 0  
         val idxs = mutableListOf<Int>()  
@@ -108,12 +114,13 @@ object PcrdApiSigner {
             if (i == 4) {  
                 i = 0  
                 val v = if (t != 0L) t else idx  
-                idxs.add(floorMod((v + offset), 16).toInt())  
+                idxs.add(floorMod(v + offset, 16))  
             } else {  
-                idxs.add(floorMod((idx + offset), 16).toInt())  
+                idxs.add(floorMod(idx + offset, 16))  
             }  
         }  
   
+        // 从 idxs 中采样生成签名  
         val n = idxs.size  
         val res = arrayOfNulls<Char>(N_HASH)  
         val step = n / N_HASH  
@@ -125,11 +132,5 @@ object PcrdApiSigner {
         }  
   
         return HEADER3 + res.joinToString("")  
-    }  
-  
-    /** Python 风格的 floorMod，保证结果非负 */  
-    private fun floorMod(a: Long, b: Int): Long {  
-        val r = a % b  
-        return if (r < 0) r + b else r  
     }  
 }
