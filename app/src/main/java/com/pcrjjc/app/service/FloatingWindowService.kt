@@ -98,7 +98,7 @@ class FloatingWindowService : Service() {
         ).apply {  
             gravity = Gravity.TOP or Gravity.START  
             x = 0  
-            y = dp(200)  
+            y = dp(188)  
         }  
   
         var initialX = 0  
@@ -404,7 +404,7 @@ class FloatingWindowService : Service() {
             val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
             val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
             if (bitmap != null) {  
-                val panelWidth = dp(200)  // dp(340) - padding dp(8)*2  
+                val panelWidth = dp(185)  // dp(340) - padding dp(8)*2  
 				val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
 				val scaledHeight = (bitmap.height * scale).toInt()  
 				  
@@ -473,7 +473,7 @@ class FloatingWindowService : Service() {
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(340), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(204), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
@@ -606,7 +606,7 @@ class FloatingWindowService : Service() {
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(320), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(192), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
