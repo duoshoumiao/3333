@@ -1,4 +1,3 @@
-// app/src/main/java/com/pcrjjc/app/ui/master/MasterViewModel.kt  
 package com.pcrjjc.app.ui.master  
   
 import android.util.Log  
