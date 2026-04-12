@@ -404,23 +404,26 @@ class FloatingWindowService : Service() {
             val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
             val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
             if (bitmap != null) {  
-                val scrollView = ScrollView(ctx).apply {  
-                    layoutParams = LinearLayout.LayoutParams(  
-                        ViewGroup.LayoutParams.MATCH_PARENT,  
-                        dp(800)  
-                    )  
-                }  
-                val imageView = ImageView(ctx).apply {  
-                    setImageBitmap(bitmap)  
-                    scaleType = ImageView.ScaleType.FIT_CENTER  
-                    adjustViewBounds = true  
-                    layoutParams = LinearLayout.LayoutParams(  
-                        ViewGroup.LayoutParams.MATCH_PARENT,  
-                        ViewGroup.LayoutParams.WRAP_CONTENT  
-                    )  
-                }  
-                scrollView.addView(imageView)  
-                root.addView(scrollView)  
+                val panelWidth = dp(324)  // dp(340) - padding dp(8)*2  
+				val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
+				val scaledHeight = (bitmap.height * scale).toInt()  
+				  
+				val screenHeight = resources.displayMetrics.heightPixels  
+				val maxScrollHeight = (screenHeight * 0.75).toInt()  
+				  
+				val scrollView = ScrollView(ctx).apply {  
+					layoutParams = LinearLayout.LayoutParams(  
+						ViewGroup.LayoutParams.MATCH_PARENT,  
+						minOf(scaledHeight, maxScrollHeight)  
+					)  
+				}  
+				val imageView = ImageView(ctx).apply {  
+					setImageBitmap(bitmap)  
+					scaleType = ImageView.ScaleType.FIT_XY  
+					layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
+				}  
+				scrollView.addView(imageView)  
+				root.addView(scrollView) 
             } else {  
                 val errorText = TextView(ctx).apply {  
                     text = "图片解码失败"  
