@@ -1,8 +1,3 @@
-文件 3/4：app/src/main/java/com/pcrjjc/app/util/IconRecognizer.kt — 上半部分
-
-（从包声明到 findLargestRect() 结尾。下半部分包含 cropByIterativeDetection()、cropByFixedRatio()、类结尾 }）
-
-
 package com.pcrjjc.app.util  
   
 import android.content.Context  
