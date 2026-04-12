@@ -457,7 +457,7 @@ loop = asyncio.get_event_loop()
 loop.create_task(_start_api_server())
 ```
 
-ArenaQueryClient.kt填入你服务器端口
+ArenaQueryClient.kt填入你服务器公网IP+端口
 ```
 class ArenaQueryClient {  
   
