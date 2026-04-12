@@ -64,7 +64,7 @@ class ArenaQueryClient {
     )  
   
     private val client = OkHttpClient.Builder()  
-        .connectTimeout(60, TimeUnit.SECONDS)  
+        .connectTimeout(120, TimeUnit.SECONDS)  
         .readTimeout(180, TimeUnit.SECONDS)  
         .build()  
   
