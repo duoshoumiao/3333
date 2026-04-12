@@ -17,7 +17,7 @@ class ArenaQueryClient {
   
     companion object {  
         private const val TAG = "ArenaQueryClient"  
-        private const val SERVER_URL = "http://124.220.105.217:25599"  
+        private const val SERVER_URL = "http://119.91.249.245:8020"  
     }  
   
     /** 单条进攻阵容推荐 */  
