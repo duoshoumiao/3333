@@ -110,7 +110,7 @@ class ScreenCaptureService : Service() {
   
         imageReader = ImageReader.newInstance(  
             screenWidth, screenHeight,  
-            PixelFormat.RGBA_8888, 2  
+            PixelFormat.RGBA_8888, 3  // 增大 buffer 为 3  
         )  
   
         virtualDisplay = mediaProjection?.createVirtualDisplay(  
@@ -127,8 +127,10 @@ class ScreenCaptureService : Service() {
   
     /**  
      * 检测屏幕方向是否变化，如果变化则重建 ImageReader 和 VirtualDisplay。  
+     * 优先使用 resize() + setSurface() 避免依赖 mediaProjection 重建。  
      * @return true 表示发生了重建  
      */  
+    @Synchronized  
     private fun refreshVirtualDisplay(): Boolean {  
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager  
         val metrics = DisplayMetrics()  
@@ -137,27 +139,69 @@ class ScreenCaptureService : Service() {
         val currentW = metrics.widthPixels  
         val currentH = metrics.heightPixels  
   
-        if (currentW == screenWidth && currentH == screenHeight) return false  
+        val sizeChanged = currentW != screenWidth || currentH != screenHeight  
+        val needsRebuild = sizeChanged || virtualDisplay == null || imageReader == null  
   
-        Log.i(TAG, "屏幕尺寸变化: ${screenWidth}x${screenHeight} -> ${currentW}x${currentH}, 重建 VirtualDisplay")  
-        screenWidth = currentW  
-        screenHeight = currentH  
+        if (!needsRebuild) return false  
   
-        virtualDisplay?.release()  
-        imageReader?.close()  
+        if (sizeChanged) {  
+            Log.i(TAG, "屏幕尺寸变化: ${screenWidth}x${screenHeight} -> ${currentW}x${currentH}")  
+            screenWidth = currentW  
+            screenHeight = currentH  
+        } else {  
+            Log.i(TAG, "VirtualDisplay 或 ImageReader 为空，需要重建")  
+        }  
   
-        imageReader = ImageReader.newInstance(  
+        val oldReader = imageReader  
+        val oldVd = virtualDisplay  
+  
+        // 创建新的 ImageReader  
+        val newReader = ImageReader.newInstance(  
             screenWidth, screenHeight,  
-            PixelFormat.RGBA_8888, 2  
+            PixelFormat.RGBA_8888, 3  
         )  
+        imageReader = newReader  
   
-        virtualDisplay = mediaProjection?.createVirtualDisplay(  
-            "ScreenCapture",  
-            screenWidth, screenHeight, screenDensity,  
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,  
-            imageReader!!.surface,  
-            null, Handler(Looper.getMainLooper())  
-        )  
+        // 方案A: 尝试 resize + setSurface（不需要 mediaProjection）  
+        if (oldVd != null && sizeChanged) {  
+            try {  
+                oldVd.resize(screenWidth, screenHeight, screenDensity)  
+                oldVd.setSurface(newReader.surface)  
+                oldReader?.close()  
+                Log.i(TAG, "VirtualDisplay resize + setSurface 成功")  
+                return true  
+            } catch (e: Exception) {  
+                Log.w(TAG, "VirtualDisplay resize 失败，尝试完全重建", e)  
+            }  
+        }  
+  
+        // 方案B: 完全重建  
+        oldVd?.release()  
+        oldReader?.close()  
+        virtualDisplay = null  
+  
+        val mp = mediaProjection  
+        if (mp == null) {  
+            Log.e(TAG, "MediaProjection 已失效，无法重建 VirtualDisplay，截图将不可用")  
+            return true  
+        }  
+  
+        try {  
+            virtualDisplay = mp.createVirtualDisplay(  
+                "ScreenCapture",  
+                screenWidth, screenHeight, screenDensity,  
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,  
+                newReader.surface,  
+                null, Handler(Looper.getMainLooper())  
+            )  
+            if (virtualDisplay != null) {  
+                Log.i(TAG, "VirtualDisplay 完全重建成功")  
+            } else {  
+                Log.e(TAG, "createVirtualDisplay 返回 null")  
+            }  
+        } catch (e: Exception) {  
+            Log.e(TAG, "createVirtualDisplay 异常", e)  
+        }  
   
         return true  
     }  
@@ -167,10 +211,15 @@ class ScreenCaptureService : Service() {
      * 调用方应在协程/后台线程中调用。  
      */  
     fun captureScreen(): Bitmap? {  
+        if (mediaProjection == null && virtualDisplay == null) {  
+            Log.e(TAG, "MediaProjection 和 VirtualDisplay 均已失效，截图不可用")  
+            return null  
+        }  
+  
         val rebuilt = refreshVirtualDisplay()  
   
-        val maxAttempts = if (rebuilt) 5 else 2  
-        val delayMs = if (rebuilt) 150L else 100L  
+        val maxAttempts = if (rebuilt) 10 else 3  
+        val delayMs = if (rebuilt) 200L else 100L  
   
         for (attempt in 1..maxAttempts) {  
             val reader = imageReader ?: return null  
