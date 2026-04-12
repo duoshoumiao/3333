@@ -13,7 +13,7 @@ class ArenaQueryClient {
   
     companion object {  
         private const val TAG = "ArenaQueryClient"  
-        private const val SERVER_URL = "http://IP:端口"  
+        private const val SERVER_URL = "119.91.249.245:8020"  
     }  
   
     data class ArenaResult(  
