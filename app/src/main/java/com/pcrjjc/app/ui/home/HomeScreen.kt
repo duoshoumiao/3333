@@ -56,7 +56,7 @@ import com.pcrjjc.app.data.local.entity.RankCache
 import com.pcrjjc.app.util.Platform  
 import kotlinx.coroutines.launch  
   
-@OptIn(ExperimentalMaterial3Api::class)  
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable  
 fun HomeScreen(  
     viewModel: HomeViewModel = hiltViewModel(),  

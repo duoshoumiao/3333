@@ -62,7 +62,7 @@ import com.pcrjjc.app.domain.QueryEngine
 import com.pcrjjc.app.util.Platform  
 import kotlinx.coroutines.launch  
   
-@OptIn(ExperimentalMaterial3Api::class)  
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable  
 fun MasterScreen(  
     viewModel: MasterViewModel = hiltViewModel(),  
