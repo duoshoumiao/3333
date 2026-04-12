@@ -418,10 +418,10 @@ class IconRecognizer(private val context: Context) {
         return intArrayOf(rect.x, rect.y, rect.width, rect.height)  
     }  
   
-    以下是 IconRecognizer.kt 下半部分，直接接在上半部分末尾的注释 // >>> 接下半部分 <<< 之后，到文件结尾 }。
+   
 
 
-// ======================== 迭代检测主流程（移植自 arena getPos）========================  
+    // ======================== 迭代检测主流程（移植自 arena getPos）========================  
   
     /**  
      * 在调试图上标注一个正方形区域。  
