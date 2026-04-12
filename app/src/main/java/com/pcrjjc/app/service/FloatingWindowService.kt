@@ -1,6 +1,3 @@
-以下是修改后的完整 FloatingWindowService.kt： FloatingWindowService.kt:1-555
-
-
 package com.pcrjjc.app.service  
   
 import android.annotation.SuppressLint  
