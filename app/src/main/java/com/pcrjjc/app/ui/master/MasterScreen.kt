@@ -1,4 +1,3 @@
-// app/src/main/java/com/pcrjjc/app/ui/master/MasterScreen.kt  
 package com.pcrjjc.app.ui.master  
   
 import androidx.compose.foundation.layout.Arrangement  
