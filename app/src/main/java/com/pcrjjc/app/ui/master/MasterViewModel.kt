@@ -1,3 +1,4 @@
+// app/src/main/java/com/pcrjjc/app/ui/master/MasterViewModel.kt  
 package com.pcrjjc.app.ui.master  
   
 import android.util.Log  
@@ -36,6 +37,8 @@ data class MasterUiState(
     val boundPcrIds: Set<Long> = emptySet(),  
     val bindingId: Long? = null,  
     val bindSuccessIds: Set<Long> = emptySet(),  
+    // 一键全绑定  
+    val isBindingAll: Boolean = false,  
     // 添加账号相关  
     val addAccount: String = "",  
     val addPassword: String = "",  
@@ -190,7 +193,7 @@ class MasterViewModel @Inject constructor(
         }  
     }  
   
-    fun bindPlayer(player: QueryEngine.ArenaRankingPlayer, fromType: ArenaType) {
+    fun bindPlayer(player: QueryEngine.ArenaRankingPlayer, fromType: ArenaType) {  
         val state = _uiState.value  
         viewModelScope.launch {  
             _uiState.value = state.copy(bindingId = player.viewerId)  
@@ -219,9 +222,9 @@ class MasterViewModel @Inject constructor(
                     platform = state.selectedPlatform.id,  
                     name = player.userName,  
                     arenaType = when (fromType) {  
-						ArenaType.JJC -> 1  
-						ArenaType.PJJC -> 2  
-					} 
+                        ArenaType.JJC -> 1  
+                        ArenaType.PJJC -> 2  
+                    }  
                 )  
                 bindDao.insert(bind)  
   
@@ -239,6 +242,66 @@ class MasterViewModel @Inject constructor(
                     errorMessage = "绑定失败: ${e.message}"  
                 )  
             }  
+        }  
+    }  
+  
+    // ==================== 一键全绑定 ====================  
+  
+    fun bindAllPlayers(type: ArenaType) {  
+        val state = _uiState.value  
+        val players = when (type) {  
+            ArenaType.JJC -> state.jjcPlayers  
+            ArenaType.PJJC -> state.pjjcPlayers  
+        }  
+        val unboundPlayers = players.filter { !state.boundPcrIds.contains(it.viewerId) }  
+        if (unboundPlayers.isEmpty()) return  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(isBindingAll = true)  
+            var successCount = 0  
+            val newBoundIds = _uiState.value.boundPcrIds.toMutableSet()  
+            val newSuccessIds = _uiState.value.bindSuccessIds.toMutableSet()  
+  
+            for (player in unboundPlayers) {  
+                try {  
+                    val existing = bindDao.getBindByPcrid(player.viewerId, state.selectedPlatform.id)  
+                    if (existing != null) {  
+                        newBoundIds.add(player.viewerId)  
+                        continue  
+                    }  
+  
+                    val count = bindDao.getBindCount(state.selectedPlatform.id)  
+                    if (count >= 999) {  
+                        _uiState.value = _uiState.value.copy(  
+                            errorMessage = "绑定数量已达上限，已成功绑定 $successCount 人"  
+                        )  
+                        break  
+                    }  
+  
+                    val bind = PcrBind(  
+                        pcrid = player.viewerId,  
+                        platform = state.selectedPlatform.id,  
+                        name = player.userName,  
+                        arenaType = when (type) {  
+                            ArenaType.JJC -> 1  
+                            ArenaType.PJJC -> 2  
+                        }  
+                    )  
+                    bindDao.insert(bind)  
+                    newBoundIds.add(player.viewerId)  
+                    newSuccessIds.add(player.viewerId)  
+                    successCount++  
+                } catch (e: Exception) {  
+                    Log.e(TAG, "Bind all - failed for ${player.viewerId}: ${e.message}")  
+                }  
+            }  
+  
+            _uiState.value = _uiState.value.copy(  
+                isBindingAll = false,  
+                boundPcrIds = newBoundIds,  
+                bindSuccessIds = newSuccessIds,  
+                errorMessage = if (successCount > 0) "成功绑定 $successCount 人" else null  
+            )  
         }  
     }  
   

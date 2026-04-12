@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.itemsIndexed  
+import androidx.compose.foundation.pager.HorizontalPager  
+import androidx.compose.foundation.pager.rememberPagerState  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.filled.Add  
 import androidx.compose.material.icons.filled.ContentCut  
@@ -29,17 +31,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults  
 import androidx.compose.material3.ExperimentalMaterial3Api  
 import androidx.compose.material3.FloatingActionButton  
-import androidx.compose.material3.HorizontalDivider  
 import androidx.compose.material3.Icon  
 import androidx.compose.material3.IconButton  
 import androidx.compose.material3.MaterialTheme  
 import androidx.compose.material3.Scaffold  
+import androidx.compose.material3.Tab  
+import androidx.compose.material3.TabRow  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TopAppBar  
 import androidx.compose.material3.TopAppBarDefaults  
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
+import androidx.compose.runtime.rememberCoroutineScope  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
 import androidx.compose.ui.platform.LocalContext  
@@ -50,6 +54,7 @@ import com.pcrjjc.app.ScreenCaptureActivity
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.data.local.entity.RankCache  
 import com.pcrjjc.app.util.Platform  
+import kotlinx.coroutines.launch  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -122,120 +127,170 @@ fun HomeScreen(
                 )  
             }  
         } else {  
-            LazyColumn(  
+            // 构建动态 tab 列表  
+            val tabs = mutableListOf<String>()  
+            if (jjcBinds.isNotEmpty() || pjjcBinds.isEmpty() && manualBinds.isEmpty()) {  
+                tabs.add("J场（JJC）")  
+            }  
+            if (pjjcBinds.isNotEmpty() || jjcBinds.isEmpty() && manualBinds.isEmpty()) {  
+                tabs.add("P场（PJJC）")  
+            }  
+            if (manualBinds.isNotEmpty()) {  
+                tabs.add("手动绑定")  
+            }  
+            // 确保至少有 J场 和 P场 两个 tab  
+            if (!tabs.contains("J场（JJC）")) tabs.add(0, "J场（JJC）")  
+            if (!tabs.contains("P场（PJJC）")) tabs.add(  
+                if (tabs.indexOf("J场（JJC）") >= 0) tabs.indexOf("J场（JJC）") + 1 else 0,  
+                "P场（PJJC）"  
+            )  
+  
+            val pagerState = rememberPagerState(pageCount = { tabs.size })  
+            val coroutineScope = rememberCoroutineScope()  
+  
+            Column(  
                 modifier = Modifier  
                     .fillMaxSize()  
                     .padding(paddingValues)  
-                    .padding(horizontal = 16.dp),  
-                verticalArrangement = Arrangement.spacedBy(8.dp)  
             ) {  
-                item { Spacer(modifier = Modifier.height(8.dp)) }  
-  
-                // ==================== J场 ====================  
-                if (jjcBinds.isNotEmpty()) {  
-                    item {  
-                        Row(  
-                            modifier = Modifier.fillMaxWidth(),  
-                            horizontalArrangement = Arrangement.SpaceBetween,  
-                            verticalAlignment = Alignment.CenterVertically  
-                        ) {  
-                            Text(  
-                                text = "J场（JJC）",  
-                                style = MaterialTheme.typography.titleMedium,  
-                                fontWeight = FontWeight.Bold,  
-                                color = MaterialTheme.colorScheme.primary  
-                            )  
-                            Text(  
-                                text = "${jjcBinds.size} 人",  
-                                style = MaterialTheme.typography.bodySmall,  
-                                color = MaterialTheme.colorScheme.onSurfaceVariant  
-                            )  
-                        }  
-                    }  
-                    itemsIndexed(jjcBinds, key = { _, bind -> "jjc_${bind.id}" }) { index, bind ->  
-                        BindCard(  
-                            index = index + 1,  
-                            bind = bind,  
-                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
-                            onQuery = { onNavigateToQuery(bind.id) },  
-                            onDetail = { onNavigateToDetail(bind.id) },  
-                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
-                            onDelete = { viewModel.deleteBind(bind) }  
+                TabRow(selectedTabIndex = pagerState.currentPage) {  
+                    tabs.forEachIndexed { index, title ->  
+                        Tab(  
+                            selected = pagerState.currentPage == index,  
+                            onClick = {  
+                                coroutineScope.launch {  
+                                    pagerState.animateScrollToPage(index)  
+                                }  
+                            },  
+                            text = {  
+                                val count = when (title) {  
+                                    "J场（JJC）" -> jjcBinds.size  
+                                    "P场（PJJC）" -> pjjcBinds.size  
+                                    "手动绑定" -> manualBinds.size  
+                                    else -> 0  
+                                }  
+                                Text("$title ($count)")  
+                            }  
                         )  
                     }  
                 }  
   
-                // ==================== P场 ====================  
-                if (pjjcBinds.isNotEmpty()) {  
-                    item {  
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
-                        Row(  
-                            modifier = Modifier.fillMaxWidth(),  
-                            horizontalArrangement = Arrangement.SpaceBetween,  
-                            verticalAlignment = Alignment.CenterVertically  
-                        ) {  
-                            Text(  
-                                text = "P场（PJJC）",  
-                                style = MaterialTheme.typography.titleMedium,  
-                                fontWeight = FontWeight.Bold,  
-                                color = MaterialTheme.colorScheme.tertiary  
-                            )  
-                            Text(  
-                                text = "${pjjcBinds.size} 人",  
-                                style = MaterialTheme.typography.bodySmall,  
-                                color = MaterialTheme.colorScheme.onSurfaceVariant  
-                            )  
+                HorizontalPager(  
+                    state = pagerState,  
+                    modifier = Modifier.fillMaxSize()  
+                ) { page ->  
+                    val tabTitle = tabs[page]  
+                    when (tabTitle) {  
+                        "J场（JJC）" -> {  
+                            if (jjcBinds.isEmpty()) {  
+                                Column(  
+                                    modifier = Modifier.fillMaxSize(),  
+                                    horizontalAlignment = Alignment.CenterHorizontally,  
+                                    verticalArrangement = Arrangement.Center  
+                                ) {  
+                                    Text(  
+                                        text = "暂无 JJC 绑定",  
+                                        style = MaterialTheme.typography.bodyMedium,  
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                    )  
+                                }  
+                            } else {  
+                                LazyColumn(  
+                                    modifier = Modifier  
+                                        .fillMaxSize()  
+                                        .padding(horizontal = 16.dp),  
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                                ) {  
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    itemsIndexed(jjcBinds, key = { _, bind -> "jjc_${bind.id}" }) { index, bind ->  
+                                        BindCard(  
+                                            index = index + 1,  
+                                            bind = bind,  
+                                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
+                                            onQuery = { onNavigateToQuery(bind.id) },  
+                                            onDetail = { onNavigateToDetail(bind.id) },  
+                                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                                            onDelete = { viewModel.deleteBind(bind) }  
+                                        )  
+                                    }  
+                                    item { Spacer(modifier = Modifier.height(80.dp)) }  
+                                }  
+                            }  
+                        }  
+                        "P场（PJJC）" -> {  
+                            if (pjjcBinds.isEmpty()) {  
+                                Column(  
+                                    modifier = Modifier.fillMaxSize(),  
+                                    horizontalAlignment = Alignment.CenterHorizontally,  
+                                    verticalArrangement = Arrangement.Center  
+                                ) {  
+                                    Text(  
+                                        text = "暂无 PJJC 绑定",  
+                                        style = MaterialTheme.typography.bodyMedium,  
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                    )  
+                                }  
+                            } else {  
+                                LazyColumn(  
+                                    modifier = Modifier  
+                                        .fillMaxSize()  
+                                        .padding(horizontal = 16.dp),  
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                                ) {  
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->  
+                                        BindCard(  
+                                            index = index + 1,  
+                                            bind = bind,  
+                                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
+                                            onQuery = { onNavigateToQuery(bind.id) },  
+                                            onDetail = { onNavigateToDetail(bind.id) },  
+                                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                                            onDelete = { viewModel.deleteBind(bind) }  
+                                        )  
+                                    }  
+                                    item { Spacer(modifier = Modifier.height(80.dp)) }  
+                                }  
+                            }  
+                        }  
+                        "手动绑定" -> {  
+                            if (manualBinds.isEmpty()) {  
+                                Column(  
+                                    modifier = Modifier.fillMaxSize(),  
+                                    horizontalAlignment = Alignment.CenterHorizontally,  
+                                    verticalArrangement = Arrangement.Center  
+                                ) {  
+                                    Text(  
+                                        text = "暂无手动绑定",  
+                                        style = MaterialTheme.typography.bodyMedium,  
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                    )  
+                                }  
+                            } else {  
+                                LazyColumn(  
+                                    modifier = Modifier  
+                                        .fillMaxSize()  
+                                        .padding(horizontal = 16.dp),  
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                                ) {  
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->  
+                                        BindCard(  
+                                            index = index + 1,  
+                                            bind = bind,  
+                                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
+                                            onQuery = { onNavigateToQuery(bind.id) },  
+                                            onDetail = { onNavigateToDetail(bind.id) },  
+                                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
+                                            onDelete = { viewModel.deleteBind(bind) }  
+                                        )  
+                                    }  
+                                    item { Spacer(modifier = Modifier.height(80.dp)) }  
+                                }  
+                            }  
                         }  
                     }  
-                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->  
-                        BindCard(  
-                            index = index + 1,  
-                            bind = bind,  
-                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
-                            onQuery = { onNavigateToQuery(bind.id) },  
-                            onDetail = { onNavigateToDetail(bind.id) },  
-                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
-                            onDelete = { viewModel.deleteBind(bind) }  
-                        )  
-                    }  
                 }  
-  
-                // ==================== 手动绑定 ====================  
-                if (manualBinds.isNotEmpty()) {  
-                    item {  
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
-                        Row(  
-                            modifier = Modifier.fillMaxWidth(),  
-                            horizontalArrangement = Arrangement.SpaceBetween,  
-                            verticalAlignment = Alignment.CenterVertically  
-                        ) {  
-                            Text(  
-                                text = "手动绑定",  
-                                style = MaterialTheme.typography.titleMedium,  
-                                fontWeight = FontWeight.Bold,  
-                                color = MaterialTheme.colorScheme.onSurface  
-                            )  
-                            Text(  
-                                text = "${manualBinds.size} 人",  
-                                style = MaterialTheme.typography.bodySmall,  
-                                color = MaterialTheme.colorScheme.onSurfaceVariant  
-                            )  
-                        }  
-                    }  
-                    itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->  
-                        BindCard(  
-                            index = index + 1,  
-                            bind = bind,  
-                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],  
-                            onQuery = { onNavigateToQuery(bind.id) },  
-                            onDetail = { onNavigateToDetail(bind.id) },  
-                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },  
-                            onDelete = { viewModel.deleteBind(bind) }  
-                        )  
-                    }  
-                }  
-  
-                item { Spacer(modifier = Modifier.height(80.dp)) }  
             }  
         }  
     }  

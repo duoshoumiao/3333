@@ -1,3 +1,4 @@
+// app/src/main/java/com/pcrjjc/app/ui/master/MasterScreen.kt  
 package com.pcrjjc.app.ui.master  
   
 import androidx.compose.foundation.layout.Arrangement  
@@ -11,7 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.items  
+import androidx.compose.foundation.pager.HorizontalPager  
+import androidx.compose.foundation.pager.rememberPagerState  
+import androidx.compose.foundation.rememberScrollState  
 import androidx.compose.foundation.text.KeyboardOptions  
+import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
 import androidx.compose.material.icons.filled.Add  
@@ -34,6 +39,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.SnackbarHost  
 import androidx.compose.material3.SnackbarHostState  
+import androidx.compose.material3.Tab  
+import androidx.compose.material3.TabRow  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TextButton  
 import androidx.compose.material3.TopAppBar  
@@ -43,10 +50,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue  
 import androidx.compose.runtime.mutableStateOf  
 import androidx.compose.runtime.remember  
+import androidx.compose.runtime.rememberCoroutineScope  
 import androidx.compose.runtime.setValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
-import androidx.compose.ui.text.font.FontWeight  
 import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.ui.text.input.PasswordVisualTransformation  
 import androidx.compose.ui.unit.dp  
@@ -54,6 +61,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.pcrjjc.app.data.local.entity.Account  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.util.Platform  
+import kotlinx.coroutines.launch  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -91,51 +99,45 @@ fun MasterScreen(
             }  
         }  
     ) { paddingValues ->  
-        LazyColumn(  
+        Column(  
             modifier = Modifier  
                 .fillMaxSize()  
                 .padding(paddingValues)  
-                .padding(horizontal = 16.dp),  
-            verticalArrangement = Arrangement.spacedBy(12.dp)  
         ) {  
-            item { Spacer(modifier = Modifier.height(4.dp)) }  
+            // ==================== 上半部分：账号管理 + 透视控制 ====================  
+            Column(  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .verticalScroll(rememberScrollState())  
+                    .padding(horizontal = 16.dp),  
+                verticalArrangement = Arrangement.spacedBy(12.dp)  
+            ) {  
+                Spacer(modifier = Modifier.height(4.dp))  
   
-            // ==================== 账号列表 ====================  
-            item {  
                 Text(  
                     "账号（仅用于透视，不参与轮询监控）",  
                     style = MaterialTheme.typography.titleMedium  
                 )  
-            }  
   
-            if (masterAccounts.isEmpty()) {  
-                item {  
+                if (masterAccounts.isEmpty()) {  
                     Text(  
                         text = "暂无账号，请点击右下角添加",  
                         style = MaterialTheme.typography.bodyMedium,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
+                } else {  
+                    masterAccounts.forEach { account ->  
+                        MasterAccountCard(  
+                            account = account,  
+                            onDelete = { viewModel.deleteMasterAccount(account) }  
+                        )  
+                    }  
                 }  
-            } else {  
-                items(masterAccounts) { account ->  
-                    MasterAccountCard(  
-                        account = account,  
-                        onDelete = { viewModel.deleteMasterAccount(account) }  
-                    )  
-                }  
-            }  
   
-            // ==================== 竞技场透视 ====================  
-            item { Spacer(modifier = Modifier.height(8.dp)) }  
-  
-            item {  
+                Spacer(modifier = Modifier.height(8.dp))  
                 Text("竞技场透视", style = MaterialTheme.typography.titleMedium)  
-            }  
   
-            // 平台选择  
-            item {  
                 Text("选择服务器", style = MaterialTheme.typography.labelMedium)  
-                Spacer(modifier = Modifier.height(4.dp))  
                 Row(  
                     modifier = Modifier.fillMaxWidth(),  
                     horizontalArrangement = Arrangement.spacedBy(8.dp)  
@@ -148,12 +150,8 @@ fun MasterScreen(
                         )  
                     }  
                 }  
-            }  
   
-            // 透视类型选择  
-            item {  
                 Text("透视类型", style = MaterialTheme.typography.labelMedium)  
-                Spacer(modifier = Modifier.height(4.dp))  
                 Row(  
                     modifier = Modifier.fillMaxWidth(),  
                     horizontalArrangement = Arrangement.spacedBy(8.dp)  
@@ -166,10 +164,7 @@ fun MasterScreen(
                         )  
                     }  
                 }  
-            }  
   
-            // 查询按钮  
-            item {  
                 Button(  
                     onClick = { viewModel.queryRanking() },  
                     modifier = Modifier.fillMaxWidth(),  
@@ -177,9 +172,7 @@ fun MasterScreen(
                 ) {  
                     if (uiState.isLoading) {  
                         CircularProgressIndicator(  
-                            modifier = Modifier  
-                                .height(20.dp)  
-                                .width(20.dp),  
+                            modifier = Modifier.height(20.dp).width(20.dp),  
                             strokeWidth = 2.dp,  
                             color = MaterialTheme.colorScheme.onPrimary  
                         )  
@@ -189,101 +182,143 @@ fun MasterScreen(
                         Text("开始透视")  
                     }  
                 }  
-            }  
   
-            // ==================== J场 ====================  
-            item {  
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
-                Row(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    verticalAlignment = Alignment.CenterVertically  
-                ) {  
-                    Text(  
-                        text = "J场（JJC）",  
-                        style = MaterialTheme.typography.titleMedium,  
-                        fontWeight = FontWeight.Bold,  
-                        color = MaterialTheme.colorScheme.primary  
-                    )  
-                    Text(  
-                        text = "${uiState.jjcPlayers.size} 人",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+            }  
+  
+            // ==================== 下半部分：透视结果 HorizontalPager ====================  
+            val tabs = listOf("J场（JJC）", "P场（PJJC）")  
+            val pagerState = rememberPagerState(pageCount = { tabs.size })  
+            val coroutineScope = rememberCoroutineScope()  
+  
+            TabRow(selectedTabIndex = pagerState.currentPage) {  
+                tabs.forEachIndexed { index, title ->  
+                    val count = when (index) {  
+                        0 -> uiState.jjcPlayers.size  
+                        1 -> uiState.pjjcPlayers.size  
+                        else -> 0  
+                    }  
+                    Tab(  
+                        selected = pagerState.currentPage == index,  
+                        onClick = {  
+                            coroutineScope.launch { pagerState.animateScrollToPage(index) }  
+                        },  
+                        text = { Text("$title ($count)") }  
                     )  
                 }  
             }  
   
-            if (uiState.jjcPlayers.isEmpty()) {  
-                item {  
-                    Text(  
-                        text = "暂无数据，请选择 JJC透视 后点击开始透视",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+            HorizontalPager(  
+                state = pagerState,  
+                modifier = Modifier.fillMaxWidth().weight(1f)  
+            ) { page ->  
+                when (page) {  
+                    0 -> ArenaPlayerList(  
+                        players = uiState.jjcPlayers,  
+                        emptyText = "暂无数据，请选择 JJC透视 后点击开始透视",  
+                        uiState = uiState,  
+                        arenaType = ArenaType.JJC,  
+                        onBind = { viewModel.bindPlayer(it, ArenaType.JJC) },  
+                        onBindAll = { viewModel.bindAllPlayers(ArenaType.JJC) }  
                     )  
-                }  
-            } else {  
-                items(uiState.jjcPlayers, key = { "jjc_${it.viewerId}" }) { player ->  
-                    PlayerCard(  
-                        player = player,  
-                        isBound = uiState.boundPcrIds.contains(player.viewerId),  
-                        isBinding = uiState.bindingId == player.viewerId,  
-                        justBound = uiState.bindSuccessIds.contains(player.viewerId),  
-                        onBind = { viewModel.bindPlayer(player, ArenaType.JJC) } 
-                    )  
-                }  
-            }  
-  
-            // ==================== P场 ====================  
-            item {  
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))  
-                Row(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    verticalAlignment = Alignment.CenterVertically  
-                ) {  
-                    Text(  
-                        text = "P场（PJJC）",  
-                        style = MaterialTheme.typography.titleMedium,  
-                        fontWeight = FontWeight.Bold,  
-                        color = MaterialTheme.colorScheme.tertiary  
-                    )  
-                    Text(  
-                        text = "${uiState.pjjcPlayers.size} 人",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    1 -> ArenaPlayerList(  
+                        players = uiState.pjjcPlayers,  
+                        emptyText = "暂无数据，请选择 PJJC透视 后点击开始透视",  
+                        uiState = uiState,  
+                        arenaType = ArenaType.PJJC,  
+                        onBind = { viewModel.bindPlayer(it, ArenaType.PJJC) },  
+                        onBindAll = { viewModel.bindAllPlayers(ArenaType.PJJC) }  
                     )  
                 }  
             }  
-  
-            if (uiState.pjjcPlayers.isEmpty()) {  
-                item {  
-                    Text(  
-                        text = "暂无数据，请选择 PJJC透视 后点击开始透视",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )  
-                }  
-            } else {  
-                items(uiState.pjjcPlayers, key = { "pjjc_${it.viewerId}" }) { player ->  
-                    PlayerCard(  
-                        player = player,  
-                        isBound = uiState.boundPcrIds.contains(player.viewerId),  
-                        isBinding = uiState.bindingId == player.viewerId,  
-                        justBound = uiState.bindSuccessIds.contains(player.viewerId),  
-                        onBind = { viewModel.bindPlayer(player, ArenaType.PJJC) }
-                    )  
-                }  
-            }  
-  
-            item { Spacer(modifier = Modifier.height(80.dp)) }  
         }  
   
-        // 添加账号对话框  
         if (showAddDialog) {  
             AddMasterAccountDialog(  
                 viewModel = viewModel,  
                 onDismiss = { showAddDialog = false }  
             )  
+        }  
+    }  
+}  
+  
+// ==================== 透视结果列表（含一键全绑定） ====================  
+  
+@Composable  
+private fun ArenaPlayerList(  
+    players: List<QueryEngine.ArenaRankingPlayer>,  
+    emptyText: String,  
+    uiState: MasterUiState,  
+    arenaType: ArenaType,  
+    onBind: (QueryEngine.ArenaRankingPlayer) -> Unit,  
+    onBindAll: () -> Unit  
+) {  
+    if (players.isEmpty()) {  
+        Column(  
+            modifier = Modifier.fillMaxSize().padding(16.dp),  
+            horizontalAlignment = Alignment.CenterHorizontally,  
+            verticalArrangement = Arrangement.Center  
+        ) {  
+            Text(  
+                text = emptyText,  
+                style = MaterialTheme.typography.bodySmall,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant  
+            )  
+        }  
+    } else {  
+        LazyColumn(  
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),  
+            verticalArrangement = Arrangement.spacedBy(8.dp)  
+        ) {  
+            item {  
+                Spacer(modifier = Modifier.height(8.dp))  
+                val unboundCount = players.count { !uiState.boundPcrIds.contains(it.viewerId) }  
+                if (unboundCount > 0) {  
+                    Button(  
+                        onClick = onBindAll,  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = !uiState.isBindingAll && uiState.bindingId == null,  
+                        colors = ButtonDefaults.buttonColors(  
+                            containerColor = MaterialTheme.colorScheme.tertiary  
+                        )  
+                    ) {  
+                        if (uiState.isBindingAll) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.height(18.dp).width(18.dp),  
+                                strokeWidth = 2.dp,  
+                                color = MaterialTheme.colorScheme.onTertiary  
+                            )  
+                            Spacer(modifier = Modifier.width(8.dp))  
+                            Text("绑定中...", color = MaterialTheme.colorScheme.onTertiary)  
+                        } else {  
+                            Text(  
+                                "一键全绑定（${unboundCount}人）",  
+                                color = MaterialTheme.colorScheme.onTertiary  
+                            )  
+                        }  
+                    }  
+                } else {  
+                    OutlinedButton(  
+                        onClick = {},  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = false  
+                    ) {  
+                        Text("全部已绑定")  
+                    }  
+                }  
+            }  
+  
+            items(players, key = { "${arenaType.name}_${it.viewerId}" }) { player ->  
+                PlayerCard(  
+                    player = player,  
+                    isBound = uiState.boundPcrIds.contains(player.viewerId),  
+                    isBinding = uiState.bindingId == player.viewerId,  
+                    justBound = uiState.bindSuccessIds.contains(player.viewerId),  
+                    onBind = { onBind(player) }  
+                )  
+            }  
+  
+            item { Spacer(modifier = Modifier.height(80.dp)) }  
         }  
     }  
 }  
@@ -300,17 +335,12 @@ private fun MasterAccountCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
     ) {  
         Row(  
-            modifier = Modifier  
-                .fillMaxWidth()  
-                .padding(16.dp),  
+            modifier = Modifier.fillMaxWidth().padding(16.dp),  
             horizontalArrangement = Arrangement.SpaceBetween,  
             verticalAlignment = Alignment.CenterVertically  
         ) {  
             Column(modifier = Modifier.weight(1f)) {  
-                Text(  
-                    text = account.account,  
-                    style = MaterialTheme.typography.titleMedium  
-                )  
+                Text(text = account.account, style = MaterialTheme.typography.titleMedium)  
                 Text(  
                     text = Platform.fromId(account.platform).displayName,  
                     style = MaterialTheme.typography.bodySmall,  
@@ -350,9 +380,7 @@ private fun PlayerCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
     ) {  
         Row(  
-            modifier = Modifier  
-                .fillMaxWidth()  
-                .padding(horizontal = 16.dp, vertical = 12.dp),  
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),  
             horizontalArrangement = Arrangement.SpaceBetween,  
             verticalAlignment = Alignment.CenterVertically  
         ) {  
@@ -373,14 +401,9 @@ private fun PlayerCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant  
                 )  
             }  
-  
             Spacer(modifier = Modifier.width(8.dp))  
-  
             if (isBound) {  
-                OutlinedButton(  
-                    onClick = {},  
-                    enabled = false  
-                ) {  
+                OutlinedButton(onClick = {}, enabled = false) {  
                     Text(if (justBound) "已绑定 ✓" else "已绑定")  
                 }  
             } else {  
@@ -393,9 +416,7 @@ private fun PlayerCard(
                 ) {  
                     if (isBinding) {  
                         CircularProgressIndicator(  
-                            modifier = Modifier  
-                                .height(16.dp)  
-                                .width(16.dp),  
+                            modifier = Modifier.height(16.dp).width(16.dp),  
                             strokeWidth = 2.dp,  
                             color = MaterialTheme.colorScheme.onPrimary  
                         )  
@@ -428,8 +449,6 @@ private fun AddMasterAccountDialog(
                     style = MaterialTheme.typography.bodySmall,  
                     color = MaterialTheme.colorScheme.onSurfaceVariant  
                 )  
-  
-                // 平台选择  
                 Text("服务器", style = MaterialTheme.typography.labelMedium)  
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
                     Platform.entries.forEach { platform ->  
@@ -440,7 +459,6 @@ private fun AddMasterAccountDialog(
                         )  
                     }  
                 }  
-  
                 OutlinedTextField(  
                     value = uiState.addAccount,  
                     onValueChange = { viewModel.updateAddAccount(it) },  
@@ -448,7 +466,6 @@ private fun AddMasterAccountDialog(
                     modifier = Modifier.fillMaxWidth(),  
                     singleLine = true  
                 )  
-  
                 OutlinedTextField(  
                     value = uiState.addPassword,  
                     onValueChange = { viewModel.updateAddPassword(it) },  
@@ -458,7 +475,6 @@ private fun AddMasterAccountDialog(
                     visualTransformation = PasswordVisualTransformation(),  
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)  
                 )  
-  
                 if (uiState.selectedPlatform == Platform.QU_SERVER) {  
                     OutlinedTextField(  
                         value = uiState.addViewerId,  
@@ -468,7 +484,6 @@ private fun AddMasterAccountDialog(
                         singleLine = true  
                     )  
                 }  
-  
                 if (uiState.addError != null) {  
                     Text(  
                         text = uiState.addError!!,  
