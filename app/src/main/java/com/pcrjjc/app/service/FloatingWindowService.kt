@@ -407,7 +407,7 @@ class FloatingWindowService : Service() {
                 val scrollView = ScrollView(ctx).apply {  
                     layoutParams = LinearLayout.LayoutParams(  
                         ViewGroup.LayoutParams.MATCH_PARENT,  
-                        dp(400)  
+                        dp(800)  
                     )  
                 }  
                 val imageView = ImageView(ctx).apply {  
