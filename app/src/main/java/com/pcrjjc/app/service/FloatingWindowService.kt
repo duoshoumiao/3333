@@ -404,12 +404,13 @@ class FloatingWindowService : Service() {
             val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
             val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
             if (bitmap != null) {  
-                val panelWidth = dp(PANEL_WIDTH_DP - 18)  
+                val panelWidth = dp(200)  // dp(340) - padding dp(8)*2  
 				val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
 				val scaledHeight = (bitmap.height * scale).toInt()  
-				val scaledBitmap = Bitmap.createScaledBitmap(bitmap, panelWidth, scaledHeight, true)  
+				  
 				val screenHeight = resources.displayMetrics.heightPixels  
 				val maxScrollHeight = (screenHeight * 0.45).toInt()  
+				  
 				val scrollView = ScrollView(ctx).apply {  
 					layoutParams = LinearLayout.LayoutParams(  
 						ViewGroup.LayoutParams.MATCH_PARENT,  
@@ -417,12 +418,10 @@ class FloatingWindowService : Service() {
 					)  
 				}  
 				val imageView = ImageView(ctx).apply {  
-					setImageBitmap(scaledBitmap)  
-					layoutParams = LinearLayout.LayoutParams(  
-						ViewGroup.LayoutParams.WRAP_CONTENT,  
-						ViewGroup.LayoutParams.WRAP_CONTENT  
-					)  
-				}
+					setImageBitmap(bitmap)  
+					scaleType = ImageView.ScaleType.FIT_XY  
+					layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
+				}  
 				scrollView.addView(imageView)  
 				root.addView(scrollView) 
             } else {  
