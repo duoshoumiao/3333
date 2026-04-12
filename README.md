@@ -203,7 +203,6 @@ async def handle_query_image(request):
                 "team_count": 1,  
                 "image": img_b64  
             })  
-  ```
         # ========== 多队 PJJC (2-3队) ==========  
         sv.logger.info(f'PJJC多队查询: {team_count} 队')  
   
