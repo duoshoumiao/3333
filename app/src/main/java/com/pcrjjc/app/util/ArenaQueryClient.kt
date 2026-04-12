@@ -64,10 +64,6 @@ class ArenaQueryClient {
     ): String {  
         val sb = StringBuilder()  
         sb.append("{")  
-        // _sign 在 Python dict 中是最后添加的，但 JSON key 排序可能不同  
-        // 实际上 Python 3.7+ dict 保持插入顺序，_sign 在 ts 之后  
-        // 为了与 Python 的 json.dumps 输出一致，按字母序不对，按插入序：  
-        // def, language, nonce, page, region, sort, ts, _sign  
         sb.append("\"def\":[")  
         sb.append(defArray.joinToString(","))  
         sb.append("],")  
@@ -116,8 +112,8 @@ class ArenaQueryClient {
             val finalJson = buildJsonString(defArray, language, nonce, page, region, sort, ts, sign)  
   
             Log.i(TAG, "查询防守阵容: $defenseIds -> def=$defArray, nonce=$nonce")  
-            Log.d(TAG, "签名: $sign")  
-            Log.d(TAG, "请求体: $finalJson")  
+            Log.i(TAG, "签名: $sign")  
+            Log.i(TAG, "请求体: $finalJson")  
   
             val body = finalJson.toRequestBody("application/json; charset=utf-8".toMediaType())  
   
@@ -142,7 +138,7 @@ class ArenaQueryClient {
                 }  
   
                 val responseBody = resp.body?.string() ?: return emptyList()  
-                Log.d(TAG, "API 响应: ${responseBody.take(500)}")  
+                Log.i(TAG, "API 响应: ${responseBody.take(500)}")  
                 return parseResponse(responseBody)  
             }  
         } catch (e: Exception) {  
@@ -158,7 +154,7 @@ class ArenaQueryClient {
         val json = JSONObject(responseBody)  
         val code = json.optInt("code", -1)  
         if (code != 0) {  
-            Log.w(TAG, "API 返回错误: code=$code, message=${json.optString("message")}")  
+            Log.w(TAG, "API 返回错误: code=$code, message=${json.optString("message")}, 完整响应: $responseBody")  
             return emptyList()  
         }  
   

@@ -1,6 +1,7 @@
 package com.pcrjjc.app.util  
   
 import android.util.Base64  
+import android.util.Log  
 import java.security.MessageDigest  
   
 /**  
@@ -9,6 +10,7 @@ import java.security.MessageDigest
  */  
 object PcrdApiSigner {  
   
+    private const val TAG = "PcrdApiSigner"  
     private const val INT_MASK = 0xFFFFFFFFL  
     private const val N_HASH = 29  
   
@@ -76,7 +78,15 @@ object PcrdApiSigner {
   
         // base64 编码 + TAIL2  
         val b64Bytes = Base64.encode(digest, Base64.NO_WRAP)  
-        val b64 = b64Bytes + TAIL2  
+        // 防御性处理：某些 Android 版本 Base64.encode 即使 NO_WRAP 也可能多出尾部换行  
+        val b64BytesTrimmed = if (b64Bytes.isNotEmpty() && (b64Bytes.last() == '\n'.code.toByte() || b64Bytes.last() == '\r'.code.toByte())) {  
+            Log.w(TAG, "Base64.encode 多出尾部换行，已修剪: len=${b64Bytes.size}")  
+            b64Bytes.copyOf(b64Bytes.size - 1)  
+        } else {  
+            b64Bytes  
+        }  
+        Log.d(TAG, "b64 len=${b64BytesTrimmed.size} content=${String(b64BytesTrimmed, Charsets.US_ASCII)}")  
+        val b64 = b64BytesTrimmed + TAIL2
   
         // 状态机计算 offset 和 tableId  
         val s = longArrayOf(0x6295C58DL, 0x62B82175L, 0x07BB0142L, 0x6C62272EL)  
