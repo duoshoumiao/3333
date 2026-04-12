@@ -352,7 +352,7 @@ class FloatingWindowService : Service() {
         panel.addView(text)  
   
         val params = WindowManager.LayoutParams(  
-            dp(240), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(120), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
@@ -409,7 +409,7 @@ class FloatingWindowService : Service() {
 				val scaledHeight = (bitmap.height * scale).toInt()  
 				  
 				val screenHeight = resources.displayMetrics.heightPixels  
-				val maxScrollHeight = (screenHeight * 0.75).toInt()  
+				val maxScrollHeight = (screenHeight * 0.45).toInt()  
 				  
 				val scrollView = ScrollView(ctx).apply {  
 					layoutParams = LinearLayout.LayoutParams(  
