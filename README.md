@@ -73,7 +73,7 @@ app/src/main/java/com/pcrjjc/app/
 在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
 代码输入：
 
-
+```
 import asyncio  
 import base64  
 import json  
@@ -203,7 +203,7 @@ async def handle_query_image(request):
                 "team_count": 1,  
                 "image": img_b64  
             })  
-  
+  ```
         # ========== 多队 PJJC (2-3队) ==========  
         sv.logger.info(f'PJJC多队查询: {team_count} 队')  
   
