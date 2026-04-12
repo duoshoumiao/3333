@@ -72,6 +72,8 @@ app/src/main/java/com/pcrjjc/app/
 ## 打包准备
 在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
 代码输入：
+
+
 import asyncio  
 import base64  
 import json  
