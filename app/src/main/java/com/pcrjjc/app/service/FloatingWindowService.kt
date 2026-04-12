@@ -335,11 +335,11 @@ class FloatingWindowService : Service() {
   
         val progress = ProgressBar(this)  
         val text = TextView(this).apply {  
-            this.text = "正在发送到服务器识别..."  
-            setTextColor(Color.WHITE)  
-            textSize = 14f  
-            gravity = Gravity.CENTER  
-            setPadding(0, dp(8), 0, 0)  
+			this.text = "正在识别中，请稍候...\n(PJJC多队可能需要1-2分钟)"  
+			setTextColor(Color.WHITE)  
+			textSize = 13f  
+			gravity = Gravity.CENTER  
+			setPadding(0, dp(8), 0, 0)  
         }  
         panel.addView(progress)  
         panel.addView(text)  
