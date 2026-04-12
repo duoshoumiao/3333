@@ -466,6 +466,8 @@ class ArenaQueryClient {
         private const val SERVER_URL = "http://IP:端口"  
     }  
 ```
+然后在actions里打包你的专属apk
+
 ## 原库
 
 基于 [pcrjjc2](https://github.com/duoshoumiao/pcrjjc2) 移植。
