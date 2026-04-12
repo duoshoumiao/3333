@@ -1,175 +1,145 @@
-package com.pcrjjc.app.util    
-    
-import android.util.Log    
-import okhttp3.MediaType.Companion.toMediaType    
-import okhttp3.OkHttpClient    
-import okhttp3.Request    
-import okhttp3.RequestBody.Companion.toRequestBody    
-import org.json.JSONObject    
-import java.util.concurrent.TimeUnit    
-import kotlin.math.ln    
-import kotlin.random.Random    
-    
-/**    
- * 竞技场"怎么拆"查询客户端。    
- * 移植自 arena.py + pcrdapi，调用 pcrdfans.com API 查询进攻阵容推荐。    
- */    
-class ArenaQueryClient {    
-    
-    companion object {    
-        private const val TAG = "ArenaQueryClient"    
-        private const val API_URL = "https://api.pcrdfans.com/x/v1/search"    
-        private const val NONCE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"    
-        private const val NONCE_LENGTH = 16    
-    }    
-    
-    data class ArenaResult(    
-        val atkUnits: List<Int>,    
-        val upVote: Int,    
-        val downVote: Int,    
-        val score: Double,    
-        val updated: String    
-    )    
-    
-    private val client = OkHttpClient.Builder()    
-        .connectTimeout(10, TimeUnit.SECONDS)    
-        .readTimeout(10, TimeUnit.SECONDS)    
-        .build()    
-    
-    private fun getNonce(): String {    
-        return (1..NONCE_LENGTH).map { NONCE_CHARS[Random.nextInt(NONCE_CHARS.length)] }.joinToString("")    
-    }    
-    
-    private fun getTs(): Long {    
-        return System.currentTimeMillis() / 1000    
-    }    
-    
-    private fun buildJsonString(    
-        defArray: List<Int>,    
-        language: Int,    
-        nonce: String,    
-        page: Int,    
-        region: Int,    
-        sort: Int,    
-        ts: Long,    
-        sign: String? = null    
-    ): String {    
-        val sb = StringBuilder()    
-        sb.append("{")    
-        sb.append("\"def\":[")    
-        sb.append(defArray.joinToString(","))    
-        sb.append("],")    
-        sb.append("\"language\":$language,")    
-        sb.append("\"nonce\":\"$nonce\",")    
-        sb.append("\"page\":$page,")    
-        sb.append("\"region\":$region,")    
-        sb.append("\"sort\":$sort,")    
-        sb.append("\"ts\":$ts")    
-        if (sign != null) {    
-            sb.append(",\"_sign\":\"$sign\"")    
-        }    
-        sb.append("}")    
-        return sb.toString()    
-    }    
-    
-    fun query(defenseIds: List<Int>, region: Int = 2, sort: Int = 1): List<ArenaResult> {    
-        if (defenseIds.size < 4 || defenseIds.size > 5) {    
-            Log.w(TAG, "防守阵容数量不对: ${defenseIds.size}，需要4~5个")    
-            return emptyList()    
-        }    
-    
-        try {    
-            val defArray = defenseIds.map { it * 100 + 1 }    
-            val nonce = getNonce()    
-            val ts = getTs()    
-            val page = 1    
-            val language = 0    
-    
-            val jsonForSign = buildJsonString(defArray, language, nonce, page, region, sort, ts)    
-            val sign = PcrdApiSigner.sign(jsonForSign, nonce)    
-            val finalJson = buildJsonString(defArray, language, nonce, page, region, sort, ts, sign)    
-    
-            Log.i(TAG, "查询防守阵容: $defenseIds -> def=$defArray, nonce=$nonce")    
-            Log.i(TAG, "签名: $sign")    
-            Log.i(TAG, "请求体: $finalJson")    
-    
-            val body = finalJson.toRequestBody("application/json; charset=utf-8".toMediaType())    
-    
-            val request = Request.Builder()    
-                .url(API_URL)    
-                .post(body)    
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0")    
-                .header("Referer", "https://pcrdfans.com/")    
-                .header("Origin", "https://pcrdfans.com")    
-                .header("Accept", "*/*")    
-                .header("Content-Type", "application/json; charset=utf-8")    
-                .header("Authorization", "")    
-                .header("Host", "api.pcrdfans.com")    
-                .build()    
-    
-            val response = client.newCall(request).execute()    
-            response.use { resp ->    
-                if (!resp.isSuccessful) {    
-                    Log.e(TAG, "API 请求失败: ${resp.code}")    
-                    return emptyList()    
-                }    
-    
-                val responseBody = resp.body?.string() ?: return emptyList()    
-                Log.i(TAG, "API 响应: ${responseBody.take(500)}")    
-                return parseResponse(responseBody)    
-            }    
-        } catch (e: Exception) {    
-            Log.e(TAG, "查询失败", e)    
-            return emptyList()    
-        }    
-    }    
-    
-    private fun parseResponse(responseBody: String): List<ArenaResult> {    
-        val json = JSONObject(responseBody)    
-        val code = json.optInt("code", -1)    
-        if (code != 0) {    
-            Log.w(TAG, "API 返回错误: code=$code, message=${json.optString("message")}, 完整响应: $responseBody")    
-            return emptyList()    
-        }    
-    
-        val data = json.optJSONObject("data") ?: return emptyList()    
-        val resultArray = data.optJSONArray("result") ?: return emptyList()    
-    
-        val results = mutableListOf<ArenaResult>()    
-        for (i in 0 until resultArray.length()) {    
-            val entry = resultArray.getJSONObject(i)    
-    
-            val atkArray = entry.optJSONArray("atk") ?: continue    
-            val atkUnits = mutableListOf<Int>()    
-            for (j in 0 until atkArray.length()) {    
-                val unit = atkArray.getJSONObject(j)    
-                val unitId = unit.getInt("id")    
-                atkUnits.add(unitId / 100)    
-            }    
-    
-            val up = entry.optInt("up", 0)    
-            val down = entry.optInt("down", 0)    
-            val updated = entry.optString("updated", "")    
-            val score = calculateVal(up, down)    
-    
-            results.add(    
-                ArenaResult(    
-                    atkUnits = atkUnits,    
-                    upVote = up,    
-                    downVote = down,    
-                    score = score,    
-                    updated = updated    
-                )    
-            )    
-        }    
-    
-        return results.sortedByDescending { it.score }.take(10)    
-    }    
-    
-    private fun calculateVal(up: Int, down: Int): Double {    
-        val total = up + down    
-        val val1 = up.toDouble() / (total + 0.0001) * 2.0 - 1.0    
-        val val2 = ln(total + 0.01) / ln(100.0)    
-        return val1 + val2 + Random.nextDouble() / 1000.0    
-    }    
+package com.pcrjjc.app.util  
+  
+import android.util.Log  
+import okhttp3.MediaType.Companion.toMediaType  
+import okhttp3.MultipartBody  
+import okhttp3.OkHttpClient  
+import okhttp3.RequestBody.Companion.toRequestBody  
+import okhttp3.Request  
+import org.json.JSONObject  
+import java.util.concurrent.TimeUnit  
+  
+/**  
+ * 竞技场"怎么拆"查询客户端。  
+ * 将截图发送到服务器，由服务器完成图像识别 + 作业查询。  
+ */  
+class ArenaQueryClient {  
+  
+    companion object {  
+        private const val TAG = "ArenaQueryClient"  
+        private const val SERVER_URL = "http://119.91.249.245:8020"  
+    }  
+  
+    data class ArenaResult(  
+        val atkUnits: List<Int>,  // 进攻角色 baseId 列表  
+        val upVote: Int,  
+        val downVote: Int,  
+        val score: Double,  
+        val updated: String  
+    )  
+  
+    data class TeamResult(  
+        val defenseIndex: Int,  
+        val defenseIds: List<Int>,  
+        val attacks: List<ArenaResult>  
+    )  
+  
+    data class ServerArenaResponse(  
+        val code: Int,  
+        val message: String,  
+        val defenseTeams: List<List<Int>>,  
+        val results: List<TeamResult>  
+    )  
+  
+    private val client = OkHttpClient.Builder()  
+        .connectTimeout(30, TimeUnit.SECONDS)  
+        .readTimeout(30, TimeUnit.SECONDS)  
+        .build()  
+  
+    /**  
+     * 将截图发送到服务器进行识别 + 查询。  
+     *  
+     * @param imageBytes 截图的 PNG 字节数组  
+     * @param region 服务器区域: 1=全服, 2=B服, 3=台服, 4=日服  
+     * @return ServerArenaResponse 包含识别到的防守阵容和进攻推荐  
+     */  
+    fun queryByImage(imageBytes: ByteArray, region: Int = 2): ServerArenaResponse {  
+        try {  
+            val requestBody = MultipartBody.Builder()  
+                .setType(MultipartBody.FORM)  
+                .addFormDataPart(  
+                    "image", "screenshot.png",  
+                    imageBytes.toRequestBody("image/png".toMediaType())  
+                )  
+                .addFormDataPart("region", region.toString())  
+                .build()  
+  
+            val request = Request.Builder()  
+                .url("$SERVER_URL/api/arena/query_image")  
+                .post(requestBody)  
+                .build()  
+  
+            Log.i(TAG, "发送截图到服务器, region=$region, 图片大小=${imageBytes.size}")  
+  
+            val response = client.newCall(request).execute()  
+            response.use { resp ->  
+                if (!resp.isSuccessful) {  
+                    Log.e(TAG, "服务器请求失败: ${resp.code}")  
+                    return ServerArenaResponse(-1, "服务器请求失败: ${resp.code}", emptyList(), emptyList())  
+                }  
+  
+                val body = resp.body?.string()  
+                if (body.isNullOrEmpty()) {  
+                    return ServerArenaResponse(-1, "服务器返回空数据", emptyList(), emptyList())  
+                }  
+  
+                Log.i(TAG, "服务器返回: ${body.take(200)}")  
+                return parseServerResponse(body)  
+            }  
+        } catch (e: Exception) {  
+            Log.e(TAG, "queryByImage 失败", e)  
+            return ServerArenaResponse(-1, "网络错误: ${e.message}", emptyList(), emptyList())  
+        }  
+    }  
+  
+    private fun parseServerResponse(body: String): ServerArenaResponse {  
+        val json = JSONObject(body)  
+        val code = json.optInt("code", -1)  
+        val message = json.optString("message", "")  
+  
+        if (code != 0) {  
+            return ServerArenaResponse(code, message, emptyList(), emptyList())  
+        }  
+  
+        // 解析 defense 二维数组  
+        val defenseArray = json.optJSONArray("defense") ?: org.json.JSONArray()  
+        val defenseTeams = mutableListOf<List<Int>>()  
+        for (i in 0 until defenseArray.length()) {  
+            val team = defenseArray.getJSONArray(i)  
+            val ids = (0 until team.length()).map { team.getInt(it) }  
+            defenseTeams.add(ids)  
+        }  
+  
+        // 解析 results  
+        val resultsArray = json.optJSONArray("results") ?: org.json.JSONArray()  
+        val results = mutableListOf<TeamResult>()  
+        for (i in 0 until resultsArray.length()) {  
+            val item = resultsArray.getJSONObject(i)  
+            val defIndex = item.optInt("defense_index", 0)  
+            val defIds = item.optJSONArray("defense_ids")?.let { arr ->  
+                (0 until arr.length()).map { arr.getInt(it) }  
+            } ?: emptyList()  
+  
+            val attacksArr = item.optJSONArray("attacks") ?: org.json.JSONArray()  
+            val attacks = mutableListOf<ArenaResult>()  
+            for (j in 0 until attacksArr.length()) {  
+                val atk = attacksArr.getJSONObject(j)  
+                val atkUnits = atk.optJSONArray("atk_units")?.let { arr ->  
+                    (0 until arr.length()).map { arr.getInt(it) }  
+                } ?: emptyList()  
+                attacks.add(  
+                    ArenaResult(  
+                        atkUnits = atkUnits,  
+                        upVote = atk.optInt("up", 0),  
+                        downVote = atk.optInt("down", 0),  
+                        score = atk.optDouble("score", 0.0),  
+                        updated = atk.optString("updated", "")  
+                    )  
+                )  
+            }  
+            results.add(TeamResult(defIndex, defIds, attacks))  
+        }  
+  
+        return ServerArenaResponse(code, message, defenseTeams, results)  
+    }  
 }
