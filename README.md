@@ -457,6 +457,15 @@ loop = asyncio.get_event_loop()
 loop.create_task(_start_api_server())
 ```
 
+ArenaQueryClient.kt填入你服务器端口
+```
+class ArenaQueryClient {  
+  
+    companion object {  
+        private const val TAG = "ArenaQueryClient"  
+        private const val SERVER_URL = "http://IP:端口"  
+    }  
+```
 ## 原库
 
 基于 [pcrjjc2](https://github.com/duoshoumiao/pcrjjc2) 移植。
