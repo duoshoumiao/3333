@@ -14,7 +14,7 @@ android {
         minSdk = 26  
         targetSdk = 34  
         versionCode = 4  
-        versionName = "2.0.1"  
+        versionName = "2.0.2"  
   
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"  
         vectorDrawables {  
@@ -40,8 +40,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17  
     }  
     kotlinOptions {  
-        jvmTarget = "17"  
-    }  
+		jvmTarget = "17"  
+		freeCompilerArgs += "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"  
+	} 
     buildFeatures {  
         compose = true  
         buildConfig = true  // ★ 新增：让代码能访问 BuildConfig.VERSION_NAME  
