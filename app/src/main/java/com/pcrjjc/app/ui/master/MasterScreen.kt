@@ -52,6 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope  
 import androidx.compose.runtime.setValue  
 import androidx.compose.ui.Alignment  
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.Modifier  
 import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.ui.text.input.PasswordVisualTransformation  
