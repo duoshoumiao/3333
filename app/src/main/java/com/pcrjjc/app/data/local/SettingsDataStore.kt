@@ -52,16 +52,11 @@ class SettingsDataStore(private val context: Context) {
     }  
   
     suspend fun setServerIp(ip: String) {  
-        context.dataStore.edit { prefs ->  
-            prefs[KEY_SERVER_IP] = ip  
-        }  
-    }  
-  
-    suspend fun setServerPort(port: String) {  
-        context.dataStore.edit { prefs ->  
-            prefs[KEY_SERVER_PORT] = port  
-        }  
-    }  
+		context.dataStore.edit { it[KEY_SERVER_IP] = ip }  
+	}  
+	suspend fun setServerPort(port: String) {  
+		context.dataStore.edit { it[KEY_SERVER_PORT] = port }  
+	}  
   
     suspend fun getPollingIntervalSync(): Long {  
         return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 1L  
