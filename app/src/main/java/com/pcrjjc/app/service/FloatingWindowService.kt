@@ -100,7 +100,7 @@ class FloatingWindowService : Service() {
         ).apply {  
             gravity = Gravity.TOP or Gravity.START  
             x = 0  
-            y = dp(200)  
+            y = dp(188)  
         }  
   
         var initialX = 0  
@@ -503,7 +503,7 @@ class FloatingWindowService : Service() {
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(320), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(204), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
@@ -662,7 +662,7 @@ class FloatingWindowService : Service() {
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(320), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(192), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
