@@ -36,6 +36,8 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         val defenseTeams: List<TeamResult>,  
         val results: List<TeamResult>,  
         val image: String?  
+		val highlightImage: String? = null,   // ★ 新增  
+		val compareImage: String? = null      // ★ 新增 
     )  
   
     private val client = OkHttpClient.Builder()  
@@ -111,7 +113,9 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         val code = json.optInt("code", -1)  
         val message = json.optString("message", "")  
         val image = json.optString("image", null)  
-        val teamCount = json.optInt("team_count", 0)  
+        val highlightImage = if (json.isNull("highlight_image")) null else json.optString("highlight_image", null)  
+		val compareImage = if (json.isNull("compare_image")) null else json.optString("compare_image", null)
+		val teamCount = json.optInt("team_count", 0)  
   
         val defenseTeams = mutableListOf<TeamResult>()  
         val defenseArray = json.optJSONArray("defense")  
@@ -172,12 +176,14 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         }  
   
         return ServerArenaResponse(  
-            code = code,  
-            message = message,  
-            teamCount = teamCount,  
-            defenseTeams = defenseTeams,  
-            results = results,  
-            image = image  
-        )  
+			code = code,  
+			message = message,  
+			teamCount = teamCount,  
+			defenseTeams = defenseTeams,  
+			results = results,  
+			image = image,  
+			highlightImage = highlightImage,   // ★ 新增  
+			compareImage = compareImage        // ★ 新增  
+		)  
     }  
 }

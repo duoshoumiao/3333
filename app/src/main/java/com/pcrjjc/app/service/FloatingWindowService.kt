@@ -308,8 +308,13 @@ class FloatingWindowService : Service() {
   
                     // 优先展示服务器渲染的图片（PJJC 无冲配队图 / JJC 结果图）  
                     if (!serverResponse.image.isNullOrEmpty()) {  
-                        showImageResultPanel(serverResponse.image, serverResponse.message)  
-                    } else if (serverResponse.results.isNotEmpty()) {  
+						showImageResultPanel(  
+							serverResponse.image,  
+							serverResponse.message,  
+							serverResponse.highlightImage,   // ★ 新增  
+							serverResponse.compareImage      // ★ 新增  
+						)  
+					} else if (serverResponse.results.isNotEmpty()) {  
                         // fallback: 用结构化数据展示  
                         val firstResult = serverResponse.results.firstOrNull { it.attacks.isNotEmpty() }  
                         if (firstResult != null) {  
@@ -373,7 +378,12 @@ class FloatingWindowService : Service() {
     // ======================== 结果面板（图片模式，PJJC 无冲配队图） ========================  
   
     @SuppressLint("ClickableViewAccessibility")  
-    private fun showImageResultPanel(imageBase64: String, title: String) {  
+    private fun showImageResultPanel(  
+		imageBase64: String,  
+		message: String,  
+		highlightBase64: String? = null,  
+		compareBase64: String? = null  
+	) {
         val ctx: Context = this  
   
         val root = LinearLayout(ctx).apply {  
@@ -496,7 +506,80 @@ class FloatingWindowService : Service() {
         makePanelDraggable(titleRow, root, params)  
     }  
   
-    // ======================== 结果面板（结构化数据模式，JJC 单队） ========================  
+    // ★ 新增：识别高亮图  
+	if (!highlightBase64.isNullOrEmpty()) {  
+		try {  
+			val bytes = Base64.decode(highlightBase64, Base64.DEFAULT)  
+			val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+			if (bmp != null) {  
+				val label = TextView(ctx).apply {  
+					text = "识别高亮图"  
+					setTextColor(0xFFFFCC00.toInt())  
+					textSize = 11f  
+					setPadding(0, dp(4), 0, dp(2))  
+				}  
+				contentLayout.addView(label)  
+				val scale = panelWidth.toFloat() / bmp.width.toFloat()  
+				val scaledH = (bmp.height * scale).toInt()  
+				val iv = ImageView(ctx).apply {  
+					setImageBitmap(bmp)  
+					scaleType = ImageView.ScaleType.FIT_XY  
+					layoutParams = LinearLayout.LayoutParams(panelWidth, scaledH)  
+				}  
+				contentLayout.addView(iv)  
+			}  
+		} catch (e: Exception) {  
+			Log.w(TAG, "识别高亮图解码失败", e)  
+		}  
+	}  
+	  
+	// ★ 新增：对比图  
+	if (!compareBase64.isNullOrEmpty()) {  
+		try {  
+			val bytes = Base64.decode(compareBase64, Base64.DEFAULT)  
+			val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+			if (bmp != null) {  
+				val label = TextView(ctx).apply {  
+					text = "对比图 (上:截图 下:标准)"  
+					setTextColor(0xFFFFCC00.toInt())  
+					textSize = 11f  
+					setPadding(0, dp(4), 0, dp(2))  
+				}  
+				contentLayout.addView(label)  
+				val scale = panelWidth.toFloat() / bmp.width.toFloat()  
+				val scaledH = (bmp.height * scale).toInt()  
+				val iv = ImageView(ctx).apply {  
+					setImageBitmap(bmp)  
+					scaleType = ImageView.ScaleType.FIT_XY  
+					layoutParams = LinearLayout.LayoutParams(panelWidth, scaledH)  
+				}  
+				contentLayout.addView(iv)  
+			}  
+		} catch (e: Exception) {  
+			Log.w(TAG, "对比图解码失败", e)  
+		}  
+	}  
+	  
+	// ★ 新增：分隔线  
+	if (!highlightBase64.isNullOrEmpty() || !compareBase64.isNullOrEmpty()) {  
+		val divider = View(ctx).apply {  
+			setBackgroundColor(Color.GRAY)  
+			layoutParams = LinearLayout.LayoutParams(  
+				ViewGroup.LayoutParams.MATCH_PARENT, 1  
+			).apply { setMargins(0, dp(4), 0, dp(4)) }  
+		}  
+		contentLayout.addView(divider)  
+		val resultLabel = TextView(ctx).apply {  
+			text = "推荐进攻阵容"  
+			setTextColor(0xFF90CAF9.toInt())  
+			textSize = 11f  
+			setPadding(0, 0, 0, dp(2))  
+		}  
+		contentLayout.addView(resultLabel)  
+	}  
+	  
+	
+	// ======================== 结果面板（结构化数据模式，JJC 单队） ========================  
   
     @SuppressLint("ClickableViewAccessibility")  
     private fun showResultPanel(defenseIds: List<Int>, results: List<ArenaQueryClient.ArenaResult>) {  
