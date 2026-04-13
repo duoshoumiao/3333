@@ -399,7 +399,7 @@ class FloatingWindowService : Service() {
             setPadding(dp(4), dp(4), dp(4), dp(4))  
         }  
         val titleText = TextView(ctx).apply {  
-            text = "⠿ $title"  
+            text = "⠿ $message"  
             setTextColor(Color.WHITE)  
             textSize = 13f  
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)  
@@ -596,7 +596,8 @@ class FloatingWindowService : Service() {
   
     @SuppressLint("ClickableViewAccessibility")  
     private fun showResultPanel(defenseIds: List<Int>, results: List<ArenaQueryClient.ArenaResult>) {  
-        val ctx: Context = this  
+        val ctx: Context = this 
+        val panelWidth = dp(185)    // ★ 加这一行   
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
