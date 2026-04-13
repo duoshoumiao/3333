@@ -272,7 +272,11 @@ private fun ArenaPlayerList(
         ) {  
             item {  
                 Spacer(modifier = Modifier.height(8.dp))  
-                val unboundCount = players.count { !uiState.boundPcrIds.contains(it.viewerId) }  
+                val currentBoundIds = when (arenaType) {  
+					ArenaType.JJC -> uiState.boundJjcPcrIds  
+					ArenaType.PJJC -> uiState.boundPjjcPcrIds  
+				}  
+				val unboundCount = players.count { !currentBoundIds.contains(it.viewerId) }  
                 if (unboundCount > 0) {  
                     Button(  
                         onClick = onBindAll,  
@@ -309,9 +313,9 @@ private fun ArenaPlayerList(
             }  
   
             items(players, key = { "${arenaType.name}_${it.viewerId}" }) { player ->  
-                PlayerCard(  
-                    player = player,  
-                    isBound = uiState.boundPcrIds.contains(player.viewerId),  
+				PlayerCard(  
+					player = player,  
+					isBound = currentBoundIds.contains(player.viewerId),   
                     isBinding = uiState.bindingId == player.viewerId,  
                     justBound = uiState.bindSuccessIds.contains(player.viewerId),  
                     onBind = { onBind(player) }  

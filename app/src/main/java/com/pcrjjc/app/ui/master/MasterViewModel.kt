@@ -33,7 +33,8 @@ data class MasterUiState(
     val errorMessage: String? = null,  
     val selectedType: ArenaType = ArenaType.JJC,  
     val selectedPlatform: Platform = Platform.B_SERVER,  
-    val boundPcrIds: Set<Long> = emptySet(),  
+    val boundJjcPcrIds: Set<Long> = emptySet(),  
+	val boundPjjcPcrIds: Set<Long> = emptySet(),  
     val bindingId: Long? = null,  
     val bindSuccessIds: Set<Long> = emptySet(),  
     // 一键全绑定  
@@ -70,12 +71,13 @@ class MasterViewModel @Inject constructor(
     }  
   
     private fun loadBoundIds() {  
-        viewModelScope.launch {  
-            val allBinds = bindDao.getAllBindsSync()  
-            val ids = allBinds.map { it.pcrid }.toSet()  
-            _uiState.value = _uiState.value.copy(boundPcrIds = ids)  
-        }  
-    }  
+		viewModelScope.launch {  
+			val allBinds = bindDao.getAllBindsSync()  
+			val jjcIds = allBinds.filter { it.arenaType == 1 }.map { it.pcrid }.toSet()  
+			val pjjcIds = allBinds.filter { it.arenaType == 2 }.map { it.pcrid }.toSet()  
+			_uiState.value = _uiState.value.copy(boundJjcPcrIds = jjcIds, boundPjjcPcrIds = pjjcIds)  
+		}  
+	}  
   
     // ==================== 账号管理 ====================  
   
@@ -167,6 +169,8 @@ class MasterViewModel @Inject constructor(
                 }  
   
                 val allBinds = bindDao.getAllBindsSync()  
+				val jjcIds = allBinds.filter { it.arenaType == 1 }.map { it.pcrid }.toSet()  
+				val pjjcIds = allBinds.filter { it.arenaType == 2 }.map { it.pcrid }.toSet()  
                 val boundIds = allBinds.map { it.pcrid }.toSet()  
   
                 // 根据选择的类型存入对应列表  
@@ -198,7 +202,11 @@ class MasterViewModel @Inject constructor(
             _uiState.value = state.copy(bindingId = player.viewerId)  
   
             try {  
-                val existing = bindDao.getBindByPcrid(player.viewerId, state.selectedPlatform.id)  
+                val arenaTypeInt = when (fromType) {  
+					ArenaType.JJC -> 1  
+					ArenaType.PJJC -> 2  
+				}  
+				val existing = bindDao.getBindByPcridAndType(player.viewerId, state.selectedPlatform.id, arenaTypeInt)  
                 if (existing != null) {  
                     _uiState.value = _uiState.value.copy(  
                         bindingId = null,  
@@ -221,10 +229,15 @@ class MasterViewModel @Inject constructor(
                     platform = state.selectedPlatform.id,  
                     name = player.userName,  
                     arenaType = when (fromType) {  
-                        ArenaType.JJC -> 1  
-                        ArenaType.PJJC -> 2  
-                    }  
-                )  
+					ArenaType.JJC -> {  
+						val newIds = _uiState.value.boundJjcPcrIds + player.viewerId  
+						_uiState.value = _uiState.value.copy(boundJjcPcrIds = newIds, ...)  
+					}  
+					ArenaType.PJJC -> {  
+						val newIds = _uiState.value.boundPjjcPcrIds + player.viewerId  
+						_uiState.value = _uiState.value.copy(boundPjjcPcrIds = newIds, ...)  
+					}  
+				}  
                 bindDao.insert(bind)  
   
                 val newBoundIds = _uiState.value.boundPcrIds + player.viewerId  

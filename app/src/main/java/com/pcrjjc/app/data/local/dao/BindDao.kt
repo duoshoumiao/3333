@@ -35,7 +35,10 @@ interface BindDao {
     @Update
     suspend fun update(bind: PcrBind)
 
-    @Query("DELETE FROM pcr_bind WHERE id = :id")
+    @Query("SELECT * FROM pcr_bind WHERE pcrid = :pcrid AND platform = :platform AND arenaType = :arenaType LIMIT 1")  
+	suspend fun getBindByPcridAndType(pcrid: Long, platform: Int, arenaType: Int): PcrBind?
+	
+	@Query("DELETE FROM pcr_bind WHERE id = :id")
     suspend fun deleteById(id: Int)
 
     @Query("DELETE FROM pcr_bind WHERE pcrid = :pcrid AND platform = :platform")
