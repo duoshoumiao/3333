@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.pcrjjc.app.ui.account.AccountScreen  
 import com.pcrjjc.app.ui.bind.BindScreen  
 import com.pcrjjc.app.ui.detail.DetailScreen  
+import com.pcrjjc.app.ui.fortnightly.FortnightlyScreen  // ← 新增  
 import com.pcrjjc.app.ui.history.HistoryScreen  
 import com.pcrjjc.app.ui.home.HomeScreen  
 import com.pcrjjc.app.ui.master.MasterScreen  
@@ -31,6 +32,7 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")  
     data object Account : Screen("account")  
     data object Master : Screen("master")  
+    data object Fortnightly : Screen("fortnightly")  // ← 新增  
 }  
   
 @Composable  
@@ -51,7 +53,8 @@ fun PcrJjcNavHost() {
                 },  
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },  
                 onNavigateToAccount = { navController.navigate(Screen.Account.route) },  
-                onNavigateToMaster = { navController.navigate(Screen.Master.route) }  
+                onNavigateToMaster = { navController.navigate(Screen.Master.route) },  
+                onNavigateToFortnightly = { navController.navigate(Screen.Fortnightly.route) }  // ← 新增  
             )  
         }  
   
@@ -108,6 +111,11 @@ fun PcrJjcNavHost() {
   
         composable(Screen.Master.route) {  
             MasterScreen(onNavigateBack = { navController.popBackStack() })  
+        }  
+  
+        // ← 新增：半月刊路由  
+        composable(Screen.Fortnightly.route) {  
+            FortnightlyScreen(onNavigateBack = { navController.popBackStack() })  
         }  
     }  
 }

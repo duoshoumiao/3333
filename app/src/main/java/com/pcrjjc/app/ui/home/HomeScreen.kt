@@ -21,6 +21,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.filled.Add  
 import androidx.compose.material.icons.filled.ContentCut  
+import androidx.compose.material.icons.filled.DateRange       // ← 新增  
 import androidx.compose.material.icons.filled.Delete  
 import androidx.compose.material.icons.filled.History  
 import androidx.compose.material.icons.filled.ManageAccounts  
@@ -36,7 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Tab  
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.ExperimentalFoundationApi  
 import androidx.compose.material3.TabRow  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TopAppBar  
@@ -57,7 +58,7 @@ import com.pcrjjc.app.data.local.entity.RankCache
 import com.pcrjjc.app.util.Platform  
 import kotlinx.coroutines.launch  
   
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)  
 @Composable  
 fun HomeScreen(  
     viewModel: HomeViewModel = hiltViewModel(),  
@@ -67,7 +68,8 @@ fun HomeScreen(
     onNavigateToHistory: (Long, Int) -> Unit,  
     onNavigateToSettings: () -> Unit,  
     onNavigateToAccount: () -> Unit,  
-    onNavigateToMaster: () -> Unit  
+    onNavigateToMaster: () -> Unit,  
+    onNavigateToFortnightly: () -> Unit          // ← 新增参数  
 ) {  
     val jjcBinds by viewModel.jjcBinds.collectAsState()  
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()  
@@ -86,6 +88,10 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
                 ),  
                 actions = {  
+                    // ← 新增：半月刊按钮  
+                    IconButton(onClick = onNavigateToFortnightly) {  
+                        Icon(Icons.Default.DateRange, contentDescription = "半月刊")  
+                    }  
                     IconButton(onClick = { launchArenaBreaker(context) }) {  
                         Icon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
                     }  
