@@ -171,9 +171,8 @@ class MasterViewModel @Inject constructor(
                 val allBinds = bindDao.getAllBindsSync()  
 				val jjcIds = allBinds.filter { it.arenaType == 1 }.map { it.pcrid }.toSet()  
 				val pjjcIds = allBinds.filter { it.arenaType == 2 }.map { it.pcrid }.toSet()  
-  
-                // 根据选择的类型存入对应列表  
-                _uiState.value = when (state.selectedType) {  
+				  
+				_uiState.value = when (state.selectedType) {  
 					ArenaType.JJC -> _uiState.value.copy(  
 						isLoading = false,  
 						jjcPlayers = players,  
@@ -186,7 +185,7 @@ class MasterViewModel @Inject constructor(
 						boundJjcPcrIds = jjcIds,  
 						boundPjjcPcrIds = pjjcIds  
 					)  
-				}  
+				} 
             } catch (e: Exception) {  
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
@@ -265,62 +264,76 @@ class MasterViewModel @Inject constructor(
     // ==================== 一键全绑定 ====================  
   
     fun bindAllPlayers(type: ArenaType) {  
-        val state = _uiState.value  
-        val players = when (type) {  
-            ArenaType.JJC -> state.jjcPlayers  
-            ArenaType.PJJC -> state.pjjcPlayers  
-        }  
-        val unboundPlayers = players.filter { !state.boundPcrIds.contains(it.viewerId) }  
-        if (unboundPlayers.isEmpty()) return  
-  
-        viewModelScope.launch {  
-            _uiState.value = _uiState.value.copy(isBindingAll = true)  
-            var successCount = 0  
-            val newBoundIds = _uiState.value.boundPcrIds.toMutableSet()  
-            val newSuccessIds = _uiState.value.bindSuccessIds.toMutableSet()  
-  
-            for (player in unboundPlayers) {  
-                try {  
-                    val existing = bindDao.getBindByPcrid(player.viewerId, state.selectedPlatform.id)  
-                    if (existing != null) {  
-                        newBoundIds.add(player.viewerId)  
-                        continue  
-                    }  
-  
-                    val count = bindDao.getBindCount(state.selectedPlatform.id)  
-                    if (count >= 999) {  
-                        _uiState.value = _uiState.value.copy(  
-                            errorMessage = "绑定数量已达上限，已成功绑定 $successCount 人"  
-                        )  
-                        break  
-                    }  
-  
-                    val bind = PcrBind(  
-                        pcrid = player.viewerId,  
-                        platform = state.selectedPlatform.id,  
-                        name = player.userName,  
-                        arenaType = when (type) {  
-                            ArenaType.JJC -> 1  
-                            ArenaType.PJJC -> 2  
-                        }  
-                    )  
-                    bindDao.insert(bind)  
-                    newBoundIds.add(player.viewerId)  
-                    newSuccessIds.add(player.viewerId)  
-                    successCount++  
-                } catch (e: Exception) {  
-                    Log.e(TAG, "Bind all - failed for ${player.viewerId}: ${e.message}")  
-                }  
-            }  
-  
-            _uiState.value = _uiState.value.copy(  
-                isBindingAll = false,  
-                boundPcrIds = newBoundIds,  
-                bindSuccessIds = newSuccessIds,  
-                errorMessage = if (successCount > 0) "成功绑定 $successCount 人" else null  
-            )  
-        }  
-    }  
+		val state = _uiState.value  
+		val players = when (type) {  
+			ArenaType.JJC -> state.jjcPlayers  
+			ArenaType.PJJC -> state.pjjcPlayers  
+		}  
+		val currentBoundIds = when (type) {  
+			ArenaType.JJC -> state.boundJjcPcrIds  
+			ArenaType.PJJC -> state.boundPjjcPcrIds  
+		}  
+		val unboundPlayers = players.filter { !currentBoundIds.contains(it.viewerId) }  
+		if (unboundPlayers.isEmpty()) return  
+	  
+		val arenaTypeInt = when (type) {  
+			ArenaType.JJC -> 1  
+			ArenaType.PJJC -> 2  
+		}  
+	  
+		viewModelScope.launch {  
+			_uiState.value = _uiState.value.copy(isBindingAll = true)  
+			var successCount = 0  
+			val newBoundIds = currentBoundIds.toMutableSet()  
+			val newSuccessIds = _uiState.value.bindSuccessIds.toMutableSet()  
+	  
+			for (player in unboundPlayers) {  
+				try {  
+					val existing = bindDao.getBindByPcridAndType(player.viewerId, state.selectedPlatform.id, arenaTypeInt)  
+					if (existing != null) {  
+						newBoundIds.add(player.viewerId)  
+						continue  
+					}  
+	  
+					val count = bindDao.getBindCount(state.selectedPlatform.id)  
+					if (count >= 999) {  
+						_uiState.value = _uiState.value.copy(  
+							errorMessage = "绑定数量已达上限，已成功绑定 $successCount 人"  
+						)  
+						break  
+					}  
+	  
+					val bind = PcrBind(  
+						pcrid = player.viewerId,  
+						platform = state.selectedPlatform.id,  
+						name = player.userName,  
+						arenaType = arenaTypeInt  
+					)  
+					bindDao.insert(bind)  
+					newBoundIds.add(player.viewerId)  
+					newSuccessIds.add(player.viewerId)  
+					successCount++  
+				} catch (e: Exception) {  
+					Log.e(TAG, "Bind all - failed for ${player.viewerId}: ${e.message}")  
+				}  
+			}  
+	  
+			_uiState.value = when (type) {  
+				ArenaType.JJC -> _uiState.value.copy(  
+					isBindingAll = false,  
+					boundJjcPcrIds = newBoundIds,  
+					bindSuccessIds = newSuccessIds,  
+					errorMessage = if (successCount > 0) "成功绑定 $successCount 人" else null  
+				)  
+				ArenaType.PJJC -> _uiState.value.copy(  
+					isBindingAll = false,  
+					boundPjjcPcrIds = newBoundIds,  
+					bindSuccessIds = newSuccessIds,  
+					errorMessage = if (successCount > 0) "成功绑定 $successCount 人" else null  
+				)  
+			}  
+		}  
+	}  
   
     fun clearError() {  
         _uiState.value = _uiState.value.copy(errorMessage = null)  
