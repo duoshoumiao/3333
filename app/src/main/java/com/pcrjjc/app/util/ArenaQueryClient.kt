@@ -35,7 +35,7 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         val teamCount: Int,  
         val defenseTeams: List<TeamResult>,  
         val results: List<TeamResult>,  
-        val image: String?  
+        val image: String?,  
 		val highlightImage: String? = null,   // ★ 新增  
 		val compareImage: String? = null      // ★ 新增 
     )  
