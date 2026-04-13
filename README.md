@@ -457,16 +457,6 @@ loop = asyncio.get_event_loop()
 loop.create_task(_start_api_server())
 ```
 
-ArenaQueryClient.kt填入你服务器公网IP+端口
-```
-class ArenaQueryClient {  
-  
-    companion object {  
-        private const val TAG = "ArenaQueryClient"  
-        private const val SERVER_URL = "http://IP:端口"  
-    }  
-```
-然后在actions里打包你的专属apk
 
 ## 原库
 
