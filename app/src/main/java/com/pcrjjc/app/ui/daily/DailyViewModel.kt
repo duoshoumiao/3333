@@ -119,6 +119,11 @@ data class CronConfig(
     val clanbattleRun: Boolean = false,      // clanbattle_run_cronN  
     val moduleExcludeType: List<String> = emptyList()  // module_exclude_type_cronN  
 )  
+
+data class SavedDailyAccount(  
+    val qq: String,  
+    val password: String  
+)
   
 // ==================== UI 状态 ====================  
   
@@ -141,7 +146,8 @@ data class DailyUiState(
     val isLoadingCron: Boolean = false,  
     val isSavingCron: Boolean = false,  
     val cronError: String? = null,  
-    val showCronSection: Boolean = false      // 是否展开定时设置区域  
+    val showCronSection: Boolean = false,
+    val savedAccounts: List<SavedDailyAccount> = emptyList()  
 )  
   
 // ==================== ViewModel ====================  
@@ -177,11 +183,12 @@ class DailyViewModel @Inject constructor(
         .build()  
   
     init {  
-        viewModelScope.launch {  
-            val url = settingsDataStore.getDailyServerUrl()  
-            _uiState.value = _uiState.value.copy(serverUrl = url)  
-        }  
-    }  
+		viewModelScope.launch {  
+			val url = settingsDataStore.getDailyServerUrl()  
+			_uiState.value = _uiState.value.copy(serverUrl = url)  
+			loadSavedAccounts()   // ← 新增  
+		}  
+	}  
   
     // ==================== 输入 ====================  
   
@@ -230,7 +237,8 @@ class DailyViewModel @Inject constructor(
                     }  
                 }  
                 Log.d(TAG, "Login success: $loginResult")  
-                loadAccounts()  
+                saveCurrentAccount()   // ← 新增  
+				loadAccounts()  
             } catch (e: Exception) {  
                 Log.e(TAG, "Login failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
@@ -616,7 +624,55 @@ class DailyViewModel @Inject constructor(
         }  
     }  
   
-    // ==================== 清除错误 ====================  
+    // ==================== 已保存账号管理 ====================  
+  
+	private fun loadSavedAccounts() {  
+		viewModelScope.launch {  
+			try {  
+				val accounts = settingsDataStore.getDailySavedAccounts()  
+				_uiState.value = _uiState.value.copy(  
+					savedAccounts = accounts.map { SavedDailyAccount(it.first, it.second) }  
+				)  
+			} catch (e: Exception) {  
+				Log.e(TAG, "Load saved accounts failed: ${e.message}", e)  
+			}  
+		}  
+	}  
+	  
+	private fun saveCurrentAccount() {  
+		val state = _uiState.value  
+		val qq = state.qqInput.trim()  
+		val password = state.passwordInput.trim()  
+		if (qq.isBlank() || password.isBlank()) return  
+		viewModelScope.launch {  
+			try {  
+				settingsDataStore.saveDailyAccount(qq, password)  
+				loadSavedAccounts()  
+			} catch (e: Exception) {  
+				Log.e(TAG, "Save account failed: ${e.message}", e)  
+			}  
+		}  
+	}  
+	  
+	fun selectSavedAccount(account: SavedDailyAccount) {  
+		_uiState.value = _uiState.value.copy(  
+			qqInput = account.qq,  
+			passwordInput = account.password  
+		)  
+	}  
+	  
+	fun deleteSavedAccount(account: SavedDailyAccount) {  
+		viewModelScope.launch {  
+			try {  
+				settingsDataStore.deleteDailyAccount(account.qq)  
+				loadSavedAccounts()  
+			} catch (e: Exception) {  
+				Log.e(TAG, "Delete account failed: ${e.message}", e)  
+			}  
+		}  
+	}
+	
+	// ==================== 清除错误 ====================  
   
     fun clearError() {  
         _uiState.value = _uiState.value.copy(errorMessage = null)  

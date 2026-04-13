@@ -70,6 +70,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
+import androidx.compose.material.icons.filled.Delete  
+import androidx.compose.material.icons.filled.Person
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -199,14 +201,17 @@ fun DailyScreen(
         ) {  
             when (uiState.phase) {  
                 DailyPhase.LOGIN -> LoginContent(  
-                    qq = uiState.qqInput,  
-                    password = uiState.passwordInput,  
-                    isLoading = uiState.isLoading,  
-                    serverUrl = uiState.serverUrl,  
-                    onQqChanged = viewModel::onQqInputChanged,  
-                    onPasswordChanged = viewModel::onPasswordInputChanged,  
-                    onLogin = viewModel::login  
-                )  
+					qq = uiState.qqInput,  
+					password = uiState.passwordInput,  
+					isLoading = uiState.isLoading,  
+					serverUrl = uiState.serverUrl,  
+					onQqChanged = viewModel::onQqInputChanged,  
+					onPasswordChanged = viewModel::onPasswordInputChanged,  
+					onLogin = viewModel::login,  
+					savedAccounts = uiState.savedAccounts,  
+					onSelectSavedAccount = viewModel::selectSavedAccount,  
+					onDeleteSavedAccount = viewModel::deleteSavedAccount  
+				)  
                 DailyPhase.ACCOUNTS -> AccountsContent(  
                     accounts = uiState.accounts,  
                     isLoading = uiState.isLoading,  
@@ -287,8 +292,11 @@ private fun LoginContent(
     serverUrl: String?,  
     onQqChanged: (String) -> Unit,  
     onPasswordChanged: (String) -> Unit,  
-    onLogin: () -> Unit  
-) {  
+    onLogin: () -> Unit,  
+    savedAccounts: List<SavedDailyAccount> = emptyList(),  
+    onSelectSavedAccount: (SavedDailyAccount) -> Unit = {},  
+    onDeleteSavedAccount: (SavedDailyAccount) -> Unit = {}  
+) {
     Column(  
         modifier = Modifier  
             .fillMaxSize()  
@@ -320,7 +328,66 @@ private fun LoginContent(
   
         Spacer(modifier = Modifier.height(32.dp))  
   
-        OutlinedTextField(  
+        // 已保存账号列表  
+        if (savedAccounts.isNotEmpty()) {  
+            Text(  
+                text = "已保存账号",  
+                style = MaterialTheme.typography.labelMedium,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(bottom = 4.dp)  
+            )  
+            savedAccounts.forEach { account ->  
+                Card(  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .padding(vertical = 2.dp)  
+                        .clickable { onSelectSavedAccount(account) },  
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
+                    colors = CardDefaults.cardColors(  
+                        containerColor = if (account.qq == qq)  
+                            MaterialTheme.colorScheme.primaryContainer  
+                        else  
+                            MaterialTheme.colorScheme.surfaceVariant  
+                    )  
+                ) {  
+                    Row(  
+                        modifier = Modifier  
+                            .fillMaxWidth()  
+                            .padding(horizontal = 12.dp, vertical = 8.dp),  
+                        verticalAlignment = Alignment.CenterVertically  
+                    ) {  
+                        Icon(  
+                            imageVector = Icons.Default.Person,  
+                            contentDescription = null,  
+                            modifier = Modifier.size(18.dp),  
+                            tint = MaterialTheme.colorScheme.primary  
+                        )  
+                        Spacer(modifier = Modifier.width(8.dp))  
+                        Text(  
+                            text = account.qq,  
+                            style = MaterialTheme.typography.bodyMedium,  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                        IconButton(  
+                            onClick = { onDeleteSavedAccount(account) },  
+                            modifier = Modifier.size(28.dp)  
+                        ) {  
+                            Icon(  
+                                imageVector = Icons.Default.Delete,  
+                                contentDescription = "删除",  
+                                modifier = Modifier.size(16.dp),  
+                                tint = MaterialTheme.colorScheme.error  
+                            )  
+                        }  
+                    }  
+                }  
+            }  
+            Spacer(modifier = Modifier.height(16.dp))  
+        }
+		
+		OutlinedTextField(  
             value = qq,  
             onValueChange = onQqChanged,  
             modifier = Modifier.fillMaxWidth(),  
@@ -332,8 +399,10 @@ private fun LoginContent(
             )  
         )  
   
-        Spacer(modifier = Modifier.height(12.dp))  
-  
+        Spacer(modifier = Modifier.height(12.dp))
+		
+        
+		
         OutlinedTextField(  
             value = password,  
             onValueChange = onPasswordChanged,  
