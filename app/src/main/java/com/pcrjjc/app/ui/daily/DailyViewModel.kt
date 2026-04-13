@@ -67,7 +67,7 @@ val DAILY_COMMANDS: List<CommandItem> = listOf(
     CommandItem("#穿ex彩装 角色名 彩装ID", "示例：#穿ex彩装 凯露 12345  #查ex装备 看ID"),  
     CommandItem("#穿ex粉装 角色名 粉装serial_id", "#查ID 看ID"),  
     CommandItem("#穿ex金装 角色名 金装serial_id", "#查ID 看ID"),  
-    CommandItem("#查ID 泪", "模糊匹配，会匹配所有名称含"泪"的装备"),  
+    CommandItem("#查ID 泪", "模糊匹配，会匹配所有名称含「泪」的装备"),  
     CommandItem("#领小屋体力", ""),  
     CommandItem("#公会点赞", ""),  
     CommandItem("#领每日体力", ""),  
