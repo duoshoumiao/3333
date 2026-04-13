@@ -24,6 +24,8 @@ class SettingsDataStore(private val context: Context) {
         private val KEY_SERVER_IP = stringPreferencesKey("server_ip")  
         private val KEY_SERVER_PORT = stringPreferencesKey("server_port")  
         private val KEY_DAILY_SAVED_ACCOUNTS = stringPreferencesKey("daily_saved_accounts")  
+		private val KEY_DAILY_SERVER_IP = stringPreferencesKey("daily_server_ip")  
+        private val KEY_DAILY_SERVER_PORT = stringPreferencesKey("daily_server_port")
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->  
@@ -42,7 +44,15 @@ class SettingsDataStore(private val context: Context) {
         prefs[KEY_SERVER_PORT] ?: ""  
     }  
   
-    suspend fun setPollingInterval(seconds: Long) {  
+    val dailyServerIpFlow: Flow<String> = context.dataStore.data.map { prefs ->  
+        prefs[KEY_DAILY_SERVER_IP] ?: ""  
+    }  
+  
+    val dailyServerPortFlow: Flow<String> = context.dataStore.data.map { prefs ->  
+        prefs[KEY_DAILY_SERVER_PORT] ?: ""  
+    }
+	
+	suspend fun setPollingInterval(seconds: Long) {  
         context.dataStore.edit { prefs ->  
             prefs[KEY_POLLING_INTERVAL] = seconds  
         }  
@@ -61,7 +71,14 @@ class SettingsDataStore(private val context: Context) {
 		context.dataStore.edit { it[KEY_SERVER_PORT] = port }  
 	}  
   
-    suspend fun getPollingIntervalSync(): Long {  
+    suspend fun setDailyServerIp(ip: String) {  
+        context.dataStore.edit { it[KEY_DAILY_SERVER_IP] = ip }  
+    }  
+    suspend fun setDailyServerPort(port: String) {  
+        context.dataStore.edit { it[KEY_DAILY_SERVER_PORT] = port }  
+    }
+	
+	suspend fun getPollingIntervalSync(): Long {  
         return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 1L  
     }  
   
@@ -84,7 +101,13 @@ class SettingsDataStore(private val context: Context) {
     /**  
      * 获取清日常服务器 URL（与通用服务器地址相同）。  
      */  
-    suspend fun getDailyServerUrl(): String? = getServerUrl()  
+    suspend fun getDailyServerUrl(): String? {  
+        val prefs = context.dataStore.data.first()  
+        val ip = (prefs[KEY_DAILY_SERVER_IP] ?: "").trim()  
+        val port = (prefs[KEY_DAILY_SERVER_PORT] ?: "").trim()  
+        if (ip.isBlank()) return null  
+        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"  
+    }  
   
     // ==================== 清日常账号保存 ====================  
   
