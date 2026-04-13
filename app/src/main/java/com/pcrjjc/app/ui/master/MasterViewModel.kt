@@ -171,21 +171,22 @@ class MasterViewModel @Inject constructor(
                 val allBinds = bindDao.getAllBindsSync()  
 				val jjcIds = allBinds.filter { it.arenaType == 1 }.map { it.pcrid }.toSet()  
 				val pjjcIds = allBinds.filter { it.arenaType == 2 }.map { it.pcrid }.toSet()  
-                val boundIds = allBinds.map { it.pcrid }.toSet()  
   
                 // 根据选择的类型存入对应列表  
                 _uiState.value = when (state.selectedType) {  
-                    ArenaType.JJC -> _uiState.value.copy(  
-                        isLoading = false,  
-                        jjcPlayers = players,  
-                        boundPcrIds = boundIds  
-                    )  
-                    ArenaType.PJJC -> _uiState.value.copy(  
-                        isLoading = false,  
-                        pjjcPlayers = players,  
-                        boundPcrIds = boundIds  
-                    )  
-                }  
+					ArenaType.JJC -> _uiState.value.copy(  
+						isLoading = false,  
+						jjcPlayers = players,  
+						boundJjcPcrIds = jjcIds,  
+						boundPjjcPcrIds = pjjcIds  
+					)  
+					ArenaType.PJJC -> _uiState.value.copy(  
+						isLoading = false,  
+						pjjcPlayers = players,  
+						boundJjcPcrIds = jjcIds,  
+						boundPjjcPcrIds = pjjcIds  
+					)  
+				}  
             } catch (e: Exception) {  
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
@@ -197,65 +198,69 @@ class MasterViewModel @Inject constructor(
     }  
   
     fun bindPlayer(player: QueryEngine.ArenaRankingPlayer, fromType: ArenaType) {  
-        val state = _uiState.value  
-        viewModelScope.launch {  
-            _uiState.value = state.copy(bindingId = player.viewerId)  
-  
-            try {  
-                val arenaTypeInt = when (fromType) {  
+		val state = _uiState.value  
+		viewModelScope.launch {  
+			_uiState.value = state.copy(bindingId = player.viewerId)  
+	  
+			try {  
+				val arenaTypeInt = when (fromType) {  
 					ArenaType.JJC -> 1  
 					ArenaType.PJJC -> 2  
 				}  
 				val existing = bindDao.getBindByPcridAndType(player.viewerId, state.selectedPlatform.id, arenaTypeInt)  
-                if (existing != null) {  
-                    _uiState.value = _uiState.value.copy(  
-                        bindingId = null,  
-                        errorMessage = "${player.userName} 已经绑定过了"  
-                    )  
-                    return@launch  
-                }  
-  
-                val count = bindDao.getBindCount(state.selectedPlatform.id)  
-                if (count >= 999) {  
-                    _uiState.value = _uiState.value.copy(  
-                        bindingId = null,  
-                        errorMessage = "绑定数量已达上限"  
-                    )  
-                    return@launch  
-                }  
-  
-                val bind = PcrBind(  
-                    pcrid = player.viewerId,  
-                    platform = state.selectedPlatform.id,  
-                    name = player.userName,  
-                    arenaType = when (fromType) {  
+				if (existing != null) {  
+					_uiState.value = _uiState.value.copy(  
+						bindingId = null,  
+						errorMessage = "${player.userName} 已经绑定过了"  
+					)  
+					return@launch  
+				}  
+	  
+				val count = bindDao.getBindCount(state.selectedPlatform.id)  
+				if (count >= 999) {  
+					_uiState.value = _uiState.value.copy(  
+						bindingId = null,  
+						errorMessage = "绑定数量已达上限"  
+					)  
+					return@launch  
+				}  
+	  
+				val bind = PcrBind(  
+					pcrid = player.viewerId,  
+					platform = state.selectedPlatform.id,  
+					name = player.userName,  
+					arenaType = arenaTypeInt  
+				)  
+				bindDao.insert(bind)  
+	  
+				val newSuccessIds = _uiState.value.bindSuccessIds + player.viewerId  
+				when (fromType) {  
 					ArenaType.JJC -> {  
 						val newIds = _uiState.value.boundJjcPcrIds + player.viewerId  
-						_uiState.value = _uiState.value.copy(boundJjcPcrIds = newIds, ...)  
+						_uiState.value = _uiState.value.copy(  
+							bindingId = null,  
+							boundJjcPcrIds = newIds,  
+							bindSuccessIds = newSuccessIds  
+						)  
 					}  
 					ArenaType.PJJC -> {  
 						val newIds = _uiState.value.boundPjjcPcrIds + player.viewerId  
-						_uiState.value = _uiState.value.copy(boundPjjcPcrIds = newIds, ...)  
+						_uiState.value = _uiState.value.copy(  
+							bindingId = null,  
+							boundPjjcPcrIds = newIds,  
+							bindSuccessIds = newSuccessIds  
+						)  
 					}  
 				}  
-                bindDao.insert(bind)  
-  
-                val newBoundIds = _uiState.value.boundPcrIds + player.viewerId  
-                val newSuccessIds = _uiState.value.bindSuccessIds + player.viewerId  
-                _uiState.value = _uiState.value.copy(  
-                    bindingId = null,  
-                    boundPcrIds = newBoundIds,  
-                    bindSuccessIds = newSuccessIds  
-                )  
-            } catch (e: Exception) {  
-                Log.e(TAG, "Bind failed: ${e.message}", e)  
-                _uiState.value = _uiState.value.copy(  
-                    bindingId = null,  
-                    errorMessage = "绑定失败: ${e.message}"  
-                )  
-            }  
-        }  
-    }  
+			} catch (e: Exception) {  
+				Log.e(TAG, "Bind failed: ${e.message}", e)  
+				_uiState.value = _uiState.value.copy(  
+					bindingId = null,  
+					errorMessage = "绑定失败: ${e.message}"  
+				)  
+			}  
+		}  
+	}  
   
     // ==================== 一键全绑定 ====================  
   
