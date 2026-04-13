@@ -17,88 +17,105 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient  
 import okhttp3.Request  
 import okhttp3.RequestBody.Companion.toRequestBody  
+import org.json.JSONArray  
 import org.json.JSONObject  
 import java.util.concurrent.TimeUnit  
 import javax.inject.Inject  
   
 // ==================== 指令数据 ====================  
   
+enum class CommandType {  
+    SIMPLE,  
+    NEEDS_PARAMS,  
+    DO_DAILY,  
+    UNSUPPORTED  
+}  
+  
 data class CommandItem(  
     val command: String,  
-    val description: String  
+    val description: String,  
+    val moduleKey: String? = null,  
+    val type: CommandType = CommandType.UNSUPPORTED  
 )  
   
 val DAILY_COMMANDS: List<CommandItem> = listOf(  
-    CommandItem("#清日常 [昵称]", "无昵称则默认账号"),  
-    CommandItem("#清日常所有", "清该qq号下所有号的日常"),  
-    CommandItem("#日常记录", "查看清日常状态"),  
-    CommandItem("#日常报告 [0|1|2|3]", "最近四次清日常报告"),  
-    CommandItem("#定时日志", "查看定时运行状态"),  
-    CommandItem("#查角色 [昵称]", "查看角色练度"),  
-    CommandItem("#查缺角色", "查看缺少的限定常驻角色"),  
-    CommandItem("#查ex装备 [会战]", "查看ex装备库存"),  
-    CommandItem("#查探险编队", "根据记忆碎片角色编队战力相当的队伍"),  
-    CommandItem("#查兑换角色碎片 [开换]", "查询兑换特别角色的记忆碎片策略"),  
-    CommandItem("#查心碎", "查询缺口心碎"),  
-    CommandItem("#查纯净碎片", "查询缺口纯净碎片，国服六星+日服二专需求"),  
-    CommandItem("#查记忆碎片 [可刷取|大师币]", "查询缺口记忆碎片，可按地图可刷取或大师币商店过滤"),  
-    CommandItem("#查装备 [<rank>] [fav]", "查询缺口装备，rank为数字，只查询>=rank的角色缺口装备，fav表示只查询favorite的角色"),  
-    CommandItem("#刷图推荐 [<rank>] [fav]", "查询缺口装备的刷图推荐，格式同上"),  
-    CommandItem("#公会支援", "查询公会支援角色配置"),  
-    CommandItem("#卡池", "查看当前卡池"),  
-    CommandItem("#半月刊", ""),  
-    CommandItem("#返钻", ""),  
-    CommandItem("#查box 角色名（or所有）", ""),  
-    CommandItem("#刷新box", ""),  
-    CommandItem("#查缺称号", "查看缺少的称号"),  
-    CommandItem("#jjc透视", "查前51名"),  
-    CommandItem("#pjjc透视", "查前51名"),  
-    CommandItem("#jjc回刺", "比如 #jjc回刺 19 2 就是打19 选择阵容2进攻"),  
-    CommandItem("#pjjc回刺", "比如 #pjjc回刺 -1（或者不填） 就是打记录里第一条"),  
-    CommandItem("#pjjc换防", "将pjjc防守阵容随机错排"),  
-    CommandItem("#免费十连 <卡池id>", "卡池id来自【#卡池】"),  
-    CommandItem("#来发十连 <卡池id> [抽到出] [单抽券|单抽] [编号小优先] [开抽]", "赛博抽卡，谨慎使用"),  
-    CommandItem("#智能刷h图", ""),  
-    CommandItem("#智能刷外传", ""),  
-    CommandItem("#刷专二", ""),  
-    CommandItem("#查深域", ""),  
-    CommandItem("#强化ex装", ""),  
-    CommandItem("#合成ex装", ""),  
-    CommandItem("#穿ex彩装 角色名 彩装ID", "示例：#穿ex彩装 凯露 12345  #查ex装备 看ID"),  
-    CommandItem("#穿ex粉装 角色名 粉装serial_id", "#查ID 看ID"),  
-    CommandItem("#穿ex金装 角色名 金装serial_id", "#查ID 看ID"),  
-    CommandItem("#查ID 泪", "模糊匹配，会匹配所有名称含「泪」的装备"),  
-    CommandItem("#领小屋体力", ""),  
-    CommandItem("#公会点赞", ""),  
-    CommandItem("#领每日体力", ""),  
-    CommandItem("#领取礼物箱", ""),  
-    CommandItem("#查公会深域进度", ""),  
-    CommandItem("#收菜", "探险续航哦"),  
-    CommandItem("#一键编队 1 1 队名1 星级角色1 ...", "设置多队编队，队伍不足5人结尾"),  
-    CommandItem("#导入编队 第几页 第几队", "如 #导入编队 1 1 ，代表第一页第一队"),  
-    CommandItem("#识图", "用于提取图中队伍"),  
-    CommandItem("#兑天井 卡池id 角色名", "如 #兑天井 10283 火电  用 #卡池 获取ID"),  
-    CommandItem("#拉角色练度 339 31 339 339 339 339 5 5 5 5 5 5 0 0 角色名", "等级 品级 ub s1 s2 ex 装备星级 专武1 专武2 角色名（不输入则全选）"),  
-    CommandItem("#大富翁 [保留骰子数] [搬空商店为止|不止搬空商店] [到达次数]", "运行大富翁游戏"),  
-    CommandItem("#商店购买 [上期|当期]", "购买大富翁商店物品，默认购买当期"),  
-    CommandItem("#查玩家 uid", ""),  
-    CommandItem("#炼金 物贯 物贯 物贯 物贯 1 彩装ID +(看属性/看概率/炼成)", "炼成之前去网站设置参数"),  
-    CommandItem("#撤下会战ex装", ""),  
-    CommandItem("#撤下普通ex装", ""),  
-    CommandItem("#买记忆碎片 角色 星级 专武 开买 界限突破", "分别代表:角色 星级 专武 是否购买 是否突破"),  
-    CommandItem("#角色升星 5 忽略盈余 升至最高 角色名", "分别代表 星级 是否保留盈余 升到可升最高星 角色名"),  
-    CommandItem("#角色突破 忽略盈余 角色名", "忽略盈余：选这个，碎片不溢出就不突破"),  
-    CommandItem("#pjjc自动换防", "不挨打时6分钟换一次，挨打缩短换防时间"),  
-    CommandItem("#挂地下城/会战/好友支援 [星级]角色", "设置角色为支援，星级可选(3/4/5)，如：#挂好友支援 3水电"),  
-    CommandItem("#一键穿ex +角色名 试穿/数字 1 2 3", "数字0表示不改动"),  
-    CommandItem("#添加好友", ""),  
-    CommandItem("#日常面板 [昵称]", "查看日常功能开关及配置（图片版）"),  
-    CommandItem("#日常详情 [昵称] 模块名", "查看模块详细配置和可选值"),  
-    CommandItem("#日常开启 [昵称] 模块名/序号", "开启指定日常功能"),  
-    CommandItem("#日常关闭 [昵称] 模块名/序号", "关闭指定日常功能"),  
-    CommandItem("#日常设置 [昵称] 模块序号 选项序号 值", "设置模块子选项"),  
-    CommandItem("#保存ex状态", "保存当前所有角色的普通EX装备穿戴状态"),  
-    CommandItem("#恢复ex状态", "恢复之前保存的普通EX装备穿戴状态"),  
+    // ===== 清日常 =====  
+    CommandItem("#清日常 [昵称]", "无昵称则默认账号", type = CommandType.DO_DAILY),  
+    CommandItem("#清日常所有", "清该qq号下所有号的日常", type = CommandType.UNSUPPORTED),  
+  
+    // ===== 简单指令（无参数，可直接执行） =====  
+    CommandItem("#查缺角色", "查看缺少的限定常驻角色", moduleKey = "missing_unit", type = CommandType.SIMPLE),  
+    CommandItem("#查心碎", "查询缺口心碎", moduleKey = "get_need_xinsui", type = CommandType.SIMPLE),  
+    CommandItem("#查纯净碎片", "查询缺口纯净碎片，国服六星+日服二专需求", moduleKey = "get_need_pure_memory", type = CommandType.SIMPLE),  
+    CommandItem("#查探险编队", "根据记忆碎片角色编队战力相当的队伍", moduleKey = "travel_team_view", type = CommandType.SIMPLE),  
+    CommandItem("#公会支援", "查询公会支援角色配置", moduleKey = "get_clan_support_unit", type = CommandType.SIMPLE),  
+    CommandItem("#查缺称号", "查看缺少的称号", moduleKey = "missing_emblem", type = CommandType.SIMPLE),  
+    CommandItem("#返钻", "", moduleKey = "return_jewel", type = CommandType.SIMPLE),  
+    CommandItem("#刷新box", "", moduleKey = "refresh_box", type = CommandType.SIMPLE),  
+    CommandItem("#jjc透视", "查前51名", moduleKey = "jjc_info", type = CommandType.SIMPLE),  
+    CommandItem("#pjjc透视", "查前51名", moduleKey = "pjjc_info", type = CommandType.SIMPLE),  
+    CommandItem("#pjjc换防", "将pjjc防守阵容随机错排", moduleKey = "pjjc_def_shuffle_team", type = CommandType.SIMPLE),  
+    CommandItem("#智能刷h图", "", moduleKey = "smart_hard_sweep", type = CommandType.SIMPLE),  
+    CommandItem("#智能刷外传", "", moduleKey = "smart_shiori_sweep", type = CommandType.SIMPLE),  
+    CommandItem("#刷专二", "", moduleKey = "mirai_very_hard_sweep", type = CommandType.SIMPLE),  
+    CommandItem("#查深域", "", moduleKey = "find_talent_quest", type = CommandType.SIMPLE),  
+    CommandItem("#强化ex装", "", moduleKey = "ex_equip_enhance_up", type = CommandType.SIMPLE),  
+    CommandItem("#合成ex装", "", moduleKey = "ex_equip_rank_up", type = CommandType.SIMPLE),  
+    CommandItem("#领小屋体力", "", moduleKey = "room_accept_all", type = CommandType.SIMPLE),  
+    CommandItem("#公会点赞", "", moduleKey = "clan_like", type = CommandType.SIMPLE),  
+    CommandItem("#领每日体力", "", moduleKey = "mission_receive_first", type = CommandType.SIMPLE),  
+    CommandItem("#领取礼物箱", "", moduleKey = "present_receive", type = CommandType.SIMPLE),  
+    CommandItem("#查公会深域进度", "", moduleKey = "find_clan_talent_quest", type = CommandType.SIMPLE),  
+    CommandItem("#收菜", "探险续航哦", moduleKey = "travel_quest_sweep", type = CommandType.SIMPLE),  
+    CommandItem("#撤下会战ex装", "", moduleKey = "remove_cb_ex_equip", type = CommandType.SIMPLE),  
+    CommandItem("#撤下普通ex装", "", moduleKey = "remove_normal_ex_equip", type = CommandType.SIMPLE),  
+  
+    // ===== 需要参数的指令 =====  
+    CommandItem("#查角色 [昵称]", "查看角色练度", moduleKey = "search_unit", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查ex装备 [会战]", "查看ex装备库存", moduleKey = "ex_equip_info", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查兑换角色碎片 [开换]", "查询兑换特别角色的记忆碎片策略", moduleKey = "redeem_unit_swap", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查记忆碎片 [可刷取|大师币]", "查询缺口记忆碎片", moduleKey = "get_need_memory", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查装备 [<rank>] [fav]", "查询缺口装备", moduleKey = "get_need_equip", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#刷图推荐 [<rank>] [fav]", "查询缺口装备的刷图推荐", moduleKey = "get_normal_quest_recommand", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查box 角色名（or所有）", "", moduleKey = "get_box_table", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#jjc回刺", "比如 #jjc回刺 19 2 就是打19 选择阵容2进攻", moduleKey = "jjc_back", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#pjjc回刺", "比如 #pjjc回刺 -1（或者不填） 就是打记录里第一条", moduleKey = "pjjc_back", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#免费十连 <卡池id>", "卡池id来自【#卡池】", moduleKey = "free_gacha", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#来发十连 <卡池id> [抽到出] [单抽券|单抽] [编号小优先] [开抽]", "赛博抽卡，谨慎使用", moduleKey = "gacha_start", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#穿ex彩装 角色名 彩装ID", "示例：#穿ex彩装 凯露 12345", moduleKey = "equip_rainbow_ex", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#穿ex粉装 角色名 粉装serial_id", "#查ID 看ID", moduleKey = "equip_pink_ex", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#穿ex金装 角色名 金装serial_id", "#查ID 看ID", moduleKey = "equip_gold_ex", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查ID 泪", "模糊匹配，会匹配所有名称含「泪」的装备", moduleKey = "search_ex_equip_id", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#一键编队 1 1 队名1 星级角色1 ...", "设置多队编队", moduleKey = "set_my_party2", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#导入编队 第几页 第几队", "如 #导入编队 1 1", moduleKey = "set_my_party", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#兑天井 卡池id 角色名", "如 #兑天井 10283 火电", moduleKey = "gacha_exchange_chara", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#拉角色练度 339 31 ...", "等级 品级 ub s1 s2 ex 装备星级 专武1 专武2 角色名", moduleKey = "unit_promote", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#大富翁 [保留骰子数] [搬空商店为止|不止搬空商店] [到达次数]", "运行大富翁游戏", moduleKey = "caravan_play", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#商店购买 [上期|当期]", "购买大富翁商店物品", moduleKey = "caravan_shop_buy", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#查玩家 uid", "", moduleKey = "query_player_profile", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#炼金 物贯 物贯 物贯 物贯 1 彩装ID +(看属性/看概率/炼成)", "炼成之前去网站设置参数", moduleKey = "ex_equip_rainbow_enchance", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#买记忆碎片 角色 星级 专武 开买 界限突破", "分别代表:角色 星级 专武 是否购买 是否突破", moduleKey = "unit_memory_buy", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#角色升星 5 忽略盈余 升至最高 角色名", "分别代表 星级 是否保留盈余 升到可升最高星 角色名", moduleKey = "unit_evolution", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#角色突破 忽略盈余 角色名", "忽略盈余：碎片不溢出就不突破", moduleKey = "unit_exceed", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#挂地下城/会战/好友支援 [星级]角色", "设置角色为支援，星级可选(3/4/5)", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#一键穿ex +角色名 试穿/数字 1 2 3", "数字0表示不改动", moduleKey = "one_click_ex_equip", type = CommandType.NEEDS_PARAMS),  
+    CommandItem("#添加好友", "", moduleKey = "add_friend", type = CommandType.NEEDS_PARAMS),  
+  
+    // ===== 不支持在App执行 =====  
+    CommandItem("#日常记录", "查看清日常状态", type = CommandType.UNSUPPORTED),  
+    CommandItem("#日常报告 [0|1|2|3]", "最近四次清日常报告", type = CommandType.UNSUPPORTED),  
+    CommandItem("#定时日志", "查看定时运行状态", type = CommandType.UNSUPPORTED),  
+    CommandItem("#卡池", "查看当前卡池", type = CommandType.UNSUPPORTED),  
+    CommandItem("#半月刊", "", type = CommandType.UNSUPPORTED),  
+    CommandItem("#识图", "用于提取图中队伍", type = CommandType.UNSUPPORTED),  
+    CommandItem("#pjjc自动换防", "不挨打时6分钟换一次，挨打缩短换防时间", type = CommandType.UNSUPPORTED),  
+    CommandItem("#日常面板 [昵称]", "查看日常功能开关及配置（图片版）", type = CommandType.UNSUPPORTED),  
+    CommandItem("#日常详情 [昵称] 模块名", "查看模块详细配置和可选值", type = CommandType.UNSUPPORTED),  
+    CommandItem("#日常开启 [昵称] 模块名/序号", "开启指定日常功能", type = CommandType.UNSUPPORTED),  
+    CommandItem("#日常关闭 [昵称] 模块名/序号", "关闭指定日常功能", type = CommandType.UNSUPPORTED),  
+    CommandItem("#日常设置 [昵称] 模块序号 选项序号 值", "设置模块子选项", type = CommandType.UNSUPPORTED),  
+    CommandItem("#保存ex状态", "保存当前所有角色的普通EX装备穿戴状态", type = CommandType.UNSUPPORTED),  
+    CommandItem("#恢复ex状态", "恢复之前保存的普通EX装备穿戴状态", type = CommandType.UNSUPPORTED),  
 )  
   
 // ==================== UI 状态 ====================  
@@ -113,7 +130,10 @@ data class DailyUiState(
     val errorMessage: String? = null,  
     val accounts: List<String> = emptyList(),  
     val selectedAccount: String? = null,  
-    val serverUrl: String? = null  
+    val serverUrl: String? = null,  
+    val isExecuting: Boolean = false,  
+    val executionResult: String? = null,  
+    val showResultDialog: Boolean = false  
 )  
   
 // ==================== ViewModel ====================  
@@ -132,12 +152,11 @@ class DailyViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DailyUiState())  
     val uiState: StateFlow<DailyUiState> = _uiState  
   
-    // 带 Cookie 管理的 OkHttpClient（独立于全局单例）  
     private val cookieStore = mutableMapOf<String, List<Cookie>>()  
     private val httpClient: OkHttpClient = OkHttpClient.Builder()  
-        .connectTimeout(20, TimeUnit.SECONDS)  
-        .readTimeout(20, TimeUnit.SECONDS)  
-        .writeTimeout(20, TimeUnit.SECONDS)  
+        .connectTimeout(30, TimeUnit.SECONDS)  
+        .readTimeout(60, TimeUnit.SECONDS)  
+        .writeTimeout(30, TimeUnit.SECONDS)  
         .cookieJar(object : CookieJar {  
             override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {  
                 cookieStore[url.host] = cookies  
@@ -150,7 +169,7 @@ class DailyViewModel @Inject constructor(
   
     init {  
         viewModelScope.launch {  
-            val url = settingsDataStore.getServerUrl()  
+            val url = settingsDataStore.getDailyServerUrl()  
             _uiState.value = _uiState.value.copy(serverUrl = url)  
         }  
     }  
@@ -179,7 +198,7 @@ class DailyViewModel @Inject constructor(
         }  
         val baseUrl = state.serverUrl  
         if (baseUrl.isNullOrBlank()) {  
-            _uiState.value = state.copy(errorMessage = "请先在设置中配置服务器地址")  
+            _uiState.value = state.copy(errorMessage = "请先在设置中配置清日常服务器地址")  
             return  
         }  
   
@@ -204,7 +223,6 @@ class DailyViewModel @Inject constructor(
                     }  
                 }  
                 Log.d(TAG, "Login success: $responseText")  
-                // 登录成功，加载账号列表  
                 loadAccounts()  
             } catch (e: Exception) {  
                 Log.e(TAG, "Login failed: ${e.message}", e)  
@@ -235,7 +253,7 @@ class DailyViewModel @Inject constructor(
                     val list = mutableListOf<String>()  
                     for (i in 0 until arr.length()) {  
                         val obj = arr.getJSONObject(i)  
-                        list.add(obj.optString("alias", "账号${i + 1}"))  
+                        list.add(obj.optString("name", "账号${i + 1}"))  
                     }  
                     list  
                 }  
@@ -255,13 +273,159 @@ class DailyViewModel @Inject constructor(
         }  
     }  
   
-    // ==================== 选择账号 → 显示指令 ====================  
+    // ==================== 选择账号 ====================  
   
     fun selectAccount(alias: String) {  
         _uiState.value = _uiState.value.copy(  
             phase = DailyPhase.COMMANDS,  
             selectedAccount = alias  
         )  
+    }  
+  
+    // ==================== 执行指令 ====================  
+  
+    fun executeCommand(cmd: CommandItem) {  
+        when (cmd.type) {  
+            CommandType.UNSUPPORTED -> {  
+                _uiState.value = _uiState.value.copy(  
+                    executionResult = "该指令暂不支持在App中执行",  
+                    showResultDialog = true  
+                )  
+            }  
+            CommandType.NEEDS_PARAMS -> {  
+                _uiState.value = _uiState.value.copy(  
+                    executionResult = "该指令需要参数，暂不支持在App中执行\n\n用法：${cmd.command}\n${cmd.description}",  
+                    showResultDialog = true  
+                )  
+            }  
+            CommandType.DO_DAILY -> executeDailyClean()  
+            CommandType.SIMPLE -> executeSimpleCommand(cmd)  
+        }  
+    }  
+  
+    private fun executeDailyClean() {  
+        val baseUrl = _uiState.value.serverUrl ?: return  
+        val acc = _uiState.value.selectedAccount ?: return  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(isExecuting = true)  
+            try {  
+                val resultText = withContext(Dispatchers.IO) {  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/do_daily")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .post("{}".toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "执行失败 (${resp.code})" })  
+                        text  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    executionResult = "清日常已提交执行\n\n$resultText",  
+                    showResultDialog = true  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Do daily failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    executionResult = "执行失败: ${e.message}",  
+                    showResultDialog = true  
+                )  
+            }  
+        }  
+    }  
+  
+    private fun executeSimpleCommand(cmd: CommandItem) {  
+        val baseUrl = _uiState.value.serverUrl ?: return  
+        val acc = _uiState.value.selectedAccount ?: return  
+        val moduleKey = cmd.moduleKey ?: return  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(isExecuting = true)  
+            try {  
+                // 1. POST do_single 执行指令  
+                val resultList = withContext(Dispatchers.IO) {  
+                    val body = JSONObject().apply {  
+                        put("order", moduleKey)  
+                    }.toString()  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/do_single")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .post(body.toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "执行失败 (${resp.code})" })  
+                        text  
+                    }  
+                }  
+  
+                // 2. 解析返回的结果列表，获取第一个结果的 URL  
+                val resultUrl = parseFirstResultUrl(resultList)  
+  
+                if (resultUrl != null) {  
+                    // 3. GET 文本结果  
+                    val textResult = withContext(Dispatchers.IO) {  
+                        val separator = if (resultUrl.contains("?")) "&" else "?"  
+                        val request = Request.Builder()  
+                            .url("$baseUrl$resultUrl${separator}text=true")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .get()  
+                            .build()  
+                        httpClient.newCall(request).execute().use { resp ->  
+                            val text = resp.body?.string() ?: ""  
+                            if (!resp.isSuccessful) "获取结果失败 (${resp.code}): $text"  
+                            else text  
+                        }  
+                    }  
+                    _uiState.value = _uiState.value.copy(  
+                        isExecuting = false,  
+                        executionResult = textResult,  
+                        showResultDialog = true  
+                    )  
+                } else {  
+                    _uiState.value = _uiState.value.copy(  
+                        isExecuting = false,  
+                        executionResult = "指令已执行\n\n$resultList",  
+                        showResultDialog = true  
+                    )  
+                }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Execute command failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    executionResult = "执行失败: ${e.message}",  
+                    showResultDialog = true  
+                )  
+            }  
+        }  
+    }  
+  
+    /**  
+     * 解析 do_single 返回的 JSON 数组，提取第一个结果的 url 字段。  
+     * 返回格式示例: [{"alias":"xxx","key":"xxx","url":"/daily/api/account/xxx/single_result/xxx/xxx","status":1}]  
+     */  
+    private fun parseFirstResultUrl(json: String): String? {  
+        return try {  
+            val arr = JSONArray(json)  
+            if (arr.length() > 0) {  
+                val first = arr.getJSONObject(0)  
+                val url = first.optString("url", "")  
+                url.ifBlank { null }  
+            } else null  
+        } catch (e: Exception) {  
+            Log.w(TAG, "Parse result URL failed: ${e.message}")  
+            null  
+        }  
+    }  
+  
+    // ==================== 关闭结果弹窗 ====================  
+  
+    fun dismissResult() {  
+        _uiState.value = _uiState.value.copy(showResultDialog = false, executionResult = null)  
     }  
   
     // ==================== 返回 ====================  

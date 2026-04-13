@@ -1,8 +1,11 @@
 package com.pcrjjc.app.ui.daily  
   
+import androidx.compose.foundation.background  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.layout.Arrangement  
+import androidx.compose.foundation.layout.Box  
 import androidx.compose.foundation.layout.Column  
+import androidx.compose.foundation.layout.Row  
 import androidx.compose.foundation.layout.Spacer  
 import androidx.compose.foundation.layout.fillMaxSize  
 import androidx.compose.foundation.layout.fillMaxWidth  
@@ -12,9 +15,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.items  
+import androidx.compose.foundation.rememberScrollState  
 import androidx.compose.foundation.text.KeyboardOptions  
+import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
+import androidx.compose.material.icons.filled.Block  
+import androidx.compose.material.icons.filled.Edit  
+import androidx.compose.material.icons.filled.PlayArrow  
+import androidx.compose.material.icons.filled.Star  
+import androidx.compose.material3.AlertDialog  
 import androidx.compose.material3.Button  
 import androidx.compose.material3.Card  
 import androidx.compose.material3.CardDefaults  
@@ -29,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost  
 import androidx.compose.material3.SnackbarHostState  
 import androidx.compose.material3.Text  
+import androidx.compose.material3.TextButton  
 import androidx.compose.material3.TopAppBar  
 import androidx.compose.material3.TopAppBarDefaults  
 import androidx.compose.runtime.Composable  
@@ -38,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.graphics.Color  
 import androidx.compose.ui.text.font.FontWeight  
 import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.ui.text.input.PasswordVisualTransformation  
@@ -58,6 +70,25 @@ fun DailyScreen(
             snackbarHostState.showSnackbar(it)  
             viewModel.clearError()  
         }  
+    }  
+  
+    // ===== 结果弹窗 =====  
+    if (uiState.showResultDialog) {  
+        AlertDialog(  
+            onDismissRequest = { viewModel.dismissResult() },  
+            title = { Text("执行结果") },  
+            text = {  
+                Text(  
+                    text = uiState.executionResult ?: "",  
+                    modifier = Modifier.verticalScroll(rememberScrollState())  
+                )  
+            },  
+            confirmButton = {  
+                TextButton(onClick = { viewModel.dismissResult() }) {  
+                    Text("确定")  
+                }  
+            }  
+        )  
     }  
   
     Scaffold(  
@@ -90,23 +121,47 @@ fun DailyScreen(
         },  
         snackbarHost = { SnackbarHost(snackbarHostState) }  
     ) { paddingValues ->  
-        when (uiState.phase) {  
-            DailyPhase.LOGIN -> LoginContent(  
-                uiState = uiState,  
-                onQqChanged = viewModel::onQqChanged,  
-                onPasswordChanged = viewModel::onPasswordChanged,  
-                onLogin = viewModel::login,  
-                modifier = Modifier.padding(paddingValues)  
-            )  
-            DailyPhase.ACCOUNTS -> AccountsContent(  
-                uiState = uiState,  
-                onSelectAccount = viewModel::selectAccount,  
-                modifier = Modifier.padding(paddingValues)  
-            )  
-            DailyPhase.COMMANDS -> CommandsContent(  
-                selectedAccount = uiState.selectedAccount ?: "",  
-                modifier = Modifier.padding(paddingValues)  
-            )  
+        Box(modifier = Modifier.padding(paddingValues)) {  
+            when (uiState.phase) {  
+                DailyPhase.LOGIN -> LoginContent(  
+                    uiState = uiState,  
+                    onQqChanged = viewModel::onQqChanged,  
+                    onPasswordChanged = viewModel::onPasswordChanged,  
+                    onLogin = viewModel::login  
+                )  
+                DailyPhase.ACCOUNTS -> AccountsContent(  
+                    uiState = uiState,  
+                    onSelectAccount = viewModel::selectAccount  
+                )  
+                DailyPhase.COMMANDS -> CommandsContent(  
+                    uiState = uiState,  
+                    onExecuteCommand = viewModel::executeCommand  
+                )  
+            }  
+  
+            // ===== 执行中遮罩 =====  
+            if (uiState.isExecuting) {  
+                Box(  
+                    modifier = Modifier  
+                        .fillMaxSize()  
+                        .background(Color.Black.copy(alpha = 0.4f))  
+                        .clickable(enabled = false) { },  
+                    contentAlignment = Alignment.Center  
+                ) {  
+                    Card(  
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)  
+                    ) {  
+                        Column(  
+                            modifier = Modifier.padding(32.dp),  
+                            horizontalAlignment = Alignment.CenterHorizontally  
+                        ) {  
+                            CircularProgressIndicator(modifier = Modifier.size(48.dp))  
+                            Spacer(modifier = Modifier.height(16.dp))  
+                            Text("执行中，请稍候...", style = MaterialTheme.typography.bodyLarge)  
+                        }  
+                    }  
+                }  
+            }  
         }  
     }  
 }  
@@ -118,11 +173,10 @@ private fun LoginContent(
     uiState: DailyUiState,  
     onQqChanged: (String) -> Unit,  
     onPasswordChanged: (String) -> Unit,  
-    onLogin: () -> Unit,  
-    modifier: Modifier = Modifier  
+    onLogin: () -> Unit  
 ) {  
     Column(  
-        modifier = modifier  
+        modifier = Modifier  
             .fillMaxSize()  
             .padding(24.dp),  
         horizontalAlignment = Alignment.CenterHorizontally,  
@@ -149,7 +203,7 @@ private fun LoginContent(
                 )  
             ) {  
                 Text(  
-                    text = "请先在「设置」中配置服务器地址（IP和端口）",  
+                    text = "请先在设置中配置清日常服务器地址",  
                     modifier = Modifier.padding(16.dp),  
                     style = MaterialTheme.typography.bodyMedium,  
                     color = MaterialTheme.colorScheme.onErrorContainer  
@@ -214,11 +268,10 @@ private fun LoginContent(
 @Composable  
 private fun AccountsContent(  
     uiState: DailyUiState,  
-    onSelectAccount: (String) -> Unit,  
-    modifier: Modifier = Modifier  
+    onSelectAccount: (String) -> Unit  
 ) {  
     Column(  
-        modifier = modifier  
+        modifier = Modifier  
             .fillMaxSize()  
             .padding(16.dp)  
     ) {  
@@ -281,17 +334,17 @@ private fun AccountsContent(
   
 @Composable  
 private fun CommandsContent(  
-    selectedAccount: String,  
-    modifier: Modifier = Modifier  
+    uiState: DailyUiState,  
+    onExecuteCommand: (CommandItem) -> Unit  
 ) {  
     Column(  
-        modifier = modifier  
+        modifier = Modifier  
             .fillMaxSize()  
             .padding(horizontal = 16.dp)  
     ) {  
         Spacer(modifier = Modifier.height(12.dp))  
         Text(  
-            text = "账号: $selectedAccount",  
+            text = "账号: ${uiState.selectedAccount ?: ""}",  
             style = MaterialTheme.typography.titleMedium,  
             fontWeight = FontWeight.Bold  
         )  
@@ -301,7 +354,17 @@ private fun CommandsContent(
             style = MaterialTheme.typography.bodySmall,  
             color = MaterialTheme.colorScheme.onSurfaceVariant  
         )  
-        Spacer(modifier = Modifier.height(12.dp))  
+        Spacer(modifier = Modifier.height(4.dp))  
+        // 图例  
+        Row(  
+            horizontalArrangement = Arrangement.spacedBy(12.dp),  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            LegendDot(color = MaterialTheme.colorScheme.primary, label = "可执行")  
+            LegendDot(color = MaterialTheme.colorScheme.tertiary, label = "需参数")  
+            LegendDot(color = MaterialTheme.colorScheme.outline, label = "暂不支持")  
+        }  
+        Spacer(modifier = Modifier.height(8.dp))  
         HorizontalDivider()  
   
         LazyColumn(  
@@ -309,7 +372,7 @@ private fun CommandsContent(
         ) {  
             item { Spacer(modifier = Modifier.height(8.dp)) }  
             items(DAILY_COMMANDS) { cmd ->  
-                CommandCard(cmd)  
+                CommandCard(cmd = cmd, onClick = { onExecuteCommand(cmd) })  
             }  
             item { Spacer(modifier = Modifier.height(16.dp)) }  
         }  
@@ -317,28 +380,75 @@ private fun CommandsContent(
 }  
   
 @Composable  
-private fun CommandCard(cmd: CommandItem) {  
-    Card(  
-        modifier = Modifier.fillMaxWidth(),  
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
-        colors = CardDefaults.cardColors(  
-            containerColor = MaterialTheme.colorScheme.surfaceVariant  
+private fun LegendDot(color: Color, label: String) {  
+    Row(verticalAlignment = Alignment.CenterVertically) {  
+        Box(  
+            modifier = Modifier  
+                .size(10.dp)  
+                .background(color, shape = MaterialTheme.shapes.small)  
         )  
+        Spacer(modifier = Modifier.width(4.dp))  
+        Text(text = label, style = MaterialTheme.typography.labelSmall)  
+    }  
+}  
+  
+@Composable  
+private fun CommandCard(cmd: CommandItem, onClick: () -> Unit) {  
+    val containerColor = when (cmd.type) {  
+        CommandType.SIMPLE, CommandType.DO_DAILY ->  
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)  
+        CommandType.NEEDS_PARAMS ->  
+            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)  
+        CommandType.UNSUPPORTED ->  
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)  
+    }  
+  
+    val commandColor = when (cmd.type) {  
+        CommandType.SIMPLE, CommandType.DO_DAILY -> MaterialTheme.colorScheme.primary  
+        CommandType.NEEDS_PARAMS -> MaterialTheme.colorScheme.tertiary  
+        CommandType.UNSUPPORTED -> MaterialTheme.colorScheme.outline  
+    }  
+  
+    val icon = when (cmd.type) {  
+        CommandType.SIMPLE -> Icons.Default.PlayArrow  
+        CommandType.DO_DAILY -> Icons.Default.Star  
+        CommandType.NEEDS_PARAMS -> Icons.Default.Edit  
+        CommandType.UNSUPPORTED -> Icons.Default.Block  
+    }  
+  
+    Card(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .clickable(onClick = onClick),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
+        colors = CardDefaults.cardColors(containerColor = containerColor)  
     ) {  
-        Column(modifier = Modifier.padding(12.dp)) {  
-            Text(  
-                text = cmd.command,  
-                style = MaterialTheme.typography.bodyMedium,  
-                fontWeight = FontWeight.Bold,  
-                color = MaterialTheme.colorScheme.primary  
+        Row(  
+            modifier = Modifier.padding(12.dp),  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            Icon(  
+                imageVector = icon,  
+                contentDescription = null,  
+                tint = commandColor,  
+                modifier = Modifier.size(20.dp)  
             )  
-            if (cmd.description.isNotBlank()) {  
-                Spacer(modifier = Modifier.height(2.dp))  
+            Spacer(modifier = Modifier.width(10.dp))  
+            Column(modifier = Modifier.weight(1f)) {  
                 Text(  
-                    text = cmd.description,  
-                    style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    text = cmd.command,  
+                    style = MaterialTheme.typography.bodyMedium,  
+                    fontWeight = FontWeight.Bold,  
+                    color = commandColor  
                 )  
+                if (cmd.description.isNotBlank()) {  
+                    Spacer(modifier = Modifier.height(2.dp))  
+                    Text(  
+                        text = cmd.description,  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
             }  
         }  
     }  
