@@ -100,7 +100,7 @@ class FloatingWindowService : Service() {
         ).apply {  
             gravity = Gravity.TOP or Gravity.START  
             x = 0  
-            y = dp(188)  
+            y = dp(200)  
         }  
   
         var initialX = 0  
@@ -271,7 +271,7 @@ class FloatingWindowService : Service() {
     private fun onCropConfirmed(screenshot: Bitmap, cropRect: Rect, templateCount: Int) {  
         scope.launch {  
             try {  
-                withContext(Dispatchers.Main) { showLoadingPanel() }  
+                withContext(Dispatchers.Main) { showLoadingPanel("正在识别角色...") }  
   
                 // 裁剪框选区域  
                 val w = cropRect.width().coerceAtMost(screenshot.width - cropRect.left)  
@@ -328,41 +328,7 @@ class FloatingWindowService : Service() {
   
     // ======================== 加载面板 ========================  
   
-    private fun showLoadingPanel() {  
-        removeResultPanel()  
-  
-        val panel = LinearLayout(this).apply {  
-            orientation = LinearLayout.VERTICAL  
-            setBackgroundColor(0xEE222222.toInt())  
-            setPadding(dp(16), dp(12), dp(16), dp(12))  
-            gravity = Gravity.CENTER  
-        }  
-  
-        val progress = ProgressBar(this)  
-        val text = TextView(this).apply {  
-            this.text = "正在识别角色..."  
-            setTextColor(Color.WHITE)  
-            textSize = 14f  
-            gravity = Gravity.CENTER  
-            setPadding(0, dp(8), 0, 0)  
-        }  
-        panel.addView(progress)  
-        panel.addView(text)  
-  
-        val params = WindowManager.LayoutParams(  
-            dp(200), WindowManager.LayoutParams.WRAP_CONTENT,  
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
-            PixelFormat.TRANSLUCENT  
-        ).apply {  
-            gravity = Gravity.CENTER  
-        }  
-  
-        windowManager.addView(panel, params)  
-        resultPanel = panel  
-    }  
-  
-    private fun showLoadingPanel(message: String) {  
+    private fun showLoadingPanel(message: String = "正在识别角色...") {  
         removeResultPanel()  
   
         val panel = LinearLayout(this).apply {  
@@ -439,7 +405,7 @@ class FloatingWindowService : Service() {
         val defRow = createIconRow(ctx, defenseIds)  
         root.addView(defRow)  
   
-        // 角色ID文字（辅助确认）  
+        // 角色数量文字  
         val idsText = TextView(ctx).apply {  
             text = "共识别 ${defenseIds.size} 个角色"  
             setTextColor(Color.LTGRAY)  
@@ -469,10 +435,7 @@ class FloatingWindowService : Service() {
             setTextColor(0xFF90CAF9.toInt())  
             textSize = 14f  
             setPadding(dp(16), dp(8), dp(16), dp(8))  
-            setOnClickListener {  
-                // 点击后查询作业  
-                onQueryArena(defenseIds)  
-            }  
+            setOnClickListener { onQueryArena(defenseIds) }  
         }  
   
         val retryBtn = TextView(ctx).apply {  
@@ -503,7 +466,7 @@ class FloatingWindowService : Service() {
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(204), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(320), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
@@ -523,7 +486,7 @@ class FloatingWindowService : Service() {
             try {  
                 withContext(Dispatchers.Main) { showLoadingPanel("正在查询作业...") }  
   
-                val results = withContext(Dispatchers.IO) {  
+                val results: List<ArenaQueryClient.ArenaResult> = withContext(Dispatchers.IO) {  
                     arenaClient.query(defenseIds, region = 2)  
                 }  
   
@@ -573,7 +536,10 @@ class FloatingWindowService : Service() {
             setTextColor(Color.LTGRAY)  
             textSize = 18f  
             setPadding(dp(8), 0, dp(4), 0)  
-            setOnClickListener { removeResultPanel() }  
+            setOnClickListener {  
+                removeResultPanel()  
+                floatButton?.visibility = View.VISIBLE  
+            }  
         }  
         titleRow.addView(titleText)  
         titleRow.addView(closeBtn)  
@@ -655,14 +621,17 @@ class FloatingWindowService : Service() {
             setTextColor(Color.LTGRAY)  
             textSize = 13f  
             setPadding(dp(16), dp(6), dp(16), dp(6))  
-            setOnClickListener { removeResultPanel() }  
+            setOnClickListener {  
+                removeResultPanel()  
+                floatButton?.visibility = View.VISIBLE  
+            }  
         }  
         bottomRow.addView(retryBtn)  
         bottomRow.addView(closeBtn2)  
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(192), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(320), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
