@@ -17,6 +17,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient  
 import okhttp3.Request  
 import okhttp3.RequestBody.Companion.toRequestBody  
+import org.json.JSONArray  
 import org.json.JSONObject  
 import java.util.concurrent.TimeUnit  
 import javax.inject.Inject  
@@ -103,6 +104,22 @@ val DAILY_COMMANDS: List<CommandItem> = listOf(
     CommandItem("#恢复ex状态", "恢复之前保存的普通EX装备穿戴状态"),  
 )  
   
+// ==================== 定时任务数据 ====================  
+  
+/** 后端可用的 cron 槽位索引（cron5/cron6 已注释掉） */  
+val CRON_INDICES = listOf(1, 2, 3, 4, 7, 8, 9, 10)  
+  
+/** 不执行日常模块的可选值 */  
+val MODULE_EXCLUDE_CANDIDATES = listOf("体力获取", "体力消耗")  
+  
+data class CronConfig(  
+    val index: Int,                          // 槽位编号，如 1,2,3,4,7,8,9,10  
+    val enabled: Boolean = false,            // cronN  
+    val time: String = "00:00",              // time_cronN  "HH:mm"  
+    val clanbattleRun: Boolean = false,      // clanbattle_run_cronN  
+    val moduleExcludeType: List<String> = emptyList()  // module_exclude_type_cronN  
+)  
+  
 // ==================== UI 状态 ====================  
   
 enum class DailyPhase { LOGIN, ACCOUNTS, COMMANDS }  
@@ -118,7 +135,13 @@ data class DailyUiState(
     val errorMessage: String? = null,  
     val isExecuting: Boolean = false,  
     val executionResult: String? = null,  
-    val showResultDialog: Boolean = false  
+    val showResultDialog: Boolean = false,  
+    // ---- 定时任务 ----  
+    val cronConfigs: List<CronConfig> = emptyList(),  
+    val isLoadingCron: Boolean = false,  
+    val isSavingCron: Boolean = false,  
+    val cronError: String? = null,  
+    val showCronSection: Boolean = false      // 是否展开定时设置区域  
 )  
   
 // ==================== ViewModel ====================  
@@ -262,7 +285,11 @@ class DailyViewModel @Inject constructor(
     fun selectAccount(alias: String) {  
         _uiState.value = _uiState.value.copy(  
             phase = DailyPhase.COMMANDS,  
-            selectedAccount = alias  
+            selectedAccount = alias,  
+            // 切换账号时重置定时状态  
+            cronConfigs = emptyList(),  
+            showCronSection = false,  
+            cronError = null  
         )  
     }  
   
@@ -343,10 +370,228 @@ class DailyViewModel @Inject constructor(
         }  
     }  
   
+    // ==================== 定时任务管理 ====================  
+  
+    /** 切换定时设置区域的展开/折叠，首次展开时自动加载 */  
+    fun toggleCronSection() {  
+        val state = _uiState.value  
+        val newShow = !state.showCronSection  
+        _uiState.value = state.copy(showCronSection = newShow)  
+        if (newShow && state.cronConfigs.isEmpty() && !state.isLoadingCron) {  
+            loadCronConfig()  
+        }  
+    }  
+  
+    /**  
+     * 从后端加载定时任务配置。  
+     *  
+     * GET /daily/api/account/<acc>/cron 返回：  
+     * {  
+     *   "config": { "cron1": true, "time_cron1": "05:00", "clanbattle_run_cron1": false,  
+     *               "module_exclude_type_cron1": [], ... },  
+     *   "order": ["cron1","cron2","cron3","cron4","cron7","cron8","cron9","cron10"],  
+     *   "info": { ... }  
+     * }  
+     */  
+    fun loadCronConfig() {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(isLoadingCron = true, cronError = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                val configs = withContext(Dispatchers.IO) {  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/cron")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .get()  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "获取定时配置失败 (${resp.code})" })  
+                        parseCronResponse(text)  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingCron = false,  
+                    cronConfigs = configs,  
+                    cronError = null  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Load cron config failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingCron = false,  
+                    cronError = "加载定时配置失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    /** 解析 /cron 接口返回的 JSON，提取每个槽位的配置 */  
+    private fun parseCronResponse(json: String): List<CronConfig> {  
+        val root = JSONObject(json)  
+        val config = root.optJSONObject("config") ?: JSONObject()  
+        val orderArr = root.optJSONArray("order")  
+  
+        // 优先使用 order 字段确定槽位顺序，回退到硬编码列表  
+        val indices: List<Int> = if (orderArr != null && orderArr.length() > 0) {  
+            (0 until orderArr.length()).mapNotNull { i ->  
+                val key = orderArr.optString(i, "")  
+                // key 形如 "cron1", "cron10"  
+                key.removePrefix("cron").toIntOrNull()  
+            }  
+        } else {  
+            CRON_INDICES  
+        }  
+  
+        return indices.map { idx ->  
+            val suffix = "cron$idx"  
+            CronConfig(  
+                index = idx,  
+                enabled = config.optBoolean(suffix, false),  
+                time = normalizeTime(config.optString("time_$suffix", "00:00")),  
+                clanbattleRun = config.optBoolean("clanbattle_run_$suffix", false),  
+                moduleExcludeType = parseStringList(config.optJSONArray("module_exclude_type_$suffix"))  
+            )  
+        }  
+    }  
+  
+    /** 将可能带秒的时间 "HH:mm:ss" 截断为 "HH:mm" */  
+    private fun normalizeTime(raw: String): String {  
+        val parts = raw.split(":")  
+        return if (parts.size >= 2) "${parts[0]}:${parts[1]}" else raw  
+    }  
+  
+    /** JSONArray -> List<String> */  
+    private fun parseStringList(arr: JSONArray?): List<String> {  
+        if (arr == null) return emptyList()  
+        return (0 until arr.length()).mapNotNull { arr.optString(it, null) }  
+    }  
+  
+    // ---------- 单项修改 ----------  
+  
+    /** 开关某个定时任务 */  
+    fun toggleCron(index: Int, enabled: Boolean) {  
+        saveCronField("cron$index", enabled)  
+        updateLocalCron(index) { it.copy(enabled = enabled) }  
+    }  
+  
+    /** 修改执行时间 */  
+    fun updateCronTime(index: Int, time: String) {  
+        saveCronField("time_cron$index", time)  
+        updateLocalCron(index) { it.copy(time = time) }  
+    }  
+  
+    /** 开关会战期间执行 */  
+    fun toggleClanbattleRun(index: Int, run: Boolean) {  
+        saveCronField("clanbattle_run_cron$index", run)  
+        updateLocalCron(index) { it.copy(clanbattleRun = run) }  
+    }  
+  
+    /** 修改不执行日常模块 */  
+    fun updateModuleExcludeType(index: Int, types: List<String>) {  
+        saveCronFieldList("module_exclude_type_cron$index", types)  
+        updateLocalCron(index) { it.copy(moduleExcludeType = types) }  
+    }  
+  
+    /** 先乐观更新本地状态 */  
+    private fun updateLocalCron(index: Int, transform: (CronConfig) -> CronConfig) {  
+        val state = _uiState.value  
+        _uiState.value = state.copy(  
+            cronConfigs = state.cronConfigs.map { if (it.index == index) transform(it) else it }  
+        )  
+    }  
+  
+    /** PUT 单个配置字段（布尔/字符串） */  
+    private fun saveCronField(key: String, value: Any) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(isSavingCron = true)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put(key, value)  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/config")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        if (!resp.isSuccessful) {  
+                            val text = resp.body?.string() ?: ""  
+                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                        }  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(isSavingCron = false, cronError = null)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save cron field failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isSavingCron = false,  
+                    cronError = "保存失败: ${e.message}"  
+                )  
+                // 保存失败时重新加载以恢复正确状态  
+                loadCronConfig()  
+            }  
+        }  
+    }  
+  
+    /** PUT 列表类型配置字段 */  
+    private fun saveCronFieldList(key: String, values: List<String>) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(isSavingCron = true)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put(key, JSONArray(values))  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/config")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        if (!resp.isSuccessful) {  
+                            val text = resp.body?.string() ?: ""  
+                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                        }  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(isSavingCron = false, cronError = null)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save cron field list failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isSavingCron = false,  
+                    cronError = "保存失败: ${e.message}"  
+                )  
+                // 保存失败时重新加载以恢复正确状态  
+                loadCronConfig()  
+            }  
+        }  
+    }  
+  
     // ==================== 关闭结果弹窗 ====================  
   
     fun dismissResult() {  
         _uiState.value = _uiState.value.copy(showResultDialog = false, executionResult = null)  
+    }  
+  
+    // ==================== 清除定时错误 ====================  
+  
+    fun clearCronError() {  
+        _uiState.value = _uiState.value.copy(cronError = null)  
     }  
   
     // ==================== 返回 ====================  
@@ -357,7 +602,10 @@ class DailyViewModel @Inject constructor(
             DailyPhase.COMMANDS -> {  
                 _uiState.value = state.copy(  
                     phase = DailyPhase.ACCOUNTS,  
-                    selectedAccount = null  
+                    selectedAccount = null,  
+                    cronConfigs = emptyList(),  
+                    showCronSection = false,  
+                    cronError = null  
                 )  
             }  
             DailyPhase.ACCOUNTS -> {  

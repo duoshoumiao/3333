@@ -1,10 +1,15 @@
 package com.pcrjjc.app.ui.daily  
   
+import androidx.compose.animation.AnimatedVisibility  
+import androidx.compose.animation.expandVertically  
+import androidx.compose.animation.shrinkVertically  
 import androidx.compose.foundation.background  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Box  
 import androidx.compose.foundation.layout.Column  
+import androidx.compose.foundation.layout.ExperimentalLayoutApi  
+import androidx.compose.foundation.layout.FlowRow  
 import androidx.compose.foundation.layout.Row  
 import androidx.compose.foundation.layout.Spacer  
 import androidx.compose.foundation.layout.fillMaxSize  
@@ -21,14 +26,21 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
+import androidx.compose.material.icons.filled.AccessTime  
+import androidx.compose.material.icons.filled.ExpandLess  
+import androidx.compose.material.icons.filled.ExpandMore  
 import androidx.compose.material.icons.filled.PlayArrow  
+import androidx.compose.material.icons.filled.Refresh  
+import androidx.compose.material.icons.filled.Schedule  
 import androidx.compose.material.icons.filled.Send  
 import androidx.compose.material3.AlertDialog  
 import androidx.compose.material3.Button  
 import androidx.compose.material3.Card  
 import androidx.compose.material3.CardDefaults  
+import androidx.compose.material3.Checkbox  
 import androidx.compose.material3.CircularProgressIndicator  
 import androidx.compose.material3.ExperimentalMaterial3Api  
+import androidx.compose.material3.FilterChip  
 import androidx.compose.material3.HorizontalDivider  
 import androidx.compose.material3.Icon  
 import androidx.compose.material3.IconButton  
@@ -37,6 +49,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.SnackbarHost  
 import androidx.compose.material3.SnackbarHostState  
+import androidx.compose.material3.Switch  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TextButton  
 import androidx.compose.material3.TopAppBar  
@@ -54,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction  
 import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.ui.text.input.PasswordVisualTransformation  
+import androidx.compose.ui.text.style.TextAlign  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
   
@@ -71,6 +85,14 @@ fun DailyScreen(
         uiState.errorMessage?.let {  
             snackbarHostState.showSnackbar(it)  
             viewModel.clearError()  
+        }  
+    }  
+  
+    // 显示定时配置错误  
+    LaunchedEffect(uiState.cronError) {  
+        uiState.cronError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearCronError()  
         }  
     }  
   
@@ -195,7 +217,18 @@ fun DailyScreen(
                     onCommandClick = { cmd ->  
                         commandDialogText = extractCommandPrefix(cmd.command)  
                         showCommandDialog = true  
-                    }  
+                    },  
+                    // 定时任务相关  
+                    showCronSection = uiState.showCronSection,  
+                    cronConfigs = uiState.cronConfigs,  
+                    isLoadingCron = uiState.isLoadingCron,  
+                    isSavingCron = uiState.isSavingCron,  
+                    onToggleCronSection = viewModel::toggleCronSection,  
+                    onRefreshCron = viewModel::loadCronConfig,  
+                    onToggleCron = viewModel::toggleCron,  
+                    onUpdateCronTime = viewModel::updateCronTime,  
+                    onToggleClanbattleRun = viewModel::toggleClanbattleRun,  
+                    onUpdateModuleExcludeType = viewModel::updateModuleExcludeType  
                 )  
             }  
   
@@ -414,7 +447,18 @@ private fun AccountsContent(
 @Composable  
 private fun CommandsContent(  
     selectedAccount: String,  
-    onCommandClick: (CommandItem) -> Unit  
+    onCommandClick: (CommandItem) -> Unit,  
+    // 定时任务相关  
+    showCronSection: Boolean,  
+    cronConfigs: List<CronConfig>,  
+    isLoadingCron: Boolean,  
+    isSavingCron: Boolean,  
+    onToggleCronSection: () -> Unit,  
+    onRefreshCron: () -> Unit,  
+    onToggleCron: (Int, Boolean) -> Unit,  
+    onUpdateCronTime: (Int, String) -> Unit,  
+    onToggleClanbattleRun: (Int, Boolean) -> Unit,  
+    onUpdateModuleExcludeType: (Int, List<String>) -> Unit  
 ) {  
     Column(  
         modifier = Modifier  
@@ -439,7 +483,42 @@ private fun CommandsContent(
         LazyColumn(  
             verticalArrangement = Arrangement.spacedBy(4.dp)  
         ) {  
-            item { Spacer(modifier = Modifier.height(8.dp)) }  
+            // ---- 定时任务区域 ----  
+            item {  
+                Spacer(modifier = Modifier.height(8.dp))  
+                CronSectionHeader(  
+                    expanded = showCronSection,  
+                    isLoading = isLoadingCron,  
+                    isSaving = isSavingCron,  
+                    onToggle = onToggleCronSection,  
+                    onRefresh = onRefreshCron  
+                )  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showCronSection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    CronSettingsSection(  
+                        cronConfigs = cronConfigs,  
+                        isLoading = isLoadingCron,  
+                        onToggleCron = onToggleCron,  
+                        onUpdateTime = onUpdateCronTime,  
+                        onToggleClanbattleRun = onToggleClanbattleRun,  
+                        onUpdateModuleExcludeType = onUpdateModuleExcludeType  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 指令列表 ----  
             items(DAILY_COMMANDS) { cmd ->  
                 CommandCard(cmd = cmd, onClick = { onCommandClick(cmd) })  
             }  
@@ -447,6 +526,364 @@ private fun CommandsContent(
         }  
     }  
 }  
+  
+// ==================== 定时任务区域头部 ====================  
+  
+@Composable  
+private fun CronSectionHeader(  
+    expanded: Boolean,  
+    isLoading: Boolean,  
+    isSaving: Boolean,  
+    onToggle: () -> Unit,  
+    onRefresh: () -> Unit  
+) {  
+    Card(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .clickable(onClick = onToggle),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
+        colors = CardDefaults.cardColors(  
+            containerColor = MaterialTheme.colorScheme.secondaryContainer  
+        )  
+    ) {  
+        Row(  
+            modifier = Modifier  
+                .fillMaxWidth()  
+                .padding(horizontal = 16.dp, vertical = 12.dp),  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            Icon(  
+                imageVector = Icons.Default.Schedule,  
+                contentDescription = null,  
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,  
+                modifier = Modifier.size(22.dp)  
+            )  
+            Spacer(modifier = Modifier.width(10.dp))  
+            Text(  
+                text = "定时任务设置",  
+                style = MaterialTheme.typography.titleSmall,  
+                fontWeight = FontWeight.Bold,  
+                color = MaterialTheme.colorScheme.onSecondaryContainer,  
+                modifier = Modifier.weight(1f)  
+            )  
+            if (isLoading || isSaving) {  
+                CircularProgressIndicator(  
+                    modifier = Modifier.size(18.dp),  
+                    strokeWidth = 2.dp,  
+                    color = MaterialTheme.colorScheme.onSecondaryContainer  
+                )  
+                Spacer(modifier = Modifier.width(8.dp))  
+            }  
+            if (expanded) {  
+                IconButton(  
+                    onClick = onRefresh,  
+                    modifier = Modifier.size(32.dp)  
+                ) {  
+                    Icon(  
+                        imageVector = Icons.Default.Refresh,  
+                        contentDescription = "刷新",  
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,  
+                        modifier = Modifier.size(18.dp)  
+                    )  
+                }  
+            }  
+            Icon(  
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
+                contentDescription = if (expanded) "收起" else "展开",  
+                tint = MaterialTheme.colorScheme.onSecondaryContainer  
+            )  
+        }  
+    }  
+}  
+  
+// ==================== 定时任务设置内容 ====================  
+  
+@Composable  
+private fun CronSettingsSection(  
+    cronConfigs: List<CronConfig>,  
+    isLoading: Boolean,  
+    onToggleCron: (Int, Boolean) -> Unit,  
+    onUpdateTime: (Int, String) -> Unit,  
+    onToggleClanbattleRun: (Int, Boolean) -> Unit,  
+    onUpdateModuleExcludeType: (Int, List<String>) -> Unit  
+) {  
+    Column(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .padding(top = 8.dp),  
+        verticalArrangement = Arrangement.spacedBy(6.dp)  
+    ) {  
+        if (isLoading && cronConfigs.isEmpty()) {  
+            Box(  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 24.dp),  
+                contentAlignment = Alignment.Center  
+            ) {  
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {  
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Text(  
+                        text = "加载定时配置...",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            }  
+        } else if (cronConfigs.isEmpty()) {  
+            Text(  
+                text = "暂无定时任务配置",  
+                style = MaterialTheme.typography.bodyMedium,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 16.dp),  
+                textAlign = TextAlign.Center  
+            )  
+        } else {  
+            cronConfigs.forEach { cron ->  
+                CronItemCard(  
+                    cron = cron,  
+                    onToggle = { enabled -> onToggleCron(cron.index, enabled) },  
+                    onUpdateTime = { time -> onUpdateTime(cron.index, time) },  
+                    onToggleClanbattleRun = { run -> onToggleClanbattleRun(cron.index, run) },  
+                    onUpdateModuleExcludeType = { types -> onUpdateModuleExcludeType(cron.index, types) }  
+                )  
+            }  
+        }  
+    }  
+}  
+  
+// ==================== 单个定时任务卡片 ====================  
+  
+@OptIn(ExperimentalLayoutApi::class)  
+@Composable  
+private fun CronItemCard(  
+    cron: CronConfig,  
+    onToggle: (Boolean) -> Unit,  
+    onUpdateTime: (String) -> Unit,  
+    onToggleClanbattleRun: (Boolean) -> Unit,  
+    onUpdateModuleExcludeType: (List<String>) -> Unit  
+) {  
+    var expanded by remember { mutableStateOf(false) }  
+    var showTimeDialog by remember { mutableStateOf(false) }  
+  
+    // 时间编辑弹窗  
+    if (showTimeDialog) {  
+        TimeEditDialog(  
+            currentTime = cron.time,  
+            onConfirm = { newTime ->  
+                showTimeDialog = false  
+                onUpdateTime(newTime)  
+            },  
+            onDismiss = { showTimeDialog = false }  
+        )  
+    }  
+  
+    Card(  
+        modifier = Modifier.fillMaxWidth(),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
+        colors = CardDefaults.cardColors(  
+            containerColor = if (cron.enabled)  
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)  
+            else  
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)  
+        )  
+    ) {  
+        Column(modifier = Modifier.padding(12.dp)) {  
+            // 主行：开关 + 名称 + 时间 + 展开按钮  
+            Row(  
+                modifier = Modifier.fillMaxWidth(),  
+                verticalAlignment = Alignment.CenterVertically  
+            ) {  
+                Switch(  
+                    checked = cron.enabled,  
+                    onCheckedChange = onToggle,  
+                    modifier = Modifier.size(width = 46.dp, height = 24.dp)  
+                )  
+                Spacer(modifier = Modifier.width(10.dp))  
+                Column(modifier = Modifier.weight(1f)) {  
+                    Text(  
+                        text = "定时任务${cron.index}",  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        fontWeight = FontWeight.Bold  
+                    )  
+                    if (cron.enabled) {  
+                        Text(  
+                            text = "执行时间: ${cron.time}",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.primary  
+                        )  
+                    }  
+                }  
+                // 编辑时间按钮  
+                IconButton(  
+                    onClick = { showTimeDialog = true },  
+                    modifier = Modifier.size(32.dp)  
+                ) {  
+                    Icon(  
+                        imageVector = Icons.Default.AccessTime,  
+                        contentDescription = "编辑时间",  
+                        tint = MaterialTheme.colorScheme.primary,  
+                        modifier = Modifier.size(18.dp)  
+                    )  
+                }  
+                // 展开/收起详细设置  
+                IconButton(  
+                    onClick = { expanded = !expanded },  
+                    modifier = Modifier.size(32.dp)  
+                ) {  
+                    Icon(  
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
+                        contentDescription = if (expanded) "收起" else "更多设置",  
+                        modifier = Modifier.size(18.dp)  
+                    )  
+                }  
+            }  
+  
+            // 展开的详细设置  
+            AnimatedVisibility(  
+                visible = expanded,  
+                enter = expandVertically(),  
+                exit = shrinkVertically()  
+            ) {  
+                Column(  
+                    modifier = Modifier.padding(top = 8.dp)  
+                ) {  
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))  
+  
+                    // 会战期间执行  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        verticalAlignment = Alignment.CenterVertically  
+                    ) {  
+                        Text(  
+                            text = "会战期间执行",  
+                            style = MaterialTheme.typography.bodyMedium,  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                        Switch(  
+                            checked = cron.clanbattleRun,  
+                            onCheckedChange = onToggleClanbattleRun,  
+                            modifier = Modifier.size(width = 46.dp, height = 24.dp)  
+                        )  
+                    }  
+  
+                    Spacer(modifier = Modifier.height(8.dp))  
+  
+                    // 不执行日常模块  
+                    Text(  
+                        text = "不执行日常模块",  
+                        style = MaterialTheme.typography.bodyMedium  
+                    )  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    FlowRow(  
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)  
+                    ) {  
+                        MODULE_EXCLUDE_CANDIDATES.forEach { candidate ->  
+                            val selected = cron.moduleExcludeType.contains(candidate)  
+                            FilterChip(  
+                                selected = selected,  
+                                onClick = {  
+                                    val newList = if (selected) {  
+                                        cron.moduleExcludeType - candidate  
+                                    } else {  
+                                        cron.moduleExcludeType + candidate  
+                                    }  
+                                    onUpdateModuleExcludeType(newList)  
+                                },  
+                                label = { Text(candidate) }  
+                            )  
+                        }  
+                    }  
+                }  
+            }  
+        }  
+    }  
+}  
+  
+// ==================== 时间编辑弹窗 ====================  
+  
+@Composable  
+private fun TimeEditDialog(  
+    currentTime: String,  
+    onConfirm: (String) -> Unit,  
+    onDismiss: () -> Unit  
+) {  
+    val parts = currentTime.split(":")  
+    var hour by remember { mutableStateOf(parts.getOrElse(0) { "00" }) }  
+    var minute by remember { mutableStateOf(parts.getOrElse(1) { "00" }) }  
+  
+    AlertDialog(  
+        onDismissRequest = onDismiss,  
+        title = { Text("设置执行时间") },  
+        text = {  
+            Column {  
+                Text(  
+                    text = "请输入24小时制时间",  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+                Spacer(modifier = Modifier.height(16.dp))  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    horizontalArrangement = Arrangement.Center,  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
+                    OutlinedTextField(  
+                        value = hour,  
+                        onValueChange = { v ->  
+                            if (v.length <= 2 && v.all { it.isDigit() }) hour = v  
+                        },  
+                        modifier = Modifier.width(80.dp),  
+                        label = { Text("时") },  
+                        singleLine = true,  
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),  
+                        textStyle = MaterialTheme.typography.headlineSmall.copy(  
+                            textAlign = TextAlign.Center  
+                        )  
+                    )  
+                    Text(  
+                        text = ":",  
+                        style = MaterialTheme.typography.headlineSmall,  
+                        modifier = Modifier.padding(horizontal = 8.dp)  
+                    )  
+                    OutlinedTextField(  
+                        value = minute,  
+                        onValueChange = { v ->  
+                            if (v.length <= 2 && v.all { it.isDigit() }) minute = v  
+                        },  
+                        modifier = Modifier.width(80.dp),  
+                        label = { Text("分") },  
+                        singleLine = true,  
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),  
+                        textStyle = MaterialTheme.typography.headlineSmall.copy(  
+                            textAlign = TextAlign.Center  
+                        )  
+                    )  
+                }  
+            }  
+        },  
+        confirmButton = {  
+            TextButton(  
+                onClick = {  
+                    val h = (hour.toIntOrNull() ?: 0).coerceIn(0, 23)  
+                    val m = (minute.toIntOrNull() ?: 0).coerceIn(0, 59)  
+                    onConfirm("%02d:%02d".format(h, m))  
+                }  
+            ) {  
+                Text("确定")  
+            }  
+        },  
+        dismissButton = {  
+            TextButton(onClick = onDismiss) {  
+                Text("取消")  
+            }  
+        }  
+    )  
+}  
+  
+// ==================== 指令卡片 ====================  
   
 @Composable  
 private fun CommandCard(  
