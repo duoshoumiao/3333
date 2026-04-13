@@ -1,5 +1,6 @@
 package com.pcrjjc.app.service  
   
+import com.pcrjjc.app.data.local.SettingsDataStore  
 import android.annotation.SuppressLint  
 import android.app.Service  
 import android.content.Context  
@@ -63,6 +64,11 @@ class FloatingWindowService : Service() {
         isRunning = true  
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager  
         arenaClient = ArenaQueryClient()  
+		val settingsDataStore = SettingsDataStore(this)  
+		scope.launch {  
+			val serverUrl = settingsDataStore.getServerUrl()  
+			arenaClient = ArenaQueryClient(serverUrl)  
+		}  
         createFloatButton()  
     }  
   
@@ -284,9 +290,9 @@ class FloatingWindowService : Service() {
   
                 Log.i(TAG, "发送图片到服务器, 大小=${imageBytes.size}")  
   
-                val serverResponse = withContext(Dispatchers.IO) {  
-                    arenaClient.queryByImage(imageBytes, region = 2)  
-                }  
+                val results = withContext(Dispatchers.IO) {  
+					arenaClient.query(recognized, region = 2)  
+				}  
   
                 withContext(Dispatchers.Main) {  
                     removeResultPanel()  
