@@ -385,6 +385,7 @@ class FloatingWindowService : Service() {
 		compareBase64: String? = null  
 	) {
         val ctx: Context = this  
+        val panelWidth = dp(185)    // ★ 加这一行 
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
@@ -596,8 +597,7 @@ class FloatingWindowService : Service() {
   
     @SuppressLint("ClickableViewAccessibility")  
     private fun showResultPanel(defenseIds: List<Int>, results: List<ArenaQueryClient.ArenaResult>) {  
-        val ctx: Context = this 
-        val panelWidth = dp(185)    // ★ 加这一行   
+        val ctx: Context = this  
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
