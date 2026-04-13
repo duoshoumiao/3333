@@ -68,6 +68,67 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),  
             verticalArrangement = Arrangement.spacedBy(16.dp)  
         ) {  
+            // ========== 服务器地址 Card（置顶）==========  
+            Card(  
+                modifier = Modifier.fillMaxWidth(),  
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+            ) {  
+                Column(modifier = Modifier.padding(16.dp)) {  
+                    Text("服务器地址（选填）", style = MaterialTheme.typography.titleMedium)  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Text(  
+                        text = "填写个人服务器地址，留空则使用默认接口",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(12.dp))  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),  
+                        verticalAlignment = Alignment.CenterVertically  
+                    ) {  
+                        OutlinedTextField(  
+                            value = uiState.serverIpInput,  
+                            onValueChange = { viewModel.onServerIpInputChanged(it) },  
+                            label = { Text("IP地址") },  
+                            placeholder = { Text("例: 119.91.249.245") },  
+                            singleLine = true,  
+                            modifier = Modifier.weight(2f)  
+                        )  
+                        OutlinedTextField(  
+                            value = uiState.serverPortInput,  
+                            onValueChange = { viewModel.onServerPortInputChanged(it) },  
+                            label = { Text("端口") },  
+                            placeholder = { Text("例: 8020") },  
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),  
+                            singleLine = true,  
+                            modifier = Modifier.weight(1f),  
+                            isError = uiState.serverPortInput.isNotEmpty() &&  
+                                uiState.serverPortInput.toIntOrNull()  
+                                    .let { it == null || it < 1 || it > 65535 }  
+                        )  
+                    }  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Button(  
+                        onClick = { viewModel.saveServerAddress() },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = uiState.serverPortInput.isEmpty() ||  
+                            uiState.serverPortInput.toIntOrNull()  
+                                .let { it != null && it in 1..65535 }  
+                    ) {  
+                        Text("保存")  
+                    }  
+                    if (uiState.serverSaved) {  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text(  
+                            text = if (uiState.serverIpInput.isBlank()) "已清除，将使用默认接口" else "已保存",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.primary  
+                        )  
+                    }  
+                }  
+            }  
+  
             // ========== 头像缓存 Card ==========  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  

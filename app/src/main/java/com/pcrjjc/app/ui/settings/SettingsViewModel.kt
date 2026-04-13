@@ -1,3 +1,4 @@
+// app/src/main/java/com/pcrjjc/app/ui/settings/SettingsViewModel.kt  
 package com.pcrjjc.app.ui.settings  
   
 import android.content.Context  
@@ -39,6 +40,9 @@ data class SettingsUiState(
     val pollingInterval: Long = 1L,  
     val pollingIntervalInput: String = "1",  
     val intervalSaved: Boolean = false,  
+    val serverIpInput: String = "",  
+    val serverPortInput: String = "",  
+    val serverSaved: Boolean = false,  
     val isCheckingUpdate: Boolean = false,  
     val isDownloading: Boolean = false,  
     val downloadProgress: Float = 0f,  
@@ -87,6 +91,16 @@ class SettingsViewModel @Inject constructor(
                 )  
             }  
         }  
+        viewModelScope.launch {  
+            settingsDataStore.serverIpFlow.collect { ip ->  
+                _uiState.value = _uiState.value.copy(serverIpInput = ip)  
+            }  
+        }  
+        viewModelScope.launch {  
+            settingsDataStore.serverPortFlow.collect { port ->  
+                _uiState.value = _uiState.value.copy(serverPortInput = port)  
+            }  
+        }  
     }  
   
     fun onIntervalInputChanged(input: String) {  
@@ -94,6 +108,29 @@ class SettingsViewModel @Inject constructor(
             pollingIntervalInput = input,  
             intervalSaved = false  
         )  
+    }  
+  
+    fun onServerIpInputChanged(input: String) {  
+        _uiState.value = _uiState.value.copy(serverIpInput = input, serverSaved = false)  
+    }  
+  
+    fun onServerPortInputChanged(input: String) {  
+        _uiState.value = _uiState.value.copy(serverPortInput = input, serverSaved = false)  
+    }  
+  
+    fun saveServerAddress() {  
+        val ip = _uiState.value.serverIpInput.trim()  
+        val port = _uiState.value.serverPortInput.trim()  
+        // 端口如果填了，必须是有效端口号  
+        if (port.isNotEmpty()) {  
+            val portInt = port.toIntOrNull()  
+            if (portInt == null || portInt < 1 || portInt > 65535) return  
+        }  
+        viewModelScope.launch {  
+            settingsDataStore.setServerIp(ip)  
+            settingsDataStore.setServerPort(port)  
+            _uiState.value = _uiState.value.copy(serverSaved = true)  
+        }  
     }  
   
     fun savePollingInterval() {  
