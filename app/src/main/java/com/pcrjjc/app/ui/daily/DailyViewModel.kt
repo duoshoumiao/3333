@@ -418,17 +418,27 @@ class DailyViewModel @Inject constructor(
 					val moduleConfig = targetModule.moduleInfo.optJSONObject("config")  
 						?: throw Exception("模块【${targetModule.moduleInfo.optString("name")}】没有子选项")  
 	  
-					// 将 config 转为有序列表  
+					// 将 config 转为有序列表（使用 config_order 保证与后端一致）  
 					data class ConfigEntry(val idx: Int, val key: String, val configObj: JSONObject)  
 					val configEntries = mutableListOf<ConfigEntry>()  
-					val configKeys = moduleConfig.keys()  
-					var optIdx = 1  
-					while (configKeys.hasNext()) {  
-						val cKey = configKeys.next()  
-						val cObj = moduleConfig.getJSONObject(cKey)  
-						configEntries.add(ConfigEntry(optIdx, cKey, cObj))  
-						optIdx++  
-					}  
+					val configOrder = targetModule.moduleInfo.optJSONArray("config_order")  
+					if (configOrder != null && configOrder.length() > 0) {  
+						for (i in 0 until configOrder.length()) {  
+							val cKey = configOrder.getString(i)  
+							val cObj = moduleConfig.optJSONObject(cKey) ?: continue  
+							configEntries.add(ConfigEntry(i + 1, cKey, cObj))  
+						}  
+					} else {  
+						// fallback: 无 config_order 时用 keys()（不保证顺序）  
+						val configKeys = moduleConfig.keys()  
+						var optIdx = 1  
+						while (configKeys.hasNext()) {  
+							val cKey = configKeys.next()  
+							val cObj = moduleConfig.getJSONObject(cKey)  
+							configEntries.add(ConfigEntry(optIdx, cKey, cObj))  
+							optIdx++  
+						}  
+					} 
 	  
 					val targetConfig = if (optionTarget.all { it.isDigit() }) {  
 						val oidx = optionTarget.toInt()  
