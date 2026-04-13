@@ -290,9 +290,9 @@ class FloatingWindowService : Service() {
   
                 Log.i(TAG, "发送图片到服务器, 大小=${imageBytes.size}")  
   
-                val results = withContext(Dispatchers.IO) {  
-					arenaClient.query(recognized, region = 2)  
-				}  
+                val serverResponse = withContext(Dispatchers.IO) {  
+                    arenaClient.queryByImage(imageBytes, region = 2)  
+                }  
   
                 withContext(Dispatchers.Main) {  
                     removeResultPanel()  
