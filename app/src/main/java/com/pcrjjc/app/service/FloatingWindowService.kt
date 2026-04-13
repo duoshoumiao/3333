@@ -502,31 +502,19 @@ class FloatingWindowService : Service() {
 			contentLayout.addView(resultLabel)  
 		}  
 		
-		// 解码 base64 图片  
+		// 解码结果图并加入 contentLayout  
         try {  
             val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
             val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
             if (bitmap != null) {  
-                val panelWidth = dp(185)  // dp(340) - padding dp(8)*2  
-				val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
-				val scaledHeight = (bitmap.height * scale).toInt()  
-				  
-				val screenHeight = resources.displayMetrics.heightPixels  
-				val maxScrollHeight = (screenHeight * 0.45).toInt()  
-				  
-				val scrollView = ScrollView(ctx).apply {  
-					layoutParams = LinearLayout.LayoutParams(  
-						ViewGroup.LayoutParams.MATCH_PARENT,  
-						minOf(scaledHeight, maxScrollHeight)  
-					)  
-				}  
-				val imageView = ImageView(ctx).apply {  
-					setImageBitmap(bitmap)  
-					scaleType = ImageView.ScaleType.FIT_XY  
-					layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
-				}  
-				scrollView.addView(imageView)  
-				root.addView(scrollView) 
+                val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
+                val scaledHeight = (bitmap.height * scale).toInt()  
+                val imageView = ImageView(ctx).apply {  
+                    setImageBitmap(bitmap)  
+                    scaleType = ImageView.ScaleType.FIT_XY  
+                    layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
+                }  
+                contentLayout.addView(imageView)  
             } else {  
                 val errorText = TextView(ctx).apply {  
                     text = "图片解码失败"  
@@ -535,7 +523,7 @@ class FloatingWindowService : Service() {
                     gravity = Gravity.CENTER  
                     setPadding(0, dp(16), 0, dp(16))  
                 }  
-                root.addView(errorText)  
+                contentLayout.addView(errorText)  
             }  
         } catch (e: Exception) {  
             val errorText = TextView(ctx).apply {  
@@ -545,8 +533,12 @@ class FloatingWindowService : Service() {
                 gravity = Gravity.CENTER  
                 setPadding(0, dp(16), 0, dp(16))  
             }  
-            root.addView(errorText)  
+            contentLayout.addView(errorText)  
         }  
+  
+        // ★ 关键：把 contentLayout 加到 scrollView，再加到 root  
+        scrollView.addView(contentLayout)  
+        root.addView(scrollView) 
   
         // 底部按钮  
         val bottomRow = LinearLayout(ctx).apply {  
