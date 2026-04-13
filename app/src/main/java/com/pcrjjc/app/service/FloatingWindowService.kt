@@ -308,7 +308,7 @@ class FloatingWindowService : Service() {
   
                     // 优先展示服务器渲染的图片（PJJC 无冲配队图 / JJC 结果图）  
                     if (!serverResponse.image.isNullOrEmpty()) {  
-                        showImageResultPanel(serverResponse.image, serverResponse.message)  
+                        showImageResultPanel(serverResponse.image, serverResponse.message, serverResponse.defenseTeams) 
                     } else if (serverResponse.results.isNotEmpty()) {  
                         // fallback: 用结构化数据展示  
                         val firstResult = serverResponse.results.firstOrNull { it.attacks.isNotEmpty() }  
@@ -370,131 +370,186 @@ class FloatingWindowService : Service() {
         resultPanel = panel  
     }  
   
-    // ======================== 结果面板（图片模式，PJJC 无冲配队图） ========================  
+    
+  
+	// 显示服务器识别到的防守角色  
+	if (defenseTeams.isNotEmpty()) {  
+		val recognizedLabel = TextView(ctx).apply {  
+			text = "服务器识别到的防守阵容："  
+			setTextColor(Color.LTGRAY)  
+			textSize = 11f  
+			setPadding(0, dp(4), 0, dp(2))  
+		}  
+		root.addView(recognizedLabel)  
+	  
+		for ((index, team) in defenseTeams.withIndex()) {  
+			if (team.defenseIds.isNotEmpty()) {  
+				if (defenseTeams.size > 1) {  
+					val teamLabel = TextView(ctx).apply {  
+						text = "队伍 ${index + 1}"  
+						setTextColor(Color.WHITE)  
+						textSize = 11f  
+						setPadding(0, dp(2), 0, 0)  
+					}  
+					root.addView(teamLabel)  
+				}  
+				val defRow = createIconRow(ctx, team.defenseIds)  
+				root.addView(defRow)  
+			}  
+		}  
+	  
+		val divider = View(ctx).apply {  
+			setBackgroundColor(Color.GRAY)  
+			layoutParams = LinearLayout.LayoutParams(  
+				ViewGroup.LayoutParams.MATCH_PARENT, 1  
+			).apply { setMargins(0, dp(6), 0, dp(6)) }  
+		}  
+		root.addView(divider)  
+	}
+	
+	// ======================== 结果面板（图片模式，PJJC 无冲配队图） ========================  
   
     @SuppressLint("ClickableViewAccessibility")  
-    private fun showImageResultPanel(imageBase64: String, title: String) {  
-        val ctx: Context = this  
-  
-        val root = LinearLayout(ctx).apply {  
-            orientation = LinearLayout.VERTICAL  
-            setBackgroundColor(0xF0222222.toInt())  
-            setPadding(dp(8), dp(8), dp(8), dp(8))  
-        }  
-  
-        // 标题栏（可拖动）  
-        val titleRow = LinearLayout(ctx).apply {  
-            orientation = LinearLayout.HORIZONTAL  
-            gravity = Gravity.CENTER_VERTICAL  
-            setPadding(dp(4), dp(4), dp(4), dp(4))  
-        }  
-        val titleText = TextView(ctx).apply {  
-            text = "⠿ $title"  
-            setTextColor(Color.WHITE)  
-            textSize = 13f  
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)  
-        }  
-        val closeBtn = TextView(ctx).apply {  
-            text = "✕"  
-            setTextColor(Color.LTGRAY)  
-            textSize = 18f  
-            setPadding(dp(8), 0, dp(4), 0)  
-            setOnClickListener { removeResultPanel() }  
-        }  
-        titleRow.addView(titleText)  
-        titleRow.addView(closeBtn)  
-        root.addView(titleRow)  
-  
-        // 解码 base64 图片  
-        try {  
-            val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
-            val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
-            if (bitmap != null) {  
-                val panelWidth = dp(185)  // dp(340) - padding dp(8)*2  
-				val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
-				val scaledHeight = (bitmap.height * scale).toInt()  
-				  
-				val screenHeight = resources.displayMetrics.heightPixels  
-				val maxScrollHeight = (screenHeight * 0.45).toInt()  
-				  
+    private fun showImageResultPanel(  
+		base64Image: String,  
+		message: String,  
+		defenseTeams: List<ArenaQueryClient.TeamResult> = emptyList()  
+	) {  
+		val ctx: Context = this  
+	  
+		val root = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.VERTICAL  
+			setBackgroundColor(0xF0222222.toInt())  
+			setPadding(dp(12), dp(8), dp(12), dp(8))  
+		}  
+	  
+		// 标题行  
+		val titleRow = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.HORIZONTAL  
+			gravity = Gravity.CENTER_VERTICAL  
+		}  
+		val titleText = TextView(ctx).apply {  
+			text = if (message.isNotEmpty()) message else "服务器返回结果"  
+			setTextColor(Color.WHITE)  
+			textSize = 13f  
+			layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)  
+		}  
+		val closeBtn = TextView(ctx).apply {  
+			text = "✕"  
+			setTextColor(Color.LTGRAY)  
+			textSize = 18f  
+			setPadding(dp(8), 0, dp(4), 0)  
+			setOnClickListener { removeResultPanel() }  
+		}  
+		titleRow.addView(titleText)  
+		titleRow.addView(closeBtn)  
+		root.addView(titleRow)  
+	  
+		// ===== 显示服务器识别到的防守角色 =====  
+		if (defenseTeams.isNotEmpty()) {  
+			val recognizedLabel = TextView(ctx).apply {  
+				text = "识别到的防守阵容："  
+				setTextColor(Color.LTGRAY)  
+				textSize = 11f  
+				setPadding(0, dp(4), 0, dp(2))  
+			}  
+			root.addView(recognizedLabel)  
+	  
+			for ((index, team) in defenseTeams.withIndex()) {  
+				if (team.defenseIds.isNotEmpty()) {  
+					if (defenseTeams.size > 1) {  
+						val teamLabel = TextView(ctx).apply {  
+							text = "队伍 ${index + 1}"  
+							setTextColor(Color.WHITE)  
+							textSize = 11f  
+							setPadding(0, dp(2), 0, 0)  
+						}  
+						root.addView(teamLabel)  
+					}  
+					val defRow = createIconRow(ctx, team.defenseIds)  
+					root.addView(defRow)  
+				}  
+			}  
+	  
+			val divider = View(ctx).apply {  
+				setBackgroundColor(Color.GRAY)  
+				layoutParams = LinearLayout.LayoutParams(  
+					ViewGroup.LayoutParams.MATCH_PARENT, 1  
+				).apply { setMargins(0, dp(6), 0, dp(6)) }  
+			}  
+			root.addView(divider)  
+		}  
+	  
+		// ===== 显示服务器渲染的图片 =====  
+		try {  
+			val imageBytes = android.util.Base64.decode(base64Image, android.util.Base64.DEFAULT)  
+			val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)  
+			if (bitmap != null) {  
 				val scrollView = ScrollView(ctx).apply {  
 					layoutParams = LinearLayout.LayoutParams(  
 						ViewGroup.LayoutParams.MATCH_PARENT,  
-						minOf(scaledHeight, maxScrollHeight)  
+						dp(320)  
 					)  
 				}  
 				val imageView = ImageView(ctx).apply {  
 					setImageBitmap(bitmap)  
-					scaleType = ImageView.ScaleType.FIT_XY  
-					layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
+					scaleType = ImageView.ScaleType.FIT_CENTER  
+					adjustViewBounds = true  
 				}  
 				scrollView.addView(imageView)  
-				root.addView(scrollView) 
-            } else {  
-                val errorText = TextView(ctx).apply {  
-                    text = "图片解码失败"  
-                    setTextColor(Color.RED)  
-                    textSize = 13f  
-                    gravity = Gravity.CENTER  
-                    setPadding(0, dp(16), 0, dp(16))  
-                }  
-                root.addView(errorText)  
-            }  
-        } catch (e: Exception) {  
-            val errorText = TextView(ctx).apply {  
-                text = "图片加载失败: ${e.message}"  
-                setTextColor(Color.RED)  
-                textSize = 13f  
-                gravity = Gravity.CENTER  
-                setPadding(0, dp(16), 0, dp(16))  
-            }  
-            root.addView(errorText)  
-        }  
-  
-        // 底部按钮  
-        val bottomRow = LinearLayout(ctx).apply {  
-            orientation = LinearLayout.HORIZONTAL  
-            gravity = Gravity.CENTER  
-            setPadding(0, dp(6), 0, 0)  
-        }  
-        val retryBtn = TextView(ctx).apply {  
-            text = "重新截图"  
-            setTextColor(0xFF90CAF9.toInt())  
-            textSize = 13f  
-            setPadding(dp(16), dp(6), dp(16), dp(6))  
-            setOnClickListener {  
-                removeResultPanel()  
-                onFloatButtonClick()  
-            }  
-        }  
-        val closeBtn2 = TextView(ctx).apply {  
-            text = "关闭"  
-            setTextColor(Color.LTGRAY)  
-            textSize = 13f  
-            setPadding(dp(16), dp(6), dp(16), dp(6))  
-            setOnClickListener { removeResultPanel() }  
-        }  
-        bottomRow.addView(retryBtn)  
-        bottomRow.addView(closeBtn2)  
-        root.addView(bottomRow)  
-  
-        val params = WindowManager.LayoutParams(  
-            dp(204), WindowManager.LayoutParams.WRAP_CONTENT,  
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
-            PixelFormat.TRANSLUCENT  
-        ).apply {  
-            gravity = Gravity.TOP or Gravity.START  
-            x = dp(20)  
-            y = dp(80)  
-        }  
-  
-        windowManager.addView(root, params)  
-        resultPanel = root  
-  
+				root.addView(scrollView)  
+			}  
+		} catch (e: Exception) {  
+			Log.e(TAG, "解码服务器图片失败", e)  
+			val errorText = TextView(ctx).apply {  
+				text = "图片解码失败"  
+				setTextColor(Color.RED)  
+				textSize = 12f  
+			}  
+			root.addView(errorText)  
+		}  
+	  
+		// ===== 底部按钮 =====  
+		val bottomRow = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.HORIZONTAL  
+			gravity = Gravity.CENTER  
+			setPadding(0, dp(6), 0, 0)  
+		}  
+		val retryBtn = TextView(ctx).apply {  
+			text = "重新截图"  
+			setTextColor(0xFF90CAF9.toInt())  
+			textSize = 13f  
+			setPadding(dp(16), dp(6), dp(16), dp(6))  
+			setOnClickListener {  
+				removeResultPanel()  
+				onFloatButtonClick()  
+			}  
+		}  
+		val closeBtn2 = TextView(ctx).apply {  
+			text = "关闭"  
+			setTextColor(Color.LTGRAY)  
+			textSize = 13f  
+			setPadding(dp(16), dp(6), dp(16), dp(6))  
+			setOnClickListener { removeResultPanel() }  
+		}  
+		bottomRow.addView(retryBtn)  
+		bottomRow.addView(closeBtn2)  
+		root.addView(bottomRow)  
+	  
+		val params = WindowManager.LayoutParams(  
+			dp(340), WindowManager.LayoutParams.WRAP_CONTENT,  
+			WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
+			WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
+			PixelFormat.TRANSLUCENT  
+		).apply {  
+			gravity = Gravity.CENTER  
+		}  
+	  
+		windowManager.addView(root, params)  
+		resultPanel = root  
         // 标题栏可拖动  
         makePanelDraggable(titleRow, root, params)  
-    }  
+    }    
   
     // ======================== 结果面板（结构化数据模式，JJC 单队） ========================  
   

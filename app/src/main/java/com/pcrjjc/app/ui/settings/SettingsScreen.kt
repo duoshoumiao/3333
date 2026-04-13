@@ -91,7 +91,7 @@ fun SettingsScreen(
                             value = uiState.serverIpInput,  
                             onValueChange = { viewModel.onServerIpInputChanged(it) },  
                             label = { Text("IP地址") },  
-                            placeholder = { Text("例: 119.91.249.245") },  
+                            placeholder = { Text("例: 114.514.1.1") },  
                             singleLine = true,  
                             modifier = Modifier.weight(2f)  
                         )  
