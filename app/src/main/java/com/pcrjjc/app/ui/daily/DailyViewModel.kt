@@ -309,6 +309,14 @@ class DailyViewModel @Inject constructor(
         val acc = state.selectedAccount ?: return  
   
         if (commandText.isBlank()) return  
+		
+		// 拦截 #日常设置 命令，通过 API 直接处理  
+		val settingMatch = Regex("""^#日常设置\s+(\S+)\s+(\S+)\s+(.+)$""").find(commandText.trim())  
+		if (settingMatch != null) {  
+			val (moduleTarget, optionTarget, valueStr) = settingMatch.destructured  
+			handleDailySettingViaApi(baseUrl, acc, moduleTarget, optionTarget, valueStr)  
+			return  
+		} 
   
         _uiState.value = state.copy(isExecuting = true, errorMessage = null)  
   
@@ -344,6 +352,255 @@ class DailyViewModel @Inject constructor(
             }  
         }  
     }  
+	
+	/**  
+	 * 通过 HTTP API 处理 #日常设置 命令：  
+	 * 1. GET /daily/api/account/$acc/daily 获取模块信息（含候选值）  
+	 * 2. 根据模块序号和选项序号找到目标配置  
+	 * 3. 对 multi/single 类型做候选值匹配（支持 ':' 前缀匹配）  
+	 * 4. PUT /daily/api/account/$acc/config 写入匹配后的完整值  
+	 */  
+	private fun handleDailySettingViaApi(  
+		baseUrl: String,  
+		acc: String,  
+		moduleTarget: String,  
+		optionTarget: String,  
+		valueStr: String  
+	) {  
+		_uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
+	  
+		viewModelScope.launch {  
+			try {  
+				val result = withContext(Dispatchers.IO) {  
+					// Step 1: 获取模块信息  
+					val infoRequest = Request.Builder()  
+						.url("$baseUrl/daily/api/account/$acc/daily")  
+						.addHeader("X-App-Version", APP_VERSION)  
+						.get()  
+						.build()  
+					val infoJson = httpClient.newCall(infoRequest).execute().use { resp ->  
+						if (!resp.isSuccessful) throw Exception("获取模块信息失败 (${resp.code})")  
+						JSONObject(resp.body?.string() ?: "{}")  
+					}  
+	  
+					val order = infoJson.getJSONArray("order")  
+					val info = infoJson.getJSONObject("info")  
+	  
+					// Step 2: 匹配模块（按序号或名称）  
+					// 构建已实现模块的有序列表（与后端 _get_daily_modules 一致）  
+					// order 数组中的每个 key 对应 info 中的模块  
+					data class ModuleEntry(val idx: Int, val key: String, val moduleInfo: JSONObject)  
+					val modules = mutableListOf<ModuleEntry>()  
+					var seqIdx = 1  
+					for (i in 0 until order.length()) {  
+						val mKey = order.getString(i)  
+						if (info.has(mKey)) {  
+							val mInfo = info.getJSONObject(mKey)  
+							// 只包含已实现的模块（有 config 或 name 字段的）  
+							modules.add(ModuleEntry(seqIdx, mKey, mInfo))  
+							seqIdx++  
+						}  
+					}  
+	  
+					// 按序号或名称匹配模块  
+					val targetModule = if (moduleTarget.all { it.isDigit() }) {  
+						val idx = moduleTarget.toInt()  
+						modules.find { it.idx == idx }  
+							?: throw Exception("模块序号 $idx 不存在")  
+					} else {  
+						modules.find {  
+							it.moduleInfo.optString("name") == moduleTarget ||  
+							it.key == moduleTarget  
+						} ?: throw Exception("未找到模块【$moduleTarget】")  
+					}  
+	  
+					// Step 3: 匹配选项  
+					val moduleConfig = targetModule.moduleInfo.optJSONObject("config")  
+						?: throw Exception("模块【${targetModule.moduleInfo.optString("name")}】没有子选项")  
+	  
+					// 将 config 转为有序列表  
+					data class ConfigEntry(val idx: Int, val key: String, val configObj: JSONObject)  
+					val configEntries = mutableListOf<ConfigEntry>()  
+					val configKeys = moduleConfig.keys()  
+					var optIdx = 1  
+					while (configKeys.hasNext()) {  
+						val cKey = configKeys.next()  
+						val cObj = moduleConfig.getJSONObject(cKey)  
+						configEntries.add(ConfigEntry(optIdx, cKey, cObj))  
+						optIdx++  
+					}  
+	  
+					val targetConfig = if (optionTarget.all { it.isDigit() }) {  
+						val oidx = optionTarget.toInt()  
+						configEntries.find { it.idx == oidx }  
+							?: throw Exception("选项序号 $oidx 不存在")  
+					} else {  
+						configEntries.find {  
+							it.configObj.optString("desc") == optionTarget ||  
+							it.key == optionTarget  
+						} ?: throw Exception("未找到选项【$optionTarget】")  
+					}  
+	  
+					val ctype = targetConfig.configObj.optString("config_type", "text")  
+					val candidatesArr = targetConfig.configObj.optJSONArray("candidates")  
+	  
+					// Step 4: 根据类型解析值并匹配候选值  
+					val finalValue: Any = when (ctype) {  
+						"bool" -> {  
+							val trueVals = setOf("开启", "开", "true", "是", "1", "on")  
+							val falseVals = setOf("关闭", "关", "false", "否", "0", "off")  
+							when (valueStr.lowercase()) {  
+								in trueVals -> true  
+								in falseVals -> false  
+								else -> throw Exception("请输入: 开启 或 关闭")  
+							}  
+						}  
+						"int" -> {  
+							valueStr.toIntOrNull() ?: throw Exception("请输入整数")  
+						}  
+						"text" -> valueStr  
+						"time" -> {  
+							val parts = valueStr.replace("：", ":").split(":")  
+							if (parts.size != 2) throw Exception("时间格式错误，请输入 HH:MM")  
+							val h = parts[0].toIntOrNull() ?: throw Exception("时间格式错误")  
+							val m = parts[1].toIntOrNull() ?: throw Exception("时间格式错误")  
+							if (h !in 0..23 || m !in 0..59) throw Exception("时间范围错误")  
+							JSONArray().apply { put(parts[0]); put(parts[1]) }  
+						}  
+						"multi", "multi_search" -> {  
+							// 解析候选值列表  
+							val candidates = mutableListOf<Pair<Any, String>>() // (value, display)  
+							if (candidatesArr != null) {  
+								for (ci in 0 until candidatesArr.length()) {  
+									val cand = candidatesArr.getJSONObject(ci)  
+									val v = cand.get("value")  
+									val d = cand.optString("display", v.toString())  
+									candidates.add(Pair(v, d))  
+								}  
+							}  
+	  
+							val parts = valueStr.replace("，", ",").split(",").map { it.trim() }  
+							val resolved = JSONArray()  
+							for (p in parts) {  
+								var matched: Any? = null  
+								// 1. 按 display 精确匹配  
+								for ((v, d) in candidates) {  
+									if (d == p) { matched = v; break }  
+								}  
+								// 2. 按 value 精确匹配  
+								if (matched == null) {  
+									for ((v, _) in candidates) {  
+										if (v.toString() == p) { matched = v; break }  
+									}  
+								}  
+								// 3. 按 ':' 前缀匹配（如 "40013" 匹配 "40013: 卡池名"）  
+								if (matched == null) {  
+									for ((v, _) in candidates) {  
+										val vs = v.toString()  
+										if (":" in vs && vs.split(":")[0].trim() == p.trim()) {  
+											matched = v; break  
+										}  
+									}  
+								}  
+								if (matched != null) {  
+									resolved.put(matched)  
+								} else {  
+									val displays = candidates.take(10).joinToString(", ") { it.second }  
+									throw Exception("值【$p】不在候选范围\n可选: $displays")  
+								}  
+							}  
+							resolved  
+						}  
+						"single" -> {  
+							val candidates = mutableListOf<Pair<Any, String>>()  
+							if (candidatesArr != null) {  
+								for (ci in 0 until candidatesArr.length()) {  
+									val cand = candidatesArr.getJSONObject(ci)  
+									val v = cand.get("value")  
+									val d = cand.optString("display", v.toString())  
+									candidates.add(Pair(v, d))  
+								}  
+							}  
+							var matched: Any? = null  
+							// 1. display 精确匹配  
+							for ((v, d) in candidates) {  
+								if (d == valueStr) { matched = v; break }  
+							}  
+							// 2. value 精确匹配  
+							if (matched == null) {  
+								for ((v, _) in candidates) {  
+									if (v.toString() == valueStr) { matched = v; break }  
+								}  
+							}  
+							// 3. ':' 前缀匹配  
+							if (matched == null) {  
+								for ((v, _) in candidates) {  
+									val vs = v.toString()  
+									if (":" in vs && vs.split(":")[0].trim() == valueStr.trim()) {  
+										matched = v; break  
+									}  
+								}  
+							}  
+							// 4. 类型转换匹配  
+							if (matched == null) {  
+								val num = valueStr.toIntOrNull()  
+								if (num != null) {  
+									for ((v, _) in candidates) {  
+										if (v is Int && v == num) { matched = v; break }  
+										if (v is Number && v.toInt() == num) { matched = v; break }  
+									}  
+								}  
+							}  
+							matched ?: run {  
+								val displays = candidates.take(10).joinToString(", ") { it.second }  
+								throw Exception("值【$valueStr】不在候选范围\n可选: $displays")  
+							}  
+						}  
+						else -> valueStr  
+					}  
+	  
+					// Step 5: PUT /config 写入  
+					val configJson = JSONObject().apply {  
+						put(targetConfig.key, finalValue)  
+					}  
+					val putRequest = Request.Builder()  
+						.url("$baseUrl/daily/api/account/$acc/config")  
+						.addHeader("X-App-Version", APP_VERSION)  
+						.put(configJson.toString().toRequestBody(JSON_MEDIA_TYPE))  
+						.build()  
+					httpClient.newCall(putRequest).execute().use { resp ->  
+						if (!resp.isSuccessful) {  
+							val body = resp.body?.string() ?: ""  
+							throw Exception(body.ifBlank { "保存失败 (${resp.code})" })  
+						}  
+					}  
+	  
+					// 构造成功消息  
+					val moduleName = targetModule.moduleInfo.optString("name", targetModule.key)  
+					val configDesc = targetConfig.configObj.optString("desc", targetConfig.key)  
+					val displayVal = if (finalValue is JSONArray) {  
+						(0 until finalValue.length()).joinToString(", ") { finalValue.getString(it) }  
+					} else {  
+						finalValue.toString()  
+					}  
+					"【$moduleName】$configDesc: $displayVal\n设置成功"  
+				}  
+	  
+				_uiState.value = _uiState.value.copy(  
+					isExecuting = false,  
+					executionResult = result,  
+					showResultDialog = true  
+				)  
+			} catch (e: Exception) {  
+				Log.e(TAG, "handleDailySettingViaApi failed: ${e.message}", e)  
+				_uiState.value = _uiState.value.copy(  
+					isExecuting = false,  
+					executionResult = "设置失败: ${e.message}",  
+					showResultDialog = true  
+				)  
+			}  
+		}  
+	}
   
     /**  
      * 解析 command relay 返回的 JSON。  
