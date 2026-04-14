@@ -26,7 +26,30 @@ android {
         }  
     }  
   
+    signingConfigs {  
+        create("release") {  
+            storeFile = file("../keystore/release.jks")  // keystore 文件路径  
+            storePassword = "your_store_password"  
+            keyAlias = "your_key_alias"  
+            keyPassword = "your_key_password"  
+        }  
+    }  
+  
     buildTypes {  
+        debug {  
+            signingConfig = signingConfigs.getByName("release")  // debug 也用同一个签名  
+        }  
+        release {  
+            signingConfig = signingConfigs.getByName("release")  
+            isMinifyEnabled = false  
+            proguardFiles(  
+                getDefaultProguardFile("proguard-android-optimize.txt"),  
+                "proguard-rules.pro"  
+            )  
+        }  
+    }
+	
+	buildTypes {  
         release {  
             isMinifyEnabled = false  
             proguardFiles(  
