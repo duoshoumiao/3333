@@ -32,6 +32,11 @@ jobs:
       - name: Setup Gradle  
         uses: gradle/actions/setup-gradle@v4  
   
+      - name: Decode Keystore  
+        run: |  
+          mkdir -p keystore  
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/release.jks
+      
       - name: Build Debug APK  
         run: |  
           chmod +x gradlew  
