@@ -30,11 +30,10 @@ data class CommandItem(
 )  
   
 val DAILY_COMMANDS: List<CommandItem> = listOf(  
-    CommandItem("#清日常 [昵称]", "无昵称则默认账号"),  
+    CommandItem("#清日常 ", "无昵称则默认账号"),  
     CommandItem("#清日常所有", "清该qq号下所有号的日常"),  
     CommandItem("#日常记录", "查看清日常状态"),  
     CommandItem("#日常报告 [0|1|2|3]", "最近四次清日常报告"),  
-    CommandItem("#定时日志", "查看定时运行状态"),  
     CommandItem("#查角色 [昵称]", "查看角色练度"),  
     CommandItem("#查缺角色", "查看缺少的限定常驻角色"),  
     CommandItem("#查ex装备 [会战]", "查看ex装备库存"),  
@@ -47,9 +46,6 @@ val DAILY_COMMANDS: List<CommandItem> = listOf(
     CommandItem("#刷图推荐 [rank] [fav]", "查询缺口装备的刷图推荐，格式同上"),  
     CommandItem("#公会支援", "查询公会支援角色配置"),  
     CommandItem("#卡池", "查看当前卡池"),  
-    CommandItem("#半月刊", ""),  
-    CommandItem("#返钻", ""),  
-    CommandItem("#查box 角色名（or所有）", ""),  
     CommandItem("#刷新box", ""),  
     CommandItem("#查缺称号", "查看缺少的称号"),  
     CommandItem("#jjc透视", "查前51名"),  
@@ -76,8 +72,6 @@ val DAILY_COMMANDS: List<CommandItem> = listOf(
     CommandItem("#查公会深域进度", ""),  
     CommandItem("#收菜", "探险续航"),  
     CommandItem("#一键编队 页 队 队名 星级角色1 ...", "设置多队编队，队伍不足5人结尾"),  
-    CommandItem("#导入编队 第几页 第几队", "如 #导入编队 1 1"),  
-    CommandItem("#识图", "用于提取图中队伍"),  
     CommandItem("#兑天井 卡池id 角色名", "如 #兑天井 10283 火电  用 #卡池 获取ID"),  
     CommandItem("#拉角色练度 等级 品级 ub s1 s2 ex 装备星级 专武1 专武2 角色名", "角色名不输入则全选"),  
     CommandItem("#大富翁 [保留骰子数] [搬空商店为止|不止搬空商店] [到达次数]", "运行大富翁游戏"),  
@@ -89,17 +83,17 @@ val DAILY_COMMANDS: List<CommandItem> = listOf(
     CommandItem("#买记忆碎片 角色 星级 专武 开买 界限突破", "分别代表:角色 星级 专武 是否购买 是否突破"),  
     CommandItem("#角色升星 星级 忽略盈余 升至最高 角色名", ""),  
     CommandItem("#角色突破 忽略盈余 角色名", "忽略盈余：碎片不溢出就不突破"),  
-    CommandItem("#pjjc自动换防", "不挨打时6分钟换一次，挨打缩短换防时间"),  
+    CommandItem("#pjjc自动换防", "字面意思"),  
     CommandItem("#挂地下城支援 [星级]角色", "星级可选(3/4/5)，如：#挂好友支援 3水电"),  
     CommandItem("#挂会战支援 [星级]角色", ""),  
     CommandItem("#挂好友支援 [星级]角色", ""),  
     CommandItem("#一键穿ex +角色名 试穿/数字 1 2 3", "数字0表示不改动"),  
     CommandItem("#添加好友", ""),  
-    CommandItem("#日常面板 [昵称]", "查看日常功能开关及配置（图片版）"),  
-    CommandItem("#日常详情 [昵称] 模块名", "查看模块详细配置和可选值"),  
-    CommandItem("#日常开启 [昵称] 模块名/序号", "开启指定日常功能"),  
-    CommandItem("#日常关闭 [昵称] 模块名/序号", "关闭指定日常功能"),  
-    CommandItem("#日常设置 [昵称] 模块序号 选项序号 值", "设置模块子选项"),  
+    CommandItem("#日常面板", "查看日常功能开关及配置（图片版）"),  
+    CommandItem("#日常详情 模块名", "查看模块详细配置和可选值"),  
+    CommandItem("#日常开启 模块名/序号", "开启指定日常功能"),  
+    CommandItem("#日常关闭 模块名/序号", "关闭指定日常功能"),  
+    CommandItem("#日常设置 模块序号 选项序号 值", "设置模块子选项"),  
     CommandItem("#保存ex状态", "保存当前所有角色的普通EX装备穿戴状态"),  
     CommandItem("#恢复ex状态", "恢复之前保存的普通EX装备穿戴状态"),  
 )  
@@ -317,6 +311,90 @@ class DailyViewModel @Inject constructor(
 			handleDailySettingViaApi(baseUrl, acc, moduleTarget, optionTarget, valueStr)  
 			return  
 		} 
+		
+		// ===== 新增：拦截 #清日常所有 =====  
+		if (commandText.trim() == "#清日常所有") {  
+			executeDailyAll(baseUrl)  
+			return  
+		}  
+		
+		/**  
+		 * 清日常所有：遍历所有账号，对每个账号并发调用 do_daily 接口。  
+		 * 使用已加载的 state.accounts 列表，对每个账号调用：  
+		 *   POST /daily/api/account/{accName}/do_daily  
+		 * 汇总所有账号的结果。  
+		 */  
+		private fun executeDailyAll(baseUrl: String) {  
+			val accounts = _uiState.value.accounts  
+			if (accounts.isEmpty()) {  
+				_uiState.value = _uiState.value.copy(  
+					executionResult = "没有可用账号",  
+					showResultDialog = true  
+				)  
+				return  
+			}  
+		  
+			_uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
+		  
+			viewModelScope.launch {  
+				try {  
+					val results = withContext(Dispatchers.IO) {  
+						// 对每个账号并发调用 do_daily  
+						val deferreds = accounts.map { accName ->  
+							kotlinx.coroutines.async {  
+								try {  
+									val request = Request.Builder()  
+										.url("$baseUrl/daily/api/account/$accName/do_daily")  
+										.addHeader("X-App-Version", APP_VERSION)  
+										.post("{}".toRequestBody(JSON_MEDIA_TYPE))  
+										.build()  
+									httpClient.newCall(request).execute().use { resp ->  
+										val text = resp.body?.string() ?: ""  
+										if (!resp.isSuccessful) {  
+											accName to "失败: ${text.ifBlank { "HTTP ${resp.code}" }}"  
+										} else {  
+											// 解析返回的 JSON，提取 name 字段  
+											try {  
+												val json = JSONObject(text)  
+												val name = json.optString("name", accName)  
+												accName to "成功"  
+											} catch (e: Exception) {  
+												accName to "成功"  
+											}  
+										}  
+									}  
+								} catch (e: Exception) {  
+									accName to "失败: ${e.message}"  
+								}  
+							}  
+						}  
+						deferreds.map { it.await() }  
+					}  
+		  
+					// 汇总结果  
+					val resultText = buildString {  
+						appendLine("清日常所有 执行结果：")  
+						appendLine("=" .repeat(30))  
+						for ((accName, status) in results) {  
+							appendLine("【$accName】$status")  
+						}  
+					}  
+		  
+					_uiState.value = _uiState.value.copy(  
+						isExecuting = false,  
+						executionResult = resultText,  
+						showResultDialog = true  
+					)  
+				} catch (e: Exception) {  
+					Log.e(TAG, "executeDailyAll failed: ${e.message}", e)  
+					_uiState.value = _uiState.value.copy(  
+						isExecuting = false,  
+						executionResult = "清日常所有执行失败: ${e.message}",  
+						showResultDialog = true  
+					)  
+				}  
+			}  
+		}
   
         _uiState.value = state.copy(isExecuting = true, errorMessage = null)  
   
