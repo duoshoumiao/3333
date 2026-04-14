@@ -17,13 +17,7 @@ jobs:
       - name: Generate Keystore and output base64  
         run: |  
           mkdir -p keystore  
-          keytool -genkey -v \  
-            -keystore keystore/release.jks \  
-            -keyalg RSA -keysize 2048 -validity 10000 \  
-            -alias release \  
-            -storepass android123 \  
-            -keypass android123 \  
-            -dname "CN=CI, OU=CI, O=CI, L=CI, ST=CI, C=CN"  
+          keytool -genkeypair -keystore keystore/release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias release -storepass android123 -keypass android123 -dname "CN=CI, OU=CI, O=CI, L=CI, ST=CI, C=CN" -v  
           echo "==== KEYSTORE_BASE64 START ===="  
           base64 -w 0 keystore/release.jks  
           echo ""  
