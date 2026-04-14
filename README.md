@@ -1,8 +1,8 @@
 # 个人库，不建议商用，有问题不要找我。没有自己的bot下载也用不了，高度搭配使用的
 
-# PcrJjc - 公主连结竞技场查询 Android 应用
+# 竞技场查询 Android 应用
 
-将 [pcrjjc2](https://github.com/duoshoumiao/pcrjjc2)（HoshinoBot QQ 机器人插件）的核心功能移植为独立 Android 应用。
+（HoshinoBot QQ 机器人插件）的核心功能移植为独立 Android 应用。
 
 ## 功能
 
@@ -11,7 +11,7 @@
 - 后台定期轮询排名，排名变化时推送 Android 本地通知
 - 查看击剑（排名变动）历史记录
 - 查看详细玩家资料
-- 支持 JJC / PJJC 排名变动通知、排名上升通知、上线提醒
+- 支持排名变动通知、排名上升通知、上线提醒
 
 ## 技术栈
 
@@ -462,4 +462,4 @@ loop.create_task(_start_api_server())
 
 ## 原库
 
-基于 [pcrjjc2](https://github.com/duoshoumiao/pcrjjc2) 移植。
+基于 著名竞技场2 移植。
