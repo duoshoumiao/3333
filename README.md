@@ -1,3 +1,5 @@
+# 个人库，不建议商用，有问题不要找我。没有自己的bot下载也用不了，高度搭配使用的
+
 # PcrJjc - 公主连结竞技场查询 Android 应用
 
 将 [pcrjjc2](https://github.com/duoshoumiao/pcrjjc2)（HoshinoBot QQ 机器人插件）的核心功能移植为独立 Android 应用。
