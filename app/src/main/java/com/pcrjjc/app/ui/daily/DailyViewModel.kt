@@ -396,10 +396,20 @@ class DailyViewModel @Inject constructor(
                     }  
                 }  
   
+                // 提取后端渲染的图片（如果有）  
+                val imageBase64 = try {  
+                    val obj = JSONObject(resultJson)  
+                    val result = obj.optJSONObject("result")  
+                    if (result != null && result.has("image") && !result.isNull("image")) {  
+                        result.getString("image")  
+                    } else null  
+                } catch (e: Exception) { null }  
+  
                 val displayText = parseRelayResponse(resultJson)  
                 _uiState.value = _uiState.value.copy(  
                     isExecuting = false,  
                     executionResult = displayText,  
+                    resultImageBase64 = imageBase64,  
                     showResultDialog = true  
                 )  
             } catch (e: Exception) {  
@@ -1328,8 +1338,12 @@ class DailyViewModel @Inject constructor(
     // ==================== 关闭结果弹窗 ====================  
   
     fun dismissResult() {  
-        _uiState.value = _uiState.value.copy(showResultDialog = false, executionResult = null)  
-    }  
+		_uiState.value = _uiState.value.copy(  
+			showResultDialog = false,  
+			executionResult = null,  
+			resultImageBase64 = null    // ← 新增  
+		)  
+	}  
   
     // ==================== 清除定时错误 ====================  
   

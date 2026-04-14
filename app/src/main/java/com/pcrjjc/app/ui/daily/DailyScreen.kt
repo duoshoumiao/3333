@@ -75,6 +75,10 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.foundation.horizontalScroll  
 import androidx.compose.foundation.layout.heightIn  
 import androidx.compose.ui.text.style.TextOverflow
+import android.graphics.BitmapFactory  
+import android.util.Base64  
+import androidx.compose.foundation.Image  
+import androidx.compose.ui.graphics.asImageBitmap
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -113,16 +117,40 @@ fun DailyScreen(
     var showCommandDialog by remember { mutableStateOf(false) }  
     var commandDialogText by remember { mutableStateOf("") }  
   
-    // 执行结果弹窗  
+    // 执行结果弹窗（支持后端渲染的图片）  
     if (uiState.showResultDialog) {  
         AlertDialog(  
             onDismissRequest = { viewModel.dismissResult() },  
             title = { Text("执行结果") },  
             text = {  
-                Text(  
-                    text = uiState.executionResult ?: "",  
-                    modifier = Modifier.verticalScroll(rememberScrollState())  
-                )  
+                val imageBase64 = uiState.resultImageBase64  
+                if (imageBase64 != null) {  
+                    val bitmap = remember(imageBase64) {  
+                        try {  
+                            val bytes = Base64.decode(imageBase64, Base64.DEFAULT)  
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                        } catch (e: Exception) { null }  
+                    }  
+                    if (bitmap != null) {  
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {  
+                            Image(  
+                                bitmap = bitmap.asImageBitmap(),  
+                                contentDescription = "执行结果",  
+                                modifier = Modifier.fillMaxWidth()  
+                            )  
+                        }  
+                    } else {  
+                        Text(  
+                            text = uiState.executionResult ?: "",  
+                            modifier = Modifier.verticalScroll(rememberScrollState())  
+                        )  
+                    }  
+                } else {  
+                    Text(  
+                        text = uiState.executionResult ?: "",  
+                        modifier = Modifier.verticalScroll(rememberScrollState())  
+                    )  
+                }  
             },  
             confirmButton = {  
                 TextButton(onClick = { viewModel.dismissResult() }) {  
