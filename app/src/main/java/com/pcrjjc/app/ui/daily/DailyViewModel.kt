@@ -299,7 +299,7 @@ class DailyViewModel @Inject constructor(
   
     // ==================== 执行指令（核心：通过 command relay） ====================  
   
-    fun executeCommand(commandText: String) {  
+	fun executeCommand(commandText: String) {  
 		val state = _uiState.value  
 		val baseUrl = state.serverUrl ?: return  
 		val acc = state.selectedAccount ?: return  
@@ -314,13 +314,13 @@ class DailyViewModel @Inject constructor(
 			return  
 		}  
 	  
-		// ===== 拦截 #清日常所有 =====  
+		// 拦截 #清日常所有  
 		if (commandText.trim() == "#清日常所有") {  
 			executeDailyAll(baseUrl)  
 			return  
 		}  
 	  
-		// 以下是原有的单账号 command relay 逻辑（不变）  
+		// 正常的单账号 command relay 逻辑  
 		_uiState.value = state.copy(isExecuting = true, errorMessage = null)  
 	  
 		viewModelScope.launch {  
