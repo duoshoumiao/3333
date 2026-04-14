@@ -300,87 +300,61 @@ class DailyViewModel @Inject constructor(
     // ==================== 执行指令（核心：通过 command relay） ====================  
   
     fun executeCommand(commandText: String) {  
-        val state = _uiState.value  
-        val baseUrl = state.serverUrl ?: return  
-        val acc = state.selectedAccount ?: return  
-  
-        if (commandText.isBlank()) return  
-		
+		val state = _uiState.value  
+		val baseUrl = state.serverUrl ?: return  
+		val acc = state.selectedAccount ?: return  
+	  
+		if (commandText.isBlank()) return  
+	  
 		// 拦截 #日常设置 命令，通过 API 直接处理  
 		val settingMatch = Regex("""^#日常设置\s+(\S+)\s+(\S+)\s+(.+)$""").find(commandText.trim())  
 		if (settingMatch != null) {  
 			val (moduleTarget, optionTarget, valueStr) = settingMatch.destructured  
 			handleDailySettingViaApi(baseUrl, acc, moduleTarget, optionTarget, valueStr)  
 			return  
-		} 
-		
-		// ===== 新增：拦截 #清日常所有 =====  
+		}  
+	  
+		// ===== 拦截 #清日常所有 =====  
 		if (commandText.trim() == "#清日常所有") {  
 			executeDailyAll(baseUrl)  
 			return  
 		}  
-		  
-			_uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
-		  
-			viewModelScope.launch {  
-				try {  
-					val results = withContext(Dispatchers.IO) {  
-						// 对每个账号并发调用 do_daily  
-						val deferreds = accounts.map { accName ->  
-							kotlinx.coroutines.async {  
-								try {  
-									val request = Request.Builder()  
-										.url("$baseUrl/daily/api/account/$accName/do_daily")  
-										.addHeader("X-App-Version", APP_VERSION)  
-										.post("{}".toRequestBody(JSON_MEDIA_TYPE))  
-										.build()  
-									httpClient.newCall(request).execute().use { resp ->  
-										val text = resp.body?.string() ?: ""  
-										if (!resp.isSuccessful) {  
-											accName to "失败: ${text.ifBlank { "HTTP ${resp.code}" }}"  
-										} else {  
-											// 解析返回的 JSON，提取 name 字段  
-											try {  
-												val json = JSONObject(text)  
-												val name = json.optString("name", accName)  
-												accName to "成功"  
-											} catch (e: Exception) {  
-												accName to "成功"  
-											}  
-										}  
-									}  
-								} catch (e: Exception) {  
-									accName to "失败: ${e.message}"  
-								}  
-							}  
-						}  
-						deferreds.map { it.await() }  
+	  
+		// 以下是原有的单账号 command relay 逻辑（不变）  
+		_uiState.value = state.copy(isExecuting = true, errorMessage = null)  
+	  
+		viewModelScope.launch {  
+			try {  
+				val resultJson = withContext(Dispatchers.IO) {  
+					val json = JSONObject().apply {  
+						put("command", commandText)  
 					}  
-		  
-					// 汇总结果  
-					val resultText = buildString {  
-						appendLine("清日常所有 执行结果：")  
-						appendLine("=" .repeat(30))  
-						for ((accName, status) in results) {  
-							appendLine("【$accName】$status")  
-						}  
+					val request = Request.Builder()  
+						.url("$baseUrl/daily/api/account/$acc/command")  
+						.addHeader("X-App-Version", APP_VERSION)  
+						.post(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+						.build()  
+					httpClient.newCall(request).execute().use { resp ->  
+						resp.body?.string() ?: ""  
 					}  
-		  
-					_uiState.value = _uiState.value.copy(  
-						isExecuting = false,  
-						executionResult = resultText,  
-						showResultDialog = true  
-					)  
-				} catch (e: Exception) {  
-					Log.e(TAG, "executeDailyAll failed: ${e.message}", e)  
-					_uiState.value = _uiState.value.copy(  
-						isExecuting = false,  
-						executionResult = "清日常所有执行失败: ${e.message}",  
-						showResultDialog = true  
-					)  
 				}  
+	  
+				val displayText = parseRelayResponse(resultJson)  
+				_uiState.value = _uiState.value.copy(  
+					isExecuting = false,  
+					executionResult = displayText,  
+					showResultDialog = true  
+				)  
+			} catch (e: Exception) {  
+				Log.e(TAG, "Execute command failed: ${e.message}", e)  
+				_uiState.value = _uiState.value.copy(  
+					isExecuting = false,  
+					executionResult = "执行失败: ${e.message}",  
+					showResultDialog = true  
+				)  
 			}  
-		}
+		}  
+	}
   
         _uiState.value = state.copy(isExecuting = true, errorMessage = null)  
   
