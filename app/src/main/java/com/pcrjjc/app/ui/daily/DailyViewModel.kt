@@ -121,6 +121,36 @@ data class SavedDailyAccount(
     val qq: String,  
     val password: String  
 )
+
+// ==================== 日常模块数据 ====================  
+  
+data class DailyCandidateEntry(  
+    val value: Any?,  
+    val display: String,  
+    val tags: List<String> = emptyList()  
+)  
+  
+data class DailyConfigEntry(  
+    val key: String,  
+    val desc: String,  
+    val configType: String,       // bool / int / single / multi / multi_search / text / time  
+    val default: Any? = null,  
+    val currentValue: Any? = null,  
+    val candidates: List<DailyCandidateEntry> = emptyList()  
+)  
+  
+data class DailyModuleItem(  
+    val key: String,  
+    val name: String,  
+    val description: String,  
+    val enabled: Boolean,  
+    val implemented: Boolean = true,  
+    val staminaRelative: Boolean = false,  
+    val tags: List<String> = emptyList(),  
+    val runnable: Boolean = true,  
+    val configOrder: List<String> = emptyList(),  
+    val configs: List<DailyConfigEntry> = emptyList()  
+)
   
 // ==================== UI 状态 ====================  
   
@@ -146,7 +176,15 @@ data class DailyUiState(
     val isSavingCron: Boolean = false,  
     val cronError: String? = null,  
     val showCronSection: Boolean = false,
-    val savedAccounts: List<SavedDailyAccount> = emptyList()  
+    val savedAccounts: List<SavedDailyAccount> = emptyList(),  
+    // ---- 日常模块 ----  
+    val showDailySection: Boolean = false,  
+    val isLoadingDaily: Boolean = false,  
+    val isSavingDaily: Boolean = false,  
+    val dailyModules: List<DailyModuleItem> = emptyList(),  
+    val dailyError: String? = null,  
+    val expandedModuleKey: String? = null 
+	
 )  
   
 // ==================== ViewModel ====================  
@@ -289,15 +327,19 @@ class DailyViewModel @Inject constructor(
   
     // ==================== 选择账号 ====================  
   
-    fun selectAccount(alias: String) {  
-        _uiState.value = _uiState.value.copy(  
-            phase = DailyPhase.COMMANDS,  
-            selectedAccount = alias,  
-            // 切换账号时重置定时状态  
-            cronConfigs = emptyList(),  
-            showCronSection = false,  
-            cronError = null  
-        )  
+    fun selectAccount(alias: String) {    
+        _uiState.value = _uiState.value.copy(    
+            phase = DailyPhase.COMMANDS,    
+            selectedAccount = alias,    
+            cronConfigs = emptyList(),    
+            showCronSection = false,    
+            cronError = null,  
+            // 切换账号时重置日常状态  
+            dailyModules = emptyList(),  
+            showDailySection = false,  
+            dailyError = null,  
+            expandedModuleKey = null  
+        )    
     }  
   
     // ==================== 执行指令（核心：通过 command relay） ====================  
@@ -1057,6 +1099,231 @@ class DailyViewModel @Inject constructor(
             }  
         }  
     }  
+	
+	// ==================== 日常模块管理 ====================  
+  
+    fun toggleDailySection() {  
+        val state = _uiState.value  
+        val newShow = !state.showDailySection  
+        _uiState.value = state.copy(showDailySection = newShow)  
+        if (newShow && state.dailyModules.isEmpty() && !state.isLoadingDaily) {  
+            loadDailyConfig()  
+        }  
+    }  
+  
+    fun loadDailyConfig() {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(isLoadingDaily = true, dailyError = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                val modules = withContext(Dispatchers.IO) {  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/daily")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .get()  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "获取日常配置失败 (${resp.code})" })  
+                        parseDailyResponse(text)  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingDaily = false,  
+                    dailyModules = modules,  
+                    dailyError = null  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Load daily config failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingDaily = false,  
+                    dailyError = "加载日常配置失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    private fun parseDailyResponse(json: String): List<DailyModuleItem> {  
+        val root = JSONObject(json)  
+        val config = root.optJSONObject("config") ?: JSONObject()  
+        val orderArr = root.optJSONArray("order") ?: return emptyList()  
+        val info = root.optJSONObject("info") ?: return emptyList()  
+  
+        val result = mutableListOf<DailyModuleItem>()  
+        for (i in 0 until orderArr.length()) {  
+            val mKey = orderArr.getString(i)  
+            val mInfo = info.optJSONObject(mKey) ?: continue  
+  
+            val configObj = mInfo.optJSONObject("config") ?: JSONObject()  
+            val configOrderArr = mInfo.optJSONArray("config_order")  
+            val configKeys = if (configOrderArr != null) {  
+                (0 until configOrderArr.length()).map { configOrderArr.getString(it) }  
+            } else {  
+                configObj.keys().asSequence().toList()  
+            }  
+  
+            val configs = configKeys.mapNotNull { cKey ->  
+                val cObj = configObj.optJSONObject(cKey) ?: return@mapNotNull null  
+                val candidatesArr = cObj.optJSONArray("candidates")  
+                val candidates = if (candidatesArr != null) {  
+                    (0 until candidatesArr.length()).map { ci ->  
+                        val cand = candidatesArr.getJSONObject(ci)  
+                        DailyCandidateEntry(  
+                            value = cand.opt("value"),  
+                            display = cand.optString("display", ""),  
+                            tags = parseStringList(cand.optJSONArray("tags"))  
+                        )  
+                    }  
+                } else emptyList()  
+  
+                DailyConfigEntry(  
+                    key = cObj.optString("key", cKey),  
+                    desc = cObj.optString("desc", cKey),  
+                    configType = cObj.optString("config_type", "bool"),  
+                    default = cObj.opt("default"),  
+                    currentValue = config.opt(cKey),  
+                    candidates = candidates  
+                )  
+            }  
+  
+            val tags = parseStringList(mInfo.optJSONArray("tags"))  
+  
+            result.add(  
+                DailyModuleItem(  
+                    key = mKey,  
+                    name = mInfo.optString("name", mKey),  
+                    description = mInfo.optString("description", ""),  
+                    enabled = config.optBoolean(mKey, false),  
+                    implemented = mInfo.optBoolean("implemented", true),  
+                    staminaRelative = mInfo.optBoolean("stamina_relative", false),  
+                    tags = tags,  
+                    runnable = mInfo.optBoolean("runnable", true),  
+                    configOrder = configKeys,  
+                    configs = configs  
+                )  
+            )  
+        }  
+        return result  
+    }  
+  
+    fun toggleDailyModule(moduleKey: String, enabled: Boolean) {  
+        saveDailyField(moduleKey, enabled)  
+        _uiState.value = _uiState.value.copy(  
+            dailyModules = _uiState.value.dailyModules.map {  
+                if (it.key == moduleKey) it.copy(enabled = enabled) else it  
+            }  
+        )  
+    }  
+  
+    fun updateDailyConfig(configKey: String, value: Any) {  
+        saveDailyField(configKey, value)  
+        // 乐观更新本地 currentValue  
+        _uiState.value = _uiState.value.copy(  
+            dailyModules = _uiState.value.dailyModules.map { module ->  
+                module.copy(configs = module.configs.map { cfg ->  
+                    if (cfg.key == configKey) cfg.copy(currentValue = value) else cfg  
+                })  
+            }  
+        )  
+    }  
+  
+    fun updateDailyConfigList(configKey: String, values: List<Any?>) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(isSavingDaily = true)  
+  
+        // 乐观更新  
+        _uiState.value = _uiState.value.copy(  
+            dailyModules = _uiState.value.dailyModules.map { module ->  
+                module.copy(configs = module.configs.map { cfg ->  
+                    if (cfg.key == configKey) cfg.copy(currentValue = values) else cfg  
+                })  
+            }  
+        )  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put(configKey, JSONArray(values))  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/config")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        if (!resp.isSuccessful) {  
+                            val text = resp.body?.string() ?: ""  
+                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                        }  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(isSavingDaily = false, dailyError = null)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save daily field list failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isSavingDaily = false,  
+                    dailyError = "保存失败: ${e.message}"  
+                )  
+                loadDailyConfig()  
+            }  
+        }  
+    }  
+  
+    fun expandDailyModule(moduleKey: String?) {  
+        val current = _uiState.value.expandedModuleKey  
+        _uiState.value = _uiState.value.copy(  
+            expandedModuleKey = if (current == moduleKey) null else moduleKey  
+        )  
+    }  
+  
+    private fun saveDailyField(key: String, value: Any) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(isSavingDaily = true)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put(key, value)  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/config")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        if (!resp.isSuccessful) {  
+                            val text = resp.body?.string() ?: ""  
+                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                        }  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(isSavingDaily = false, dailyError = null)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save daily field failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isSavingDaily = false,  
+                    dailyError = "保存失败: ${e.message}"  
+                )  
+                loadDailyConfig()  
+            }  
+        }  
+    }  
+  
+    fun clearDailyError() {  
+        _uiState.value = _uiState.value.copy(dailyError = null)  
+    }
   
     // ==================== 关闭结果弹窗 ====================  
   
@@ -1075,14 +1342,18 @@ class DailyViewModel @Inject constructor(
     fun goBack() {  
         val state = _uiState.value  
         when (state.phase) {  
-            DailyPhase.COMMANDS -> {  
-                _uiState.value = state.copy(  
-                    phase = DailyPhase.ACCOUNTS,  
-                    selectedAccount = null,  
-                    cronConfigs = emptyList(),  
-                    showCronSection = false,  
-                    cronError = null  
-                )  
+            DailyPhase.COMMANDS -> {    
+                _uiState.value = state.copy(    
+                    phase = DailyPhase.ACCOUNTS,    
+                    selectedAccount = null,    
+                    cronConfigs = emptyList(),    
+                    showCronSection = false,    
+                    cronError = null,  
+                    dailyModules = emptyList(),  
+                    showDailySection = false,  
+                    dailyError = null,  
+                    expandedModuleKey = null  
+                )    
             }  
             DailyPhase.ACCOUNTS -> {  
                 autoDefPollJob?.cancel()  // ← 新增  
