@@ -21,6 +21,8 @@ import org.json.JSONArray
 import org.json.JSONObject  
 import java.util.concurrent.TimeUnit  
 import javax.inject.Inject  
+import kotlinx.coroutines.async  
+import kotlinx.coroutines.coroutineScope
   
 // ==================== 指令数据 ====================  
   
@@ -317,22 +319,6 @@ class DailyViewModel @Inject constructor(
 			executeDailyAll(baseUrl)  
 			return  
 		}  
-		
-		/**  
-		 * 清日常所有：遍历所有账号，对每个账号并发调用 do_daily 接口。  
-		 * 使用已加载的 state.accounts 列表，对每个账号调用：  
-		 *   POST /daily/api/account/{accName}/do_daily  
-		 * 汇总所有账号的结果。  
-		 */  
-		private fun executeDailyAll(baseUrl: String) {  
-			val accounts = _uiState.value.accounts  
-			if (accounts.isEmpty()) {  
-				_uiState.value = _uiState.value.copy(  
-					executionResult = "没有可用账号",  
-					showResultDialog = true  
-				)  
-				return  
-			}  
 		  
 			_uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
 		  
@@ -430,6 +416,69 @@ class DailyViewModel @Inject constructor(
             }  
         }  
     }  
+	
+	private fun executeDailyAll(baseUrl: String) {  
+		val accounts = _uiState.value.accounts  
+		if (accounts.isEmpty()) {  
+			_uiState.value = _uiState.value.copy(  
+				executionResult = "没有可用账号",  
+				showResultDialog = true  
+			)  
+			return  
+		}  
+	  
+		_uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
+	  
+		viewModelScope.launch {  
+			try {  
+				val results = coroutineScope {  
+					accounts.map { accName ->  
+						async(Dispatchers.IO) {  
+							try {  
+								val request = Request.Builder()  
+									.url("$baseUrl/daily/api/account/$accName/do_daily")  
+									.addHeader("X-App-Version", APP_VERSION)  
+									.post("{}".toRequestBody(JSON_MEDIA_TYPE))  
+									.build()  
+								httpClient.newCall(request).execute().use { resp ->  
+									val text = resp.body?.string() ?: ""  
+									if (!resp.isSuccessful) {  
+										Pair(accName, "失败: ${text.ifBlank { "HTTP ${resp.code}" }}")  
+									} else {  
+										Pair(accName, "成功")  
+									}  
+								}  
+							} catch (e: Exception) {  
+								Pair(accName, "失败: ${e.message}")  
+							}  
+						}  
+					}.map { it.await() }  
+				}  
+	  
+				// 汇总结果  
+				val resultText = buildString {  
+					appendLine("清日常所有 执行结果：")  
+					appendLine("=".repeat(30))  
+					for (pair in results) {  
+						appendLine("【${pair.first}】${pair.second}")  
+					}  
+				}  
+	  
+				_uiState.value = _uiState.value.copy(  
+					isExecuting = false,  
+					executionResult = resultText,  
+					showResultDialog = true  
+				)  
+			} catch (e: Exception) {  
+				Log.e(TAG, "executeDailyAll failed: ${e.message}", e)  
+				_uiState.value = _uiState.value.copy(  
+					isExecuting = false,  
+					executionResult = "清日常所有执行失败: ${e.message}",  
+					showResultDialog = true  
+				)  
+			}  
+		}  
+	}
 	
 	/**  
 	 * 通过 HTTP API 处理 #日常设置 命令：  
