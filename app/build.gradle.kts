@@ -28,16 +28,16 @@ android {
   
     signingConfigs {  
         create("release") {  
-            storeFile = file("../keystore/release.jks")  // keystore 文件路径  
-            storePassword = "your_store_password"  
-            keyAlias = "your_key_alias"  
-            keyPassword = "your_key_password"  
+            storeFile = file("../keystore/release.jks")  
+            storePassword = "android123"  
+            keyAlias = "release"  
+            keyPassword = "android123"  
         }  
     }  
   
     buildTypes {  
         debug {  
-            signingConfig = signingConfigs.getByName("release")  // debug 也用同一个签名  
+            signingConfig = signingConfigs.getByName("release")  
         }  
         release {  
             signingConfig = signingConfigs.getByName("release")  
