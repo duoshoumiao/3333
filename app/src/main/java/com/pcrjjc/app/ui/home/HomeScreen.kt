@@ -41,8 +41,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.foundation.ExperimentalFoundationApi    
 import androidx.compose.material3.TabRow    
 import androidx.compose.material3.Text    
-import androidx.compose.material3.TopAppBar    
-import androidx.compose.material3.TopAppBarDefaults    
+import com.pcrjjc.app.ui.components.ImageTopAppBar 
 import androidx.compose.runtime.Composable    
 import androidx.compose.runtime.collectAsState    
 import androidx.compose.runtime.getValue    
@@ -83,34 +82,29 @@ fun HomeScreen(
   
     Scaffold(    
         topBar = {    
-            TopAppBar(    
-                title = { Text("LB") },    
-                colors = TopAppBarDefaults.topAppBarColors(    
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,    
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer    
-                ),    
-                actions = {    
-                    // ← 新增：清日常按钮  
-                    IconButton(onClick = onNavigateToDaily) {    
-                        Icon(Icons.Default.CleaningServices, contentDescription = "清日常")    
-                    }    
-                    IconButton(onClick = onNavigateToFortnightly) {    
-                        Icon(Icons.Default.DateRange, contentDescription = "半月刊")    
-                    }    
-                    IconButton(onClick = { launchArenaBreaker(context) }) {    
-                        Icon(Icons.Default.ContentCut, contentDescription = "怎么拆")    
-                    }    
-                    IconButton(onClick = onNavigateToMaster) {    
-                        Icon(Icons.Default.Visibility, contentDescription = "账号")    
-                    }    
-                    IconButton(onClick = onNavigateToAccount) {    
-                        Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")    
-                    }    
-                    IconButton(onClick = onNavigateToSettings) {    
-                        Icon(Icons.Default.Settings, contentDescription = "设置")    
-                    }    
-                }    
-            )    
+            ImageTopAppBar(  
+				title = { Text("LB") },  
+				actions = {  
+					IconButton(onClick = onNavigateToDaily) {  
+						Icon(Icons.Default.CleaningServices, contentDescription = "清日常")  
+					}  
+					IconButton(onClick = onNavigateToFortnightly) {  
+						Icon(Icons.Default.DateRange, contentDescription = "半月刊")  
+					}  
+					IconButton(onClick = { launchArenaBreaker(context) }) {  
+						Icon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
+					}  
+					IconButton(onClick = onNavigateToMaster) {  
+						Icon(Icons.Default.Visibility, contentDescription = "账号")  
+					}  
+					IconButton(onClick = onNavigateToAccount) {  
+						Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
+					}  
+					IconButton(onClick = onNavigateToSettings) {  
+						Icon(Icons.Default.Settings, contentDescription = "设置")  
+					}  
+				}  
+			)    
         },    
         floatingActionButton = {    
             FloatingActionButton(onClick = onNavigateToBind) {    

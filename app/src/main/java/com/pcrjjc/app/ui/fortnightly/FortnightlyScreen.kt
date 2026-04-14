@@ -31,8 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost  
 import androidx.compose.material3.SnackbarHostState  
 import androidx.compose.material3.Text  
-import androidx.compose.material3.TopAppBar  
-import androidx.compose.material3.TopAppBarDefaults  
+import com.pcrjjc.app.ui.components.ImageTopAppBar 
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.LaunchedEffect  
 import androidx.compose.runtime.collectAsState  
@@ -71,33 +70,29 @@ fun FortnightlyScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
-                title = { Text("公主连结半月刊") },  
-                colors = TopAppBarDefaults.topAppBarColors(  
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,  
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
-                ),  
-                navigationIcon = {  
-                    IconButton(onClick = onNavigateBack) {  
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")  
-                    }  
-                },  
-                actions = {  
-                    if (uiState.isUpdating) {  
-                        CircularProgressIndicator(  
-                            modifier = Modifier  
-                                .padding(end = 12.dp)  
-                                .height(24.dp)  
-                                .width(24.dp),  
-                            strokeWidth = 2.dp  
-                        )  
-                    } else {  
-                        IconButton(onClick = { viewModel.updateData() }) {  
-                            Icon(Icons.Default.Refresh, contentDescription = "更新半月刊")  
-                        }  
-                    }  
-                }  
-            )  
+            ImageTopAppBar(  
+				title = { Text("公主连结半月刊") },  
+				navigationIcon = {  
+					IconButton(onClick = onNavigateBack) {  
+						Icon(Icons.Default.ArrowBack, contentDescription = "返回")  
+					}  
+				},  
+				actions = {  
+					if (uiState.isUpdating) {  
+						CircularProgressIndicator(  
+							modifier = Modifier  
+								.padding(end = 12.dp)  
+								.height(24.dp)  
+								.width(24.dp),  
+							strokeWidth = 2.dp  
+						)  
+					} else {  
+						IconButton(onClick = { viewModel.updateData() }) {  
+							Icon(Icons.Default.Refresh, contentDescription = "更新半月刊")  
+						}  
+					}  
+				}  
+			)  
         },  
         snackbarHost = { SnackbarHost(snackbarHostState) }  
     ) { paddingValues ->  

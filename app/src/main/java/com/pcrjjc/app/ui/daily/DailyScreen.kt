@@ -52,8 +52,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch  
 import androidx.compose.material3.Text  
 import androidx.compose.material3.TextButton  
-import androidx.compose.material3.TopAppBar  
-import androidx.compose.material3.TopAppBarDefaults  
+import com.pcrjjc.app.ui.components.ImageTopAppBar
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.LaunchedEffect  
 import androidx.compose.runtime.collectAsState  
@@ -185,24 +184,20 @@ fun DailyScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
-                title = { Text(title) },  
-                navigationIcon = {  
-                    IconButton(onClick = {  
-                        if (uiState.phase == DailyPhase.LOGIN) {  
-                            onNavigateBack()  
-                        } else {  
-                            viewModel.goBack()  
-                        }  
-                    }) {  
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")  
-                    }  
-                },  
-                colors = TopAppBarDefaults.topAppBarColors(  
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,  
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer  
-                )  
-            )  
+            ImageTopAppBar(  
+				title = { Text(title) },  
+				navigationIcon = {  
+					IconButton(onClick = {  
+						if (uiState.phase == DailyPhase.LOGIN) {  
+							onNavigateBack()  
+						} else {  
+							viewModel.goBack()  
+						}  
+					}) {  
+						Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")  
+					}  
+				}  
+			)  
         },  
         snackbarHost = { SnackbarHost(snackbarHostState) }  
     ) { padding ->  
