@@ -127,7 +127,7 @@ fun DailyScreen(
                 if (imageBase64 != null) {  
                     val bitmap = remember(imageBase64) {  
                         try {  
-                            val bytes = Base64.decode(imageBase64, Base64.DEFAULT)  
+                            val bytes = Base64.decode(imageBase64 as String, Base64.DEFAULT)
                             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
                         } catch (e: Exception) { null }  
                     }  

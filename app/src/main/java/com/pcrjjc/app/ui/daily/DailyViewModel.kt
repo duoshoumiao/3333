@@ -170,6 +170,7 @@ data class DailyUiState(
     val isExecuting: Boolean = false,  
     val executionResult: String? = null,  
     val showResultDialog: Boolean = false,  
+	val resultImageBase64: String? = null,
     // ---- 定时任务 ----  
     val cronConfigs: List<CronConfig> = emptyList(),  
     val isLoadingCron: Boolean = false,  
