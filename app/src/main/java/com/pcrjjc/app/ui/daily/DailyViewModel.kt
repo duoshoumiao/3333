@@ -320,41 +320,6 @@ class DailyViewModel @Inject constructor(
 			return  
 		}  
 	  
-		// 正常的单账号 command relay 逻辑  
-		_uiState.value = state.copy(isExecuting = true, errorMessage = null)  
-	  
-		viewModelScope.launch {  
-			try {  
-				val resultJson = withContext(Dispatchers.IO) {  
-					val json = JSONObject().apply {  
-						put("command", commandText)  
-					}  
-					val request = Request.Builder()  
-						.url("$baseUrl/daily/api/account/$acc/command")  
-						.addHeader("X-App-Version", APP_VERSION)  
-						.post(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
-						.build()  
-					httpClient.newCall(request).execute().use { resp ->  
-						resp.body?.string() ?: ""  
-					}  
-				}  
-	  
-				val displayText = parseRelayResponse(resultJson)  
-				_uiState.value = _uiState.value.copy(  
-					isExecuting = false,  
-					executionResult = displayText,  
-					showResultDialog = true  
-				)  
-			} catch (e: Exception) {  
-				Log.e(TAG, "Execute command failed: ${e.message}", e)  
-				_uiState.value = _uiState.value.copy(  
-					isExecuting = false,  
-					executionResult = "执行失败: ${e.message}",  
-					showResultDialog = true  
-				)  
-			}  
-		}  
-	}
   
         _uiState.value = state.copy(isExecuting = true, errorMessage = null)  
   
