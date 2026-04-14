@@ -72,6 +72,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel  
 import androidx.compose.material.icons.filled.Delete  
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Checklist  
+import androidx.compose.foundation.horizontalScroll  
+import androidx.compose.foundation.layout.heightIn  
+import androidx.compose.ui.text.style.TextOverflow
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -97,6 +101,14 @@ fun DailyScreen(
             viewModel.clearCronError()  
         }  
     }  
+	
+	// 显示日常配置错误  
+    LaunchedEffect(uiState.dailyError) {  
+        uiState.dailyError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearDailyError()  
+        }  
+    }
   
     // 指令输入弹窗状态  
     var showCommandDialog by remember { mutableStateOf(false) }  
@@ -233,7 +245,19 @@ fun DailyScreen(
                     onToggleCron = viewModel::toggleCron,  
                     onUpdateCronTime = viewModel::updateCronTime,  
                     onToggleClanbattleRun = viewModel::toggleClanbattleRun,  
-                    onUpdateModuleExcludeType = viewModel::updateModuleExcludeType  
+                    onUpdateModuleExcludeType = viewModel::updateModuleExcludeType,  
+                    // 日常模块相关  
+                    showDailySection = uiState.showDailySection,  
+                    dailyModules = uiState.dailyModules,  
+                    isLoadingDaily = uiState.isLoadingDaily,  
+                    isSavingDaily = uiState.isSavingDaily,  
+                    expandedModuleKey = uiState.expandedModuleKey,  
+                    onToggleDailySection = viewModel::toggleDailySection,  
+                    onRefreshDaily = viewModel::loadDailyConfig,  
+                    onToggleDailyModule = viewModel::toggleDailyModule,  
+                    onUpdateDailyConfig = viewModel::updateDailyConfig,  
+                    onUpdateDailyConfigList = viewModel::updateDailyConfigList,  
+                    onExpandDailyModule = viewModel::expandDailyModule  
                 )  
             }  
   
@@ -527,7 +551,19 @@ private fun CommandsContent(
     onToggleCron: (Int, Boolean) -> Unit,  
     onUpdateCronTime: (Int, String) -> Unit,  
     onToggleClanbattleRun: (Int, Boolean) -> Unit,  
-    onUpdateModuleExcludeType: (Int, List<String>) -> Unit  
+    onUpdateModuleExcludeType: (Int, List<String>) -> Unit,  
+    // 日常模块相关  
+    showDailySection: Boolean,  
+    dailyModules: List<DailyModuleItem>,  
+    isLoadingDaily: Boolean,  
+    isSavingDaily: Boolean,  
+    expandedModuleKey: String?,  
+    onToggleDailySection: () -> Unit,  
+    onRefreshDaily: () -> Unit,  
+    onToggleDailyModule: (String, Boolean) -> Unit,  
+    onUpdateDailyConfig: (String, Any) -> Unit,  
+    onUpdateDailyConfigList: (String, List<Any?>) -> Unit,  
+    onExpandDailyModule: (String?) -> Unit  
 ) {  
     Column(  
         modifier = Modifier  
@@ -577,6 +613,41 @@ private fun CommandsContent(
                         onUpdateTime = onUpdateCronTime,  
                         onToggleClanbattleRun = onToggleClanbattleRun,  
                         onUpdateModuleExcludeType = onUpdateModuleExcludeType  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 日常模块区域 ----  
+            item {  
+                DailySectionHeader(  
+                    expanded = showDailySection,  
+                    isLoading = isLoadingDaily,  
+                    isSaving = isSavingDaily,  
+                    onToggle = onToggleDailySection,  
+                    onRefresh = onRefreshDaily  
+                )  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showDailySection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    DailySettingsSection(  
+                        modules = dailyModules,  
+                        isLoading = isLoadingDaily,  
+                        expandedModuleKey = expandedModuleKey,  
+                        onToggleModule = onToggleDailyModule,  
+                        onExpandModule = onExpandDailyModule,  
+                        onUpdateConfig = onUpdateDailyConfig,  
+                        onUpdateConfigList = onUpdateDailyConfigList  
                     )  
                 }  
             }  
@@ -994,6 +1065,422 @@ private fun CommandCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
                 }  
+            }  
+        }  
+    }  
+}
+
+// ==================== 日常模块区域头部 ====================  
+  
+@Composable  
+private fun DailySectionHeader(  
+    expanded: Boolean,  
+    isLoading: Boolean,  
+    isSaving: Boolean,  
+    onToggle: () -> Unit,  
+    onRefresh: () -> Unit  
+) {  
+    Card(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .clickable(onClick = onToggle),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
+        colors = CardDefaults.cardColors(  
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer  
+        )  
+    ) {  
+        Row(  
+            modifier = Modifier  
+                .fillMaxWidth()  
+                .padding(horizontal = 16.dp, vertical = 12.dp),  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            Icon(  
+                imageVector = Icons.Default.Checklist,  
+                contentDescription = null,  
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,  
+                modifier = Modifier.size(22.dp)  
+            )  
+            Spacer(modifier = Modifier.width(10.dp))  
+            Text(  
+                text = "日常模块设置",  
+                style = MaterialTheme.typography.titleSmall,  
+                fontWeight = FontWeight.Bold,  
+                color = MaterialTheme.colorScheme.onTertiaryContainer,  
+                modifier = Modifier.weight(1f)  
+            )  
+            if (isLoading || isSaving) {  
+                CircularProgressIndicator(  
+                    modifier = Modifier.size(18.dp),  
+                    strokeWidth = 2.dp,  
+                    color = MaterialTheme.colorScheme.onTertiaryContainer  
+                )  
+                Spacer(modifier = Modifier.width(8.dp))  
+            }  
+            if (expanded) {  
+                IconButton(  
+                    onClick = onRefresh,  
+                    modifier = Modifier.size(32.dp)  
+                ) {  
+                    Icon(  
+                        imageVector = Icons.Default.Refresh,  
+                        contentDescription = "刷新",  
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,  
+                        modifier = Modifier.size(18.dp)  
+                    )  
+                }  
+            }  
+            Icon(  
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
+                contentDescription = if (expanded) "收起" else "展开",  
+                tint = MaterialTheme.colorScheme.onTertiaryContainer  
+            )  
+        }  
+    }  
+}  
+  
+// ==================== 日常模块设置内容 ====================  
+  
+@Composable  
+private fun DailySettingsSection(  
+    modules: List<DailyModuleItem>,  
+    isLoading: Boolean,  
+    expandedModuleKey: String?,  
+    onToggleModule: (String, Boolean) -> Unit,  
+    onExpandModule: (String?) -> Unit,  
+    onUpdateConfig: (String, Any) -> Unit,  
+    onUpdateConfigList: (String, List<Any?>) -> Unit  
+) {  
+    Column(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .padding(top = 8.dp),  
+        verticalArrangement = Arrangement.spacedBy(6.dp)  
+    ) {  
+        if (isLoading && modules.isEmpty()) {  
+            Box(  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 24.dp),  
+                contentAlignment = Alignment.Center  
+            ) {  
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {  
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Text(  
+                        text = "加载日常配置...",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            }  
+        } else if (modules.isEmpty()) {  
+            Text(  
+                text = "暂无日常模块配置",  
+                style = MaterialTheme.typography.bodyMedium,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 16.dp),  
+                textAlign = TextAlign.Center  
+            )  
+        } else {  
+            modules.forEach { module ->  
+                DailyModuleCard(  
+                    module = module,  
+                    isExpanded = expandedModuleKey == module.key,  
+                    onToggle = { enabled -> onToggleModule(module.key, enabled) },  
+                    onExpand = { onExpandModule(module.key) },  
+                    onUpdateConfig = onUpdateConfig,  
+                    onUpdateConfigList = onUpdateConfigList  
+                )  
+            }  
+        }  
+    }  
+}  
+  
+// ==================== 单个日常模块卡片 ====================  
+  
+@OptIn(ExperimentalLayoutApi::class)  
+@Composable  
+private fun DailyModuleCard(  
+    module: DailyModuleItem,  
+    isExpanded: Boolean,  
+    onToggle: (Boolean) -> Unit,  
+    onExpand: () -> Unit,  
+    onUpdateConfig: (String, Any) -> Unit,  
+    onUpdateConfigList: (String, List<Any?>) -> Unit  
+) {  
+    Card(  
+        modifier = Modifier.fillMaxWidth(),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
+        colors = CardDefaults.cardColors(  
+            containerColor = if (module.enabled)  
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)  
+            else  
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)  
+        )  
+    ) {  
+        Column(modifier = Modifier.padding(12.dp)) {  
+            // 主行：开关 + 名称 + 展开按钮  
+            Row(  
+                modifier = Modifier.fillMaxWidth(),  
+                verticalAlignment = Alignment.CenterVertically  
+            ) {  
+                Switch(  
+                    checked = module.enabled,  
+                    onCheckedChange = onToggle,  
+                    modifier = Modifier.size(width = 46.dp, height = 24.dp)  
+                )  
+                Spacer(modifier = Modifier.width(10.dp))  
+                Column(modifier = Modifier.weight(1f)) {  
+                    Text(  
+                        text = module.name,  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        fontWeight = FontWeight.Bold,  
+                        maxLines = 1,  
+                        overflow = TextOverflow.Ellipsis  
+                    )  
+                    if (module.description.isNotBlank()) {  
+                        Text(  
+                            text = module.description,  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                            maxLines = 1,  
+                            overflow = TextOverflow.Ellipsis  
+                        )  
+                    }  
+                }  
+                if (module.configs.isNotEmpty()) {  
+                    IconButton(  
+                        onClick = onExpand,  
+                        modifier = Modifier.size(32.dp)  
+                    ) {  
+                        Icon(  
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
+                            contentDescription = if (isExpanded) "收起" else "展开配置",  
+                            modifier = Modifier.size(18.dp)  
+                        )  
+                    }  
+                }  
+            }  
+  
+            // 展开的子配置  
+            AnimatedVisibility(  
+                visible = isExpanded && module.configs.isNotEmpty(),  
+                enter = expandVertically(),  
+                exit = shrinkVertically()  
+            ) {  
+                Column(modifier = Modifier.padding(top = 8.dp)) {  
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))  
+                    module.configs.forEach { cfg ->  
+                        DailyConfigItemView(  
+                            config = cfg,  
+                            onUpdateConfig = onUpdateConfig,  
+                            onUpdateConfigList = onUpdateConfigList  
+                        )  
+                        Spacer(modifier = Modifier.height(6.dp))  
+                    }  
+                }  
+            }  
+        }  
+    }  
+}  
+  
+// ==================== 单个配置项渲染 ====================  
+  
+@OptIn(ExperimentalLayoutApi::class)  
+@Composable  
+private fun DailyConfigItemView(  
+    config: DailyConfigEntry,  
+    onUpdateConfig: (String, Any) -> Unit,  
+    onUpdateConfigList: (String, List<Any?>) -> Unit  
+) {  
+    Column(modifier = Modifier.fillMaxWidth()) {  
+        when (config.configType) {  
+            "bool" -> {  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
+                    Text(  
+                        text = config.desc,  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        modifier = Modifier.weight(1f)  
+                    )  
+                    Switch(  
+                        checked = config.currentValue as? Boolean ?: config.default as? Boolean ?: false,  
+                        onCheckedChange = { onUpdateConfig(config.key, it) },  
+                        modifier = Modifier.size(width = 46.dp, height = 24.dp)  
+                    )  
+                }  
+            }  
+  
+            "text" -> {  
+                Text(  
+                    text = config.desc,  
+                    style = MaterialTheme.typography.bodyMedium  
+                )  
+                Spacer(modifier = Modifier.height(4.dp))  
+                var textValue by remember(config.currentValue) {  
+                    mutableStateOf((config.currentValue ?: config.default ?: "").toString())  
+                }  
+                OutlinedTextField(  
+                    value = textValue,  
+                    onValueChange = { textValue = it },  
+                    modifier = Modifier.fillMaxWidth(),  
+                    singleLine = true,  
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),  
+                    keyboardActions = KeyboardActions(  
+                        onDone = { onUpdateConfig(config.key, textValue) }  
+                    )  
+                )  
+            }  
+  
+            "int" -> {  
+                Text(  
+                    text = config.desc,  
+                    style = MaterialTheme.typography.bodyMedium  
+                )  
+                Spacer(modifier = Modifier.height(4.dp))  
+                if (config.candidates.isNotEmpty()) {  
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
+                        config.candidates.forEach { cand ->  
+                            val currentVal = config.currentValue?.toString()  
+                            val candVal = cand.value?.toString()  
+                            FilterChip(  
+                                selected = currentVal == candVal,  
+                                onClick = {  
+                                    val v = when (cand.value) {  
+                                        is Number -> cand.value  
+                                        is String -> cand.value.toIntOrNull() ?: cand.value  
+                                        else -> cand.value ?: 0  
+                                    }  
+                                    onUpdateConfig(config.key, v)  
+                                },  
+                                label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
+                    }  
+                } else {  
+                    var intText by remember(config.currentValue) {  
+                        mutableStateOf((config.currentValue ?: config.default ?: "").toString())  
+                    }  
+                    OutlinedTextField(  
+                        value = intText,  
+                        onValueChange = { v -> if (v.all { it.isDigit() || it == '-' }) intText = v },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        singleLine = true,  
+                        keyboardOptions = KeyboardOptions(  
+                            keyboardType = KeyboardType.Number,  
+                            imeAction = ImeAction.Done  
+                        ),  
+                        keyboardActions = KeyboardActions(  
+                            onDone = { intText.toIntOrNull()?.let { onUpdateConfig(config.key, it) } }  
+                        )  
+                    )  
+                }  
+            }  
+  
+            "single" -> {  
+                Text(  
+                    text = config.desc,  
+                    style = MaterialTheme.typography.bodyMedium  
+                )  
+                Spacer(modifier = Modifier.height(4.dp))  
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
+                    config.candidates.forEach { cand ->  
+                        val currentVal = config.currentValue?.toString()  
+                        val candVal = cand.value?.toString()  
+                        FilterChip(  
+                            selected = currentVal == candVal,  
+                            onClick = { cand.value?.let { onUpdateConfig(config.key, it) } },  
+                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
+                        )  
+                    }  
+                }  
+            }  
+  
+            "multi", "multi_search" -> {  
+                Text(  
+                    text = config.desc,  
+                    style = MaterialTheme.typography.bodyMedium  
+                )  
+                Spacer(modifier = Modifier.height(4.dp))  
+                // currentValue 是 JSONArray 或 List  
+                val selectedValues = remember(config.currentValue) {  
+                    when (val cv = config.currentValue) {  
+                        is List<*> -> cv.map { it.toString() }.toSet()  
+                        is org.json.JSONArray -> {  
+                            (0 until cv.length()).map { cv.get(it).toString() }.toSet()  
+                        }  
+                        else -> emptySet()  
+                    }  
+                }  
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
+                    config.candidates.forEach { cand ->  
+                        val candStr = cand.value?.toString() ?: ""  
+                        val selected = selectedValues.contains(candStr)  
+                        FilterChip(  
+                            selected = selected,  
+                            onClick = {  
+                                val newSet = if (selected) {  
+                                    selectedValues - candStr  
+                                } else {  
+                                    selectedValues + candStr  
+                                }  
+                                // 保持原始类型：尝试转回数字  
+                                val newList = newSet.map { s ->  
+                                    s.toIntOrNull() ?: s.toDoubleOrNull() ?: s  
+                                }  
+                                onUpdateConfigList(config.key, newList)  
+                            },  
+                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
+                        )  
+                    }  
+                }  
+            }  
+  
+            "time" -> {  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
+                    Text(  
+                        text = config.desc,  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        modifier = Modifier.weight(1f)  
+                    )  
+                    var showTimeDlg by remember { mutableStateOf(false) }  
+                    val currentTime = (config.currentValue ?: config.default ?: "00:00").toString()  
+                    TextButton(onClick = { showTimeDlg = true }) {  
+                        Icon(  
+                            imageVector = Icons.Default.AccessTime,  
+                            contentDescription = null,  
+                            modifier = Modifier.size(16.dp)  
+                        )  
+                        Spacer(modifier = Modifier.width(4.dp))  
+                        Text(currentTime)  
+                    }  
+                    if (showTimeDlg) {  
+                        TimeEditDialog(  
+                            currentTime = currentTime,  
+                            onConfirm = { newTime ->  
+                                showTimeDlg = false  
+                                onUpdateConfig(config.key, newTime)  
+                            },  
+                            onDismiss = { showTimeDlg = false }  
+                        )  
+                    }  
+                }  
+            }  
+  
+            else -> {  
+                Text(  
+                    text = "${config.desc}: ${config.currentValue ?: config.default ?: ""}",  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
             }  
         }  
     }  

@@ -21,7 +21,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons    
 import androidx.compose.material.icons.filled.Add    
 import androidx.compose.material.icons.filled.Autorenew        // ← 新增  
-import androidx.compose.material.icons.filled.ContentCut    
+import androidx.compose.material.icons.filled.ContentCut 
+import androidx.compose.material.icons.filled.Checklist  
 import androidx.compose.material.icons.filled.DateRange    
 import androidx.compose.material.icons.filled.Delete    
 import androidx.compose.material.icons.filled.History    
@@ -84,7 +85,7 @@ fun HomeScreen(
     Scaffold(    
         topBar = {    
             TopAppBar(    
-                title = { Text("莱宝竞技场查询") },    
+                title = { Text("LB") },    
                 colors = TopAppBarDefaults.topAppBarColors(    
                     containerColor = MaterialTheme.colorScheme.primaryContainer,    
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer    
