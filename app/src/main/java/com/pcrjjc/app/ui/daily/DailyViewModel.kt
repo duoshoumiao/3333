@@ -1,8 +1,7 @@
 package com.pcrjjc.app.ui.daily  
   
 import android.util.Log  
-import android.app.Application  
-import androidx.lifecycle.AndroidViewModel  
+import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import dagger.hilt.android.lifecycle.HiltViewModel  
@@ -24,7 +23,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject  
 import kotlinx.coroutines.async  
 import kotlinx.coroutines.coroutineScope
-import com.pcrjjc.app.util.ExEquipIconStorage
   
 // ==================== 指令数据 ====================  
   
@@ -153,13 +151,6 @@ data class DailyModuleItem(
     val configOrder: List<String> = emptyList(),  
     val configs: List<DailyConfigEntry> = emptyList()  
 )
-
-// ==================== 结果行类型 ====================  
-  
-sealed class ResultSegment {  
-    data class TextLine(val text: String) : ResultSegment()  
-    data class ExEquipLine(val equipId: Int, val text: String) : ResultSegment()  
-}
   
 // ==================== UI 状态 ====================  
   
@@ -178,9 +169,7 @@ data class DailyUiState(
     val errorMessage: String? = null,  
     val isExecuting: Boolean = false,  
     val executionResult: String? = null,  
-    val showResultDialog: Boolean = false,
-    val parsedResult: List<ResultSegment> = emptyList(),  
-    val exEquipIconsReady: Boolean = false,	
+    val showResultDialog: Boolean = false,  
     // ---- 定时任务 ----  
     val cronConfigs: List<CronConfig> = emptyList(),  
     val isLoadingCron: Boolean = false,  
@@ -202,9 +191,8 @@ data class DailyUiState(
   
 @HiltViewModel  
 class DailyViewModel @Inject constructor(  
-    application: Application,  
     private val settingsDataStore: SettingsDataStore  
-) : AndroidViewModel(application) { 
+) : ViewModel() {  
   
     companion object {  
         private const val TAG = "DailyVM"  
@@ -409,20 +397,11 @@ class DailyViewModel @Inject constructor(
                 }  
   
                 val displayText = parseRelayResponse(resultJson)  
-                val segments = parseResultSegments(displayText)  
-                val hasExEquip = segments.any { it is ResultSegment.ExEquipLine }  
-  
                 _uiState.value = _uiState.value.copy(  
                     isExecuting = false,  
                     executionResult = displayText,  
-                    parsedResult = segments,  
-                    exEquipIconsReady = !hasExEquip,  
                     showResultDialog = true  
                 )  
-  
-                if (hasExEquip) {  
-                    downloadExEquipIcons(segments)  
-                } 
             } catch (e: Exception) {  
                 Log.e(TAG, "Execute command failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
@@ -909,63 +888,7 @@ class DailyViewModel @Inject constructor(
         }  
     }  
   
-    // ==================== EX装备图标解析与下载 ====================  
-  
-    private val exEquipPattern = Regex("""^\[ex:(\d+)\](.*)""")  
-  
-    private fun parseResultSegments(text: String): List<ResultSegment> {  
-        return text.split('\n').map { line ->  
-            val match = exEquipPattern.find(line)  
-            if (match != null) {  
-                val equipId = match.groupValues[1].toInt()  
-                val remainingText = match.groupValues[2]  
-                ResultSegment.ExEquipLine(equipId, remainingText)  
-            } else {  
-                ResultSegment.TextLine(line)  
-            }  
-        }  
-    }  
-  
-    private fun downloadExEquipIcons(segments: List<ResultSegment>) {  
-        val equipIds = segments  
-            .filterIsInstance<ResultSegment.ExEquipLine>()  
-            .map { it.equipId }  
-            .distinct()  
-        if (equipIds.isEmpty()) return  
-  
-        val baseUrl = _uiState.value.serverUrl ?: return  
-        val context = getApplication<Application>()  
-  
-        viewModelScope.launch {  
-            withContext(Dispatchers.IO) {  
-                for (equipId in equipIds) {  
-                    try {  
-                        if (ExEquipIconStorage.hasIcon(context, equipId)) continue  
-  
-                        val request = Request.Builder()  
-                            .url("$baseUrl/daily/api/ex_equip_icon/$equipId")  
-                            .addHeader("X-App-Version", APP_VERSION)  
-                            .get()  
-                            .build()  
-                        httpClient.newCall(request).execute().use { resp ->  
-                            if (resp.isSuccessful) {  
-                                val bytes = resp.body?.bytes()  
-                                if (bytes != null && bytes.isNotEmpty()) {  
-                                    ExEquipIconStorage.saveBytes(context, equipId, bytes)  
-                                }  
-                            }  
-                        }  
-                    } catch (e: Exception) {  
-                        Log.e(TAG, "Download ex equip icon $equipId failed: ${e.message}")  
-                    }  
-                }  
-            }  
-            // 下载完成，通知 UI 刷新  
-            _uiState.value = _uiState.value.copy(exEquipIconsReady = true)  
-        }  
-    }
-	
-	// ==================== 定时任务管理 ====================  
+    // ==================== 定时任务管理 ====================  
   
     /** 切换定时设置区域的展开/折叠，首次展开时自动加载 */  
     fun toggleCronSection() {  
@@ -1405,13 +1328,8 @@ class DailyViewModel @Inject constructor(
     // ==================== 关闭结果弹窗 ====================  
   
     fun dismissResult() {  
-		_uiState.value = _uiState.value.copy(  
-			showResultDialog = false,  
-			executionResult = null,  
-			parsedResult = emptyList(),  
-			exEquipIconsReady = false  
-		)  
-	}  
+        _uiState.value = _uiState.value.copy(showResultDialog = false, executionResult = null)  
+    }  
   
     // ==================== 清除定时错误 ====================  
   

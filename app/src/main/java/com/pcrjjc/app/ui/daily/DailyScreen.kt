@@ -75,10 +75,6 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.foundation.horizontalScroll  
 import androidx.compose.foundation.layout.heightIn  
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.Image  
-import androidx.compose.ui.graphics.asImageBitmap  
-import androidx.compose.ui.platform.LocalContext  
-import com.pcrjjc.app.util.ExEquipIconStorage
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -117,50 +113,16 @@ fun DailyScreen(
     var showCommandDialog by remember { mutableStateOf(false) }  
     var commandDialogText by remember { mutableStateOf("") }  
   
-    // 执行结果弹窗（支持EX装备图标渲染）  
+    // 执行结果弹窗  
     if (uiState.showResultDialog) {  
-        val context = LocalContext.current  
         AlertDialog(  
             onDismissRequest = { viewModel.dismissResult() },  
             title = { Text("执行结果") },  
             text = {  
-                Column(  
+                Text(  
+                    text = uiState.executionResult ?: "",  
                     modifier = Modifier.verticalScroll(rememberScrollState())  
-                ) {  
-                    val segments = uiState.parsedResult  
-                    if (segments.isNotEmpty() && segments.any { it is ResultSegment.ExEquipLine }) {  
-                        // 富文本渲染模式：逐行显示，EX装备行带图标  
-                        segments.forEach { segment ->  
-                            when (segment) {  
-                                is ResultSegment.TextLine -> {  
-                                    Text(text = segment.text)  
-                                }  
-                                is ResultSegment.ExEquipLine -> {  
-                                    Row(  
-                                        verticalAlignment = Alignment.CenterVertically,  
-                                        modifier = Modifier.padding(vertical = 2.dp)  
-                                    ) {  
-                                        val bitmap = remember(segment.equipId, uiState.exEquipIconsReady) {  
-                                            ExEquipIconStorage.loadBitmap(context, segment.equipId)  
-                                        }  
-                                        if (bitmap != null) {  
-                                            Image(  
-                                                bitmap = bitmap.asImageBitmap(),  
-                                                contentDescription = "EX装备 ${segment.equipId}",  
-                                                modifier = Modifier.size(36.dp)  
-                                            )  
-                                            Spacer(modifier = Modifier.width(8.dp))  
-                                        }  
-                                        Text(text = segment.text)  
-                                    }  
-                                }  
-                            }  
-                        }  
-                    } else {  
-                        // 普通文本模式（兼容无EX装备标记的结果）  
-                        Text(text = uiState.executionResult ?: "")  
-                    }  
-                }  
+                )  
             },  
             confirmButton = {  
                 TextButton(onClick = { viewModel.dismissResult() }) {  
@@ -168,7 +130,7 @@ fun DailyScreen(
                 }  
             }  
         )  
-    } 
+    }  
   
     // 指令编辑弹窗  
     if (showCommandDialog) {  

@@ -1,60 +1,34 @@
-package com.pcrjjc.app.util  
-  
-import android.content.Context  
-import android.graphics.Bitmap  
-import android.graphics.BitmapFactory  
-import java.io.File  
-  
-/**  
- * EX装备图标本地缓存管理  
- * 图标保存在 app 内部存储: {filesDir}/icons/ex_equip/{equipId}.png  
- */  
-object ExEquipIconStorage {  
-  
-    private const val ICON_DIR = "icons/ex_equip"  
-  
-    private fun getIconDir(context: Context): File {  
-        val dir = File(context.filesDir, ICON_DIR)  
-        if (!dir.exists()) dir.mkdirs()  
-        return dir  
-    }  
-  
-    private fun getIconFile(context: Context, equipId: Int): File {  
-        return File(getIconDir(context), "${equipId}.png")  
-    }  
-  
-    fun hasIcon(context: Context, equipId: Int): Boolean {  
-        return getIconFile(context, equipId).exists()  
-    }  
-  
-    fun getIconPath(context: Context, equipId: Int): String? {  
-        val file = getIconFile(context, equipId)  
-        return if (file.exists()) file.absolutePath else null  
-    }  
-  
-    fun saveBytes(context: Context, equipId: Int, data: ByteArray) {  
-        val file = getIconFile(context, equipId)  
-        file.writeBytes(data)  
-    }  
-  
-    fun saveBitmap(context: Context, equipId: Int, bitmap: Bitmap) {  
-        val file = getIconFile(context, equipId)  
-        file.outputStream().use { out ->  
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)  
-        }  
-    }  
-  
-    fun loadBitmap(context: Context, equipId: Int): Bitmap? {  
-        val file = getIconFile(context, equipId)  
-        if (!file.exists()) return null  
-        return BitmapFactory.decodeFile(file.absolutePath)  
-    }  
-  
-    /**  
-     * 获取已缓存的EX装备图标数量  
-     */  
-    fun getCachedCount(context: Context): Int {  
-        val dir = getIconDir(context)  
-        return dir.listFiles()?.size ?: 0  
-    }  
+package com.pcrjjc.app.util
+
+enum class Platform(val id: Int, val displayName: String) {
+    B_SERVER(0, "B服"),
+    QU_SERVER(1, "渠服"),
+    TW_SERVER(2, "台服");
+
+    companion object {
+        fun fromId(id: Int): Platform = entries.firstOrNull { it.id == id } ?: B_SERVER
+
+        fun fromPrefix(prefix: String): Platform = when (prefix) {
+            "渠" -> QU_SERVER
+            "台" -> TW_SERVER
+            else -> B_SERVER
+        }
+    }
+}
+
+enum class NoticeType(val id: Int) {
+    JJC(0),
+    PJJC(1),
+    ONLINE(2)
+}
+
+val TW_SERVER_NAMES = mapOf(
+    1 to "美食殿堂",
+    2 to "真步真步王国",
+    3 to "破晓之星",
+    4 to "小小甜心"
+)
+
+fun getTwServerName(pcrid: Int): String {
+    return TW_SERVER_NAMES[pcrid / 1000000000] ?: "未知服务器"
 }
