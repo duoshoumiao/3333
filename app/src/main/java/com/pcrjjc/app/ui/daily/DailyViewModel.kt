@@ -85,7 +85,8 @@ val DAILY_COMMANDS: List<CommandItem> = listOf(
     CommandItem("#买记忆碎片 角色 星级 专武 开买 界限突破", "分别代表:角色 星级 专武 是否购买 是否突破"),  
     CommandItem("#角色升星 星级 忽略盈余 升至最高 角色名", ""),  
     CommandItem("#角色突破 忽略盈余 角色名", "忽略盈余：碎片不溢出就不突破"),  
-    CommandItem("#pjjc自动换防", "字面意思"),  
+    CommandItem("#pjjc自动换防", "字面意思"), 
+    CommandItem("#终止换防", "停止自动换防任务"),   // ← 新增   
     CommandItem("#挂地下城支援 [星级]角色", "星级可选(3/4/5)，如：#挂好友支援 3水电"),  
     CommandItem("#挂会战支援 [星级]角色", ""),  
     CommandItem("#挂好友支援 [星级]角色", ""),  
@@ -127,7 +128,9 @@ enum class DailyPhase { LOGIN, ACCOUNTS, COMMANDS }
   
 data class DailyUiState(  
     val phase: DailyPhase = DailyPhase.LOGIN,  
-    val isLoading: Boolean = false,  
+    val isLoading: Boolean = false,
+    val isAutoDefRunning: Boolean = false,       // ← 新增  
+    val autoDefMessages: List<String> = emptyList(),  // ← 新增   
     val serverUrl: String? = null,  
     val qqInput: String = "",  
     val passwordInput: String = "",  
@@ -319,6 +322,18 @@ class DailyViewModel @Inject constructor(
 			executeDailyAll(baseUrl)  
 			return  
 		}  
+  
+		// ===== 新增：拦截 #pjjc自动换防 =====  
+		if (commandText.trim() == "#pjjc自动换防") {  
+			startAutoDefense(baseUrl, acc)  
+			return  
+		}  
+	  
+		// ===== 新增：拦截 #终止换防 =====  
+		if (commandText.trim() == "#终止换防") {  
+			stopAutoDefense(baseUrl)  
+			return  
+		}  
 	  
   
         _uiState.value = state.copy(isExecuting = true, errorMessage = null)  
@@ -418,6 +433,126 @@ class DailyViewModel @Inject constructor(
 			}  
 		}  
 	}
+	
+	private var autoDefPollJob: kotlinx.coroutines.Job? = null  
+  
+    private fun startAutoDefense(baseUrl: String, acc: String) {  
+        _uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                val result = withContext(Dispatchers.IO) {  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/pjjc_auto_def/start")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .post("{}".toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) {  
+                            val json = try { JSONObject(text) } catch (e: Exception) { null }  
+                            throw Exception(json?.optString("message") ?: text.ifBlank { "启动失败 (${resp.code})" })  
+                        }  
+                        val json = JSONObject(text)  
+                        json.optString("message", "自动换防已启动")  
+                    }  
+                }  
+  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    isAutoDefRunning = true,  
+                    executionResult = result,  
+                    showResultDialog = true  
+                )  
+  
+                pollAutoDefStatus(baseUrl)  
+  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Start auto defense failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    executionResult = "启动自动换防失败: ${e.message}",  
+                    showResultDialog = true  
+                )  
+            }  
+        }  
+    }  
+  
+    private fun stopAutoDefense(baseUrl: String) {  
+        _uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                val result = withContext(Dispatchers.IO) {  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/pjjc_auto_def/stop")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .post("{}".toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        val json = try { JSONObject(text) } catch (e: Exception) { null }  
+                        json?.optString("message") ?: text.ifBlank { if (resp.isSuccessful) "已终止" else "终止失败 (${resp.code})" }  
+                    }  
+                }  
+  
+                autoDefPollJob?.cancel()  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    isAutoDefRunning = false,  
+                    autoDefMessages = emptyList(),  
+                    executionResult = result,  
+                    showResultDialog = true  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Stop auto defense failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isExecuting = false,  
+                    executionResult = "终止自动换防失败: ${e.message}",  
+                    showResultDialog = true  
+                )  
+            }  
+        }  
+    }  
+  
+    private fun pollAutoDefStatus(baseUrl: String) {  
+        autoDefPollJob?.cancel()  
+        autoDefPollJob = viewModelScope.launch {  
+            while (_uiState.value.isAutoDefRunning) {  
+                try {  
+                    val status = withContext(Dispatchers.IO) {  
+                        val request = Request.Builder()  
+                            .url("$baseUrl/daily/api/pjjc_auto_def/status")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .get()  
+                            .build()  
+                        httpClient.newCall(request).execute().use { resp ->  
+                            val text = resp.body?.string() ?: "{}"  
+                            JSONObject(text)  
+                        }  
+                    }  
+  
+                    val running = status.optBoolean("running", false)  
+                    val messagesArr = status.optJSONArray("messages")  
+                    val messages = if (messagesArr != null) {  
+                        (0 until messagesArr.length()).map { messagesArr.optString(it, "") }  
+                    } else emptyList()  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        isAutoDefRunning = running,  
+                        autoDefMessages = messages  
+                    )  
+  
+                    if (!running) break  
+  
+                    kotlinx.coroutines.delay(5000)  
+                } catch (e: Exception) {  
+                    Log.e(TAG, "Poll auto def status failed: ${e.message}", e)  
+                    kotlinx.coroutines.delay(10000)  
+                }  
+            }  
+        }  
+    }  
 	
 	/**  
 	 * 通过 HTTP API 处理 #日常设置 命令：  
@@ -950,7 +1085,8 @@ class DailyViewModel @Inject constructor(
                 )  
             }  
             DailyPhase.ACCOUNTS -> {  
-                cookieStore.clear()  
+                autoDefPollJob?.cancel()  // ← 新增  
+				cookieStore.clear()  
                 _uiState.value = DailyUiState(serverUrl = state.serverUrl)  
             }  
             DailyPhase.LOGIN -> { /* 由 Screen 层处理导航返回 */ }  
