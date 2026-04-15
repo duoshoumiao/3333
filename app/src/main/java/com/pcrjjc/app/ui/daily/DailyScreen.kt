@@ -637,24 +637,28 @@ private fun CommandsContent(
 							.background(MaterialTheme.colorScheme.surface)  
 					) {  
 						Spacer(modifier = Modifier.height(8.dp))  
-						CronSectionHeader(  
-							expanded = showCronSection,  
-							isLoading = isLoadingCron,  
-							isSaving = isSavingCron,  
-							onToggle = onToggleCronSection,  
-							onRefresh = onRefreshCron  
+						CronSectionHeader(
+							expanded = showCronSection,
+							isLoading = isLoadingCron,
+							isSaving = isSavingCron,
+							onToggle = onToggleCronSection,
+							onRefresh = onRefreshCron,
+							listState = listState,
+							scope = scope
 						)  
 					}  
 				}  
 			} else {  
 				item {  
 					Spacer(modifier = Modifier.height(8.dp))  
-					CronSectionHeader(  
-						expanded = showCronSection,  
-						isLoading = isLoadingCron,  
-						isSaving = isSavingCron,  
-						onToggle = onToggleCronSection,  
-						onRefresh = onRefreshCron  
+					CronSectionHeader(
+						expanded = showCronSection,
+						isLoading = isLoadingCron,
+						isSaving = isSavingCron,
+						onToggle = onToggleCronSection,
+						onRefresh = onRefreshCron,
+						listState = listState,
+						scope = scope
 					)  
 				}  
 			}  
@@ -747,14 +751,17 @@ private fun CommandsContent(
   
 // ==================== 定时任务区域头部 ====================  
   
-@Composable  
-private fun CronSectionHeader(  
-    expanded: Boolean,  
-    isLoading: Boolean,  
-    isSaving: Boolean,  
-    onToggle: () -> Unit,  
-    onRefresh: () -> Unit  
-) {  
+@Composable
+private fun CronSectionHeader(
+    expanded: Boolean,
+    isLoading: Boolean,
+    isSaving: Boolean,
+    onToggle: () -> Unit,
+    onRefresh: () -> Unit,
+    // 新增这2行
+    listState: LazyListState,
+    scope: CoroutineScope
+) {
     Card(  
         modifier = Modifier  
             .fillMaxWidth()  
@@ -1157,14 +1164,17 @@ private fun CommandCard(
 
 // ==================== 日常模块区域头部 ====================  
   
-@Composable  
-private fun DailySectionHeader(  
-    expanded: Boolean,  
-    isLoading: Boolean,  
-    isSaving: Boolean,  
-    onToggle: () -> Unit,  
-    onRefresh: () -> Unit  
-) {  
+@Composable
+private fun DailySectionHeader(
+    expanded: Boolean,
+    isLoading: Boolean,
+    isSaving: Boolean,
+    onToggle: () -> Unit,
+    onRefresh: () -> Unit,
+    // 新增这2行
+    listState: LazyListState,
+    scope: CoroutineScope
+) {
     Card(  
         modifier = Modifier  
             .fillMaxWidth()  
