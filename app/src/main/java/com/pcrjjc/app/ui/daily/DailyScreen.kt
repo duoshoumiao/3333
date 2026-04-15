@@ -616,13 +616,26 @@ private fun CommandsContent(
             verticalArrangement = Arrangement.spacedBy(4.dp)  
         ) {  
             // ---- 定时任务区域 ----  
-            stickyHeader {  
-				Column(  
-					modifier = Modifier  
-						.zIndex(1f)  
-						.shadow(elevation = 4.dp)  
-						.background(MaterialTheme.colorScheme.surface)  
-				) {  
+			if (showCronSection) {  
+				stickyHeader {  
+					Column(  
+						modifier = Modifier  
+							.zIndex(1f)  
+							.shadow(elevation = 4.dp)  
+							.background(MaterialTheme.colorScheme.surface)  
+					) {  
+						Spacer(modifier = Modifier.height(8.dp))  
+						CronSectionHeader(  
+							expanded = showCronSection,  
+							isLoading = isLoadingCron,  
+							isSaving = isSavingCron,  
+							onToggle = onToggleCronSection,  
+							onRefresh = onRefreshCron  
+						)  
+					}  
+				}  
+			} else {  
+				item {  
 					Spacer(modifier = Modifier.height(8.dp))  
 					CronSectionHeader(  
 						expanded = showCronSection,  
@@ -658,13 +671,25 @@ private fun CommandsContent(
             }  
   
             // ---- 日常模块区域 ----  
-            stickyHeader {  
-				Column(  
-					modifier = Modifier  
-						.zIndex(1f)  
-						.shadow(elevation = 4.dp)  
-						.background(MaterialTheme.colorScheme.surface)  
-				) {  
+			if (showDailySection) {  
+				stickyHeader {  
+					Column(  
+						modifier = Modifier  
+							.zIndex(1f)  
+							.shadow(elevation = 4.dp)  
+							.background(MaterialTheme.colorScheme.surface)  
+					) {  
+						DailySectionHeader(  
+							expanded = showDailySection,  
+							isLoading = isLoadingDaily,  
+							isSaving = isSavingDaily,  
+							onToggle = onToggleDailySection,  
+							onRefresh = onRefreshDaily  
+						)  
+					}  
+				}  
+			} else {  
+				item {  
 					DailySectionHeader(  
 						expanded = showDailySection,  
 						isLoading = isLoadingDaily,  
@@ -673,7 +698,7 @@ private fun CommandsContent(
 						onRefresh = onRefreshDaily  
 					)  
 				}  
-			}    
+			}   
   
             item {  
                 AnimatedVisibility(  
