@@ -82,7 +82,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.draw.shadow  
 import androidx.compose.ui.zIndex
-  
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.lazy.LazyListState
+import kotlinx.coroutines.CoroutineScope  
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
 fun DailyScreen(  
