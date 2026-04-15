@@ -264,10 +264,9 @@ fun DailyScreen(
                 )  
                 DailyPhase.COMMANDS -> CommandsContent(
 					selectedAccount = uiState.selectedAccount ?: "",
-					listState = listState,
-					scope = scope,
- 
-                    onCommandClick = { cmd ->  
+					listState = listState,    
+					scope = scope,          
+					onCommandClick = { cmd -> 
                         commandDialogText = extractCommandPrefix(cmd.command)  
                         showCommandDialog = true  
                     },  
