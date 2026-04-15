@@ -79,7 +79,7 @@ import android.graphics.BitmapFactory
 import android.util.Base64  
 import androidx.compose.foundation.Image  
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.foundation.ExperimentalFoundationApi。
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.draw.shadow  
 import androidx.compose.ui.zIndex
   
