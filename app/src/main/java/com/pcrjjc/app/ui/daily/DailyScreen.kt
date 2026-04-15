@@ -79,6 +79,9 @@ import android.graphics.BitmapFactory
 import android.util.Base64  
 import androidx.compose.foundation.Image  
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.ExperimentalFoundationApi。
+import androidx.compose.ui.draw.shadow  
+import androidx.compose.ui.zIndex
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -560,6 +563,7 @@ private fun AccountsContent(
   
 // ==================== 指令列表界面 ====================  
   
+@OptIn(ExperimentalFoundationApi::class)  
 @Composable  
 private fun CommandsContent(  
     selectedAccount: String,  
@@ -612,16 +616,23 @@ private fun CommandsContent(
             verticalArrangement = Arrangement.spacedBy(4.dp)  
         ) {  
             // ---- 定时任务区域 ----  
-            item {  
-                Spacer(modifier = Modifier.height(8.dp))  
-                CronSectionHeader(  
-                    expanded = showCronSection,  
-                    isLoading = isLoadingCron,  
-                    isSaving = isSavingCron,  
-                    onToggle = onToggleCronSection,  
-                    onRefresh = onRefreshCron  
-                )  
-            }  
+            stickyHeader {  
+				Column(  
+					modifier = Modifier  
+						.zIndex(1f)  
+						.shadow(elevation = 4.dp)  
+						.background(MaterialTheme.colorScheme.surface)  
+				) {  
+					Spacer(modifier = Modifier.height(8.dp))  
+					CronSectionHeader(  
+						expanded = showCronSection,  
+						isLoading = isLoadingCron,  
+						isSaving = isSavingCron,  
+						onToggle = onToggleCronSection,  
+						onRefresh = onRefreshCron  
+					)  
+				}  
+			}  
   
             item {  
                 AnimatedVisibility(  
@@ -647,15 +658,22 @@ private fun CommandsContent(
             }  
   
             // ---- 日常模块区域 ----  
-            item {  
-                DailySectionHeader(  
-                    expanded = showDailySection,  
-                    isLoading = isLoadingDaily,  
-                    isSaving = isSavingDaily,  
-                    onToggle = onToggleDailySection,  
-                    onRefresh = onRefreshDaily  
-                )  
-            }  
+            stickyHeader {  
+				Column(  
+					modifier = Modifier  
+						.zIndex(1f)  
+						.shadow(elevation = 4.dp)  
+						.background(MaterialTheme.colorScheme.surface)  
+				) {  
+					DailySectionHeader(  
+						expanded = showDailySection,  
+						isLoading = isLoadingDaily,  
+						isSaving = isSavingDaily,  
+						onToggle = onToggleDailySection,  
+						onRefresh = onRefreshDaily  
+					)  
+				}  
+			}    
   
             item {  
                 AnimatedVisibility(  
