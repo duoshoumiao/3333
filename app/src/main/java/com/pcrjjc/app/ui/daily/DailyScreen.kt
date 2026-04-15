@@ -217,7 +217,6 @@ fun DailyScreen(
         DailyPhase.COMMANDS -> "清日常 - ${uiState.selectedAccount ?: ""}"  
     } 
 	
-	// 回到顶部滚动控制
 	val listState = rememberLazyListState()
 	val scope = rememberCoroutineScope()
   
