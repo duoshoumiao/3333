@@ -82,11 +82,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.draw.shadow  
 import androidx.compose.ui.zIndex
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -216,10 +211,7 @@ fun DailyScreen(
         DailyPhase.LOGIN -> "清日常 - 登录"  
         DailyPhase.ACCOUNTS -> "清日常 - 选择账号"  
         DailyPhase.COMMANDS -> "清日常 - ${uiState.selectedAccount ?: ""}"  
-    } 
-	
-	val listState = rememberLazyListState()
-	val scope = rememberCoroutineScope()
+    }  
   
     Scaffold(  
         topBar = {  
@@ -263,11 +255,9 @@ fun DailyScreen(
                     isLoading = uiState.isLoading,  
                     onSelectAccount = viewModel::selectAccount  
                 )  
-                DailyPhase.COMMANDS -> CommandsContent(
-					selectedAccount = uiState.selectedAccount ?: "",
-					listState = listState,    
-					scope = scope,          
-					onCommandClick = { cmd -> 
+                DailyPhase.COMMANDS -> CommandsContent(  
+                    selectedAccount = uiState.selectedAccount ?: "",  
+                    onCommandClick = { cmd ->  
                         commandDialogText = extractCommandPrefix(cmd.command)  
                         showCommandDialog = true  
                     },  
@@ -574,12 +564,10 @@ private fun AccountsContent(
 // ==================== 指令列表界面 ====================  
   
 @OptIn(ExperimentalFoundationApi::class)  
-@Composable
-private fun CommandsContent(
-    selectedAccount: String,
-    listState: LazyListState,
-    scope: CoroutineScope,
-    onCommandClick: (CommandItem) -> Unit,
+@Composable  
+private fun CommandsContent(  
+    selectedAccount: String,  
+    onCommandClick: (CommandItem) -> Unit,  
     // 定时任务相关  
     showCronSection: Boolean,  
     cronConfigs: List<CronConfig>,  
@@ -625,8 +613,7 @@ private fun CommandsContent(
         HorizontalDivider()  
   
         LazyColumn(  
-			state = listState,
-			verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)  
         ) {  
             // ---- 定时任务区域 ----  
 			if (showCronSection) {  
@@ -638,28 +625,24 @@ private fun CommandsContent(
 							.background(MaterialTheme.colorScheme.surface)  
 					) {  
 						Spacer(modifier = Modifier.height(8.dp))  
-						CronSectionHeader(
-							expanded = showCronSection,
-							isLoading = isLoadingCron,
-							isSaving = isSavingCron,
-							onToggle = onToggleCronSection,
-							onRefresh = onRefreshCron,
-							listState = listState,
-							scope = scope
+						CronSectionHeader(  
+							expanded = showCronSection,  
+							isLoading = isLoadingCron,  
+							isSaving = isSavingCron,  
+							onToggle = onToggleCronSection,  
+							onRefresh = onRefreshCron  
 						)  
 					}  
 				}  
 			} else {  
 				item {  
 					Spacer(modifier = Modifier.height(8.dp))  
-					CronSectionHeader(
-						expanded = showCronSection,
-						isLoading = isLoadingCron,
-						isSaving = isSavingCron,
-						onToggle = onToggleCronSection,
-						onRefresh = onRefreshCron,
-						listState = listState,
-						scope = scope
+					CronSectionHeader(  
+						expanded = showCronSection,  
+						isLoading = isLoadingCron,  
+						isSaving = isSavingCron,  
+						onToggle = onToggleCronSection,  
+						onRefresh = onRefreshCron  
 					)  
 				}  
 			}  
@@ -752,28 +735,18 @@ private fun CommandsContent(
   
 // ==================== 定时任务区域头部 ====================  
   
-@Composable
-private fun CronSectionHeader(
-    expanded: Boolean,
-    isLoading: Boolean,
-    isSaving: Boolean,
-    onToggle: () -> Unit,
-    onRefresh: () -> Unit,
-    // 新增这2行
-    listState: LazyListState,
-    scope: CoroutineScope
-) {
+@Composable  
+private fun CronSectionHeader(  
+    expanded: Boolean,  
+    isLoading: Boolean,  
+    isSaving: Boolean,  
+    onToggle: () -> Unit,  
+    onRefresh: () -> Unit  
+) {  
     Card(  
         modifier = Modifier  
             .fillMaxWidth()  
-            .clickable {
-				onToggle()
-				if (expanded) {
-					scope.launch {
-						listState.animateScrollToItem(0)
-					}
-				}
-			}, 
+            .clickable(onClick = onToggle),  
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
         colors = CardDefaults.cardColors(  
             containerColor = MaterialTheme.colorScheme.secondaryContainer  
@@ -1165,28 +1138,18 @@ private fun CommandCard(
 
 // ==================== 日常模块区域头部 ====================  
   
-@Composable
-private fun DailySectionHeader(
-    expanded: Boolean,
-    isLoading: Boolean,
-    isSaving: Boolean,
-    onToggle: () -> Unit,
-    onRefresh: () -> Unit,
-    // 新增这2行
-    listState: LazyListState,
-    scope: CoroutineScope
-) {
+@Composable  
+private fun DailySectionHeader(  
+    expanded: Boolean,  
+    isLoading: Boolean,  
+    isSaving: Boolean,  
+    onToggle: () -> Unit,  
+    onRefresh: () -> Unit  
+) {  
     Card(  
         modifier = Modifier  
             .fillMaxWidth()  
-            .clickable {
-				onToggle()
-				if (expanded) {
-					scope.launch {
-						listState.animateScrollToItem(0)
-					}
-				}
-			},  
+            .clickable(onClick = onToggle),  
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
         colors = CardDefaults.cardColors(  
             containerColor = MaterialTheme.colorScheme.tertiaryContainer  
