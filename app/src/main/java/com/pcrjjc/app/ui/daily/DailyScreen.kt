@@ -85,7 +85,8 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.lazy.LazyListState
-import kotlinx.coroutines.CoroutineScope  
+import kotlinx.coroutines.CoroutineScope
+  
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
 fun DailyScreen(  
@@ -215,9 +216,10 @@ fun DailyScreen(
         DailyPhase.ACCOUNTS -> "清日常 - 选择账号"  
         DailyPhase.COMMANDS -> "清日常 - ${uiState.selectedAccount ?: ""}"  
     } 
-
-    val commandsListState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
+	
+	// 回到顶部滚动控制
+	val listState = rememberLazyListState()
+	val scope = rememberCoroutineScope()
   
     Scaffold(  
         topBar = {  
@@ -261,16 +263,15 @@ fun DailyScreen(
                     isLoading = uiState.isLoading,  
                     onSelectAccount = viewModel::selectAccount  
                 )  
-                                DailyPhase.COMMANDS -> CommandsContent(  
-                    selectedAccount = uiState.selectedAccount ?: "",  
+                DailyPhase.COMMANDS -> CommandsContent(
+					selectedAccount = uiState.selectedAccount ?: "",
+					listState = listState,
+					scope = scope,
+ 
                     onCommandClick = { cmd ->  
                         commandDialogText = extractCommandPrefix(cmd.command)  
                         showCommandDialog = true  
                     },  
-                    // ========== 新增：传递滚动状态 ==========
-                    commandsListState = commandsListState,
-                    coroutineScope = coroutineScope,
-                    // ========== 新增结束 ==========
                     // 定时任务相关  
                     showCronSection = uiState.showCronSection,  
                     cronConfigs = uiState.cronConfigs,  
@@ -294,7 +295,7 @@ fun DailyScreen(
                     onUpdateDailyConfig = viewModel::updateDailyConfig,  
                     onUpdateDailyConfigList = viewModel::updateDailyConfigList,  
                     onExpandDailyModule = viewModel::expandDailyModule  
-                )    
+                )  
             }  
   
             // 执行中遮罩  
@@ -531,8 +532,7 @@ private fun AccountsContent(
         LazyColumn(  
             modifier = Modifier  
                 .fillMaxSize()  
-                .padding(16.dp)
-                .state = commandsListState,				
+                .padding(16.dp),  
             verticalArrangement = Arrangement.spacedBy(8.dp)  
         ) {  
             items(accounts) { account ->  
@@ -575,12 +575,12 @@ private fun AccountsContent(
 // ==================== 指令列表界面 ====================  
   
 @OptIn(ExperimentalFoundationApi::class)  
-@Composable  
-private fun CommandsContent(  
-    selectedAccount: String,  
-    onCommandClick: (CommandItem) -> Unit,  
-    commandsListState: LazyListState,
-    coroutineScope: CoroutineScope,
+@Composable
+private fun CommandsContent(
+    selectedAccount: String,
+    listState: LazyListState,
+    scope: CoroutineScope,
+    onCommandClick: (CommandItem) -> Unit,
     // 定时任务相关  
     showCronSection: Boolean,  
     cronConfigs: List<CronConfig>,  
@@ -625,9 +625,9 @@ private fun CommandsContent(
         Spacer(modifier = Modifier.height(12.dp))  
         HorizontalDivider()  
   
-        LazyColumn( 
-			state = listState,  
-            verticalArrangement = Arrangement.spacedBy(4.dp)  
+        LazyColumn(  
+			state = listState,
+			verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {  
             // ---- 定时任务区域 ----  
 			if (showCronSection) {  
@@ -760,14 +760,14 @@ private fun CronSectionHeader(
     Card(  
         modifier = Modifier  
             .fillMaxWidth()  
-            .clickable(onClick = {
+            .clickable {
 				onToggle()
 				if (expanded) {
 					scope.launch {
 						listState.animateScrollToItem(0)
 					}
 				}
-			}),  
+			}, 
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
         colors = CardDefaults.cardColors(  
             containerColor = MaterialTheme.colorScheme.secondaryContainer  
@@ -1170,14 +1170,14 @@ private fun DailySectionHeader(
     Card(  
         modifier = Modifier  
             .fillMaxWidth()  
-            .clickable(onClick = {
+            .clickable {
 				onToggle()
 				if (expanded) {
 					scope.launch {
 						listState.animateScrollToItem(0)
 					}
 				}
-			}),  
+			},  
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
         colors = CardDefaults.cardColors(  
             containerColor = MaterialTheme.colorScheme.tertiaryContainer  
