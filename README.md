@@ -3,7 +3,10 @@
 [httpserver.py](https://github.com/user-attachments/files/26810006/httpserver.py)
 
 [command_relay.py](https://github.com/user-attachments/files/26810005/command_relay.py)
+## 打包准备
+在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
 
+[__init__.py]（https://github.com/user-attachments/files/26810722/__init__.py）  
 # 个人库，不建议商用，有问题不要找我。没有自己的bot下载也用不了，高度搭配使用的
 
 # 竞技场查询 Android 应用
@@ -77,10 +80,7 @@ app/src/main/java/com/pcrjjc/app/
 ```bash
 ./gradlew assembleDebug
 ```
-## 打包准备
-在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
-[__init__.py](https://github.com/user-attachments/files/26810722/__init__.py)
-# do nothing
+
 
 
 ## 原库
