@@ -18,15 +18,17 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
   
 class SettingsDataStore(private val context: Context) {  
   
-    companion object {  
-        private val KEY_POLLING_INTERVAL = longPreferencesKey("polling_interval_seconds")  
-        private val KEY_MONITORING_ENABLED = booleanPreferencesKey("is_monitoring_enabled")  
-        private val KEY_SERVER_IP = stringPreferencesKey("server_ip")  
-        private val KEY_SERVER_PORT = stringPreferencesKey("server_port")  
-        private val KEY_DAILY_SAVED_ACCOUNTS = stringPreferencesKey("daily_saved_accounts")  
-		private val KEY_DAILY_SERVER_IP = stringPreferencesKey("daily_server_ip")  
+companion object {
+        private val KEY_POLLING_INTERVAL = longPreferencesKey("polling_interval_seconds")
+        private val KEY_MONITORING_ENABLED = booleanPreferencesKey("is_monitoring_enabled")
+        private val KEY_SERVER_IP = stringPreferencesKey("server_ip")
+        private val KEY_SERVER_PORT = stringPreferencesKey("server_port")
+        private val KEY_DAILY_SAVED_ACCOUNTS = stringPreferencesKey("daily_saved_accounts")
+		private val KEY_DAILY_SERVER_IP = stringPreferencesKey("daily_server_ip")
         private val KEY_DAILY_SERVER_PORT = stringPreferencesKey("daily_server_port")
-    }  
+        private val KEY_LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
+        private val KEY_NOTIFIED_VERSION = stringPreferencesKey("notified_version")
+    }
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->  
         prefs[KEY_POLLING_INTERVAL] ?: 1L  
@@ -152,16 +154,38 @@ class SettingsDataStore(private val context: Context) {
         writeDailyAccounts(accounts)  
     }  
   
-    private suspend fun writeDailyAccounts(accounts: List<Pair<String, String>>) {  
-        val arr = JSONArray()  
-        accounts.forEach { (qq, password) ->  
-            arr.put(JSONObject().apply {  
-                put("qq", qq)  
-                put("password", password)  
-            })  
-        }  
-        context.dataStore.edit { prefs ->  
-            prefs[KEY_DAILY_SAVED_ACCOUNTS] = arr.toString()  
-        }  
-    }  
+private suspend fun writeDailyAccounts(accounts: List<Pair<String, String>>) {
+        val arr = JSONArray()
+        accounts.forEach { (qq, password) ->
+            arr.put(JSONObject().apply {
+                put("qq", qq)
+                put("password", password)
+            })
+        }
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DAILY_SAVED_ACCOUNTS] = arr.toString()
+        }
+    }
+
+    // ==================== 更新检查相关 ====================
+
+    suspend fun getLastUpdateCheckTimeSync(): Long {
+        return context.dataStore.data.first()[KEY_LAST_UPDATE_CHECK_TIME] ?: 0L
+    }
+
+    suspend fun setLastUpdateCheckTime(time: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_LAST_UPDATE_CHECK_TIME] = time
+        }
+    }
+
+    suspend fun getNotifiedVersionSync(): String? {
+        return context.dataStore.data.first()[KEY_NOTIFIED_VERSION]
+    }
+
+    suspend fun setNotifiedVersion(version: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_NOTIFIED_VERSION] = version
+        }
+    }
 }

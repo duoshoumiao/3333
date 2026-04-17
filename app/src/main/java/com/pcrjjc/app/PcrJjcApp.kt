@@ -7,8 +7,9 @@ import android.content.Intent
 import android.os.Build  
 import androidx.hilt.work.HiltWorkerFactory  
 import androidx.work.Configuration  
-import com.pcrjjc.app.data.local.SettingsDataStore  
-import com.pcrjjc.app.service.RankMonitorService  
+import com.pcrjjc.app.data.local.SettingsDataStore
+import com.pcrjjc.app.service.RankMonitorService
+import com.pcrjjc.app.service.UpdateCheckWorker
 import dagger.hilt.android.HiltAndroidApp  
 import kotlinx.coroutines.CoroutineScope  
 import kotlinx.coroutines.Dispatchers  
@@ -24,32 +25,37 @@ class PcrJjcApp : Application(), Configuration.Provider {
     @Inject  
     lateinit var settingsDataStore: SettingsDataStore  
   
-    override fun onCreate() {  
-        super.onCreate()  
-        createNotificationChannels()  
-        restoreMonitoringState()  
-    }  
+override fun onCreate() {
+        super.onCreate()
+        createNotificationChannels()
+        restoreMonitoringState()
+        scheduleDailyUpdateCheck()
+    }
   
     override val workManagerConfiguration: Configuration  
         get() = Configuration.Builder()  
             .setWorkerFactory(workerFactory)  
             .build()  
   
-    private fun restoreMonitoringState() {  
-        CoroutineScope(Dispatchers.IO).launch {  
-            val enabled = settingsDataStore.isMonitoringEnabledSync()  
-            if (enabled) {  
-                val interval = settingsDataStore.getPollingIntervalSync()  
-                val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)  
-                intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
-                    startForegroundService(intent)  
-                } else {  
-                    startService(intent)  
-                }  
-            }  
-        }  
-    }  
+private fun restoreMonitoringState() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val enabled = settingsDataStore.isMonitoringEnabledSync()
+            if (enabled) {
+                val interval = settingsDataStore.getPollingIntervalSync()
+                val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)
+                intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+            }
+        }
+    }
+
+    private fun scheduleDailyUpdateCheck() {
+        UpdateCheckWorker.scheduleDaily(this)
+    }
   
     private fun createNotificationChannels() {  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {  
