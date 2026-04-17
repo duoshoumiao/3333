@@ -10,8 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column  
 import androidx.compose.foundation.layout.ExperimentalLayoutApi  
 import androidx.compose.foundation.layout.FlowRow  
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Row  
 import androidx.compose.foundation.layout.Spacer  
 import androidx.compose.foundation.layout.fillMaxSize  
 import androidx.compose.foundation.layout.fillMaxWidth  
@@ -1354,18 +1353,28 @@ private fun DailyModuleCard(
     }  
 }  
   
-// ==================== 单个配置项渲染 ====================  
-  
-@OptIn(ExperimentalLayoutApi::class)  
-@Composable  
-private fun DailyConfigItemView(  
-    config: DailyConfigEntry,  
-    onUpdateConfig: (String, Any) -> Unit,  
-    onUpdateConfigList: (String, List<Any?>) -> Unit  
-) {  
-    Column(modifier = Modifier.fillMaxWidth()) {  
-        when (config.configType) {  
-            "bool" -> {  
+// ==================== 单个配置项渲染 ====================
+
+private const val MAX_VISIBLE_CANDIDATES = 15  // 最多显示的候选值数量，超过后需要展开
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DailyConfigItemView(
+    config: DailyConfigEntry,
+    onUpdateConfig: (String, Any) -> Unit,
+    onUpdateConfigList: (String, List<Any?>) -> Unit
+) {
+    var showAllCandidates by remember { mutableStateOf(false) }
+    val visibleCandidates = if (config.candidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates) {
+        config.candidates.take(MAX_VISIBLE_CANDIDATES)
+    } else {
+        config.candidates
+    }
+    val hasMoreCandidates = config.candidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when (config.configType) {
+            "bool" -> {
                 Row(  
                     modifier = Modifier.fillMaxWidth(),  
                     verticalAlignment = Alignment.CenterVertically  
@@ -1404,32 +1413,37 @@ private fun DailyConfigItemView(
                 )  
             }  
   
-            "int" -> {  
-                Text(  
-                    text = config.desc,  
-                    style = MaterialTheme.typography.bodyMedium  
-                )  
-                Spacer(modifier = Modifier.height(4.dp))  
-                if (config.candidates.isNotEmpty()) {  
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
-                        config.candidates.forEach { cand ->  
-                            val currentVal = config.currentValue?.toString()  
-                            val candVal = cand.value?.toString()  
-                            FilterChip(  
-                                selected = currentVal == candVal,  
-                                onClick = {  
-                                    val v = when (cand.value) {  
-                                        is Number -> cand.value  
-                                        is String -> cand.value.toIntOrNull() ?: cand.value  
-                                        else -> cand.value ?: 0  
-                                    }  
-                                    onUpdateConfig(config.key, v)  
-                                },  
-                                label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
-                            )  
-                        }  
-                    }  
-                } else {  
+"int" -> {
+                Text(
+                    text = config.desc,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                if (config.candidates.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        visibleCandidates.forEach { cand ->
+                            val currentVal = config.currentValue?.toString()
+                            val candVal = cand.value?.toString()
+                            FilterChip(
+                                selected = currentVal == candVal,
+                                onClick = {
+                                    val v = when (cand.value) {
+                                        is Number -> cand.value
+                                        is String -> cand.value.toIntOrNull() ?: cand.value
+                                        else -> cand.value ?: 0
+                                    }
+                                    onUpdateConfig(config.key, v)
+                                },
+                                label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }
+                            )
+                        }
+                    }
+                    if (hasMoreCandidates) {
+                        TextButton(onClick = { showAllCandidates = true }) {
+                            Text("展开更多 (${config.candidates.size - MAX_VISIBLE_CANDIDATES} more)", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else {
                     var intText by remember(config.currentValue) {  
                         mutableStateOf((config.currentValue ?: config.default ?: "").toString())  
                     }  
@@ -1449,64 +1463,74 @@ private fun DailyConfigItemView(
                 }  
             }  
   
-            "single" -> {  
-                Text(  
-                    text = config.desc,  
-                    style = MaterialTheme.typography.bodyMedium  
-                )  
-                Spacer(modifier = Modifier.height(4.dp))  
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
-                    config.candidates.forEach { cand ->  
-                        val currentVal = config.currentValue?.toString()  
-                        val candVal = cand.value?.toString()  
-                        FilterChip(  
-                            selected = currentVal == candVal,  
-                            onClick = { cand.value?.let { onUpdateConfig(config.key, it) } },  
-                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
-                        )  
-                    }  
-                }  
-            }  
+"single" -> {
+                Text(
+                    text = config.desc,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    visibleCandidates.forEach { cand ->
+                        val currentVal = config.currentValue?.toString()
+                        val candVal = cand.value?.toString()
+                        FilterChip(
+                            selected = currentVal == candVal,
+                            onClick = { cand.value?.let { onUpdateConfig(config.key, it) } },
+                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }
+                        )
+                    }
+                }
+                if (hasMoreCandidates) {
+                    TextButton(onClick = { showAllCandidates = true }) {
+                        Text("展开更多 (${config.candidates.size - MAX_VISIBLE_CANDIDATES} more)", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
   
-            "multi", "multi_search" -> {  
-                Text(  
-                    text = config.desc,  
-                    style = MaterialTheme.typography.bodyMedium  
-                )  
-                Spacer(modifier = Modifier.height(4.dp))  
-                // currentValue 是 JSONArray 或 List  
-                val selectedValues = remember(config.currentValue) {  
-                    when (val cv = config.currentValue) {  
-                        is List<*> -> cv.map { it.toString() }.toSet()  
-                        is org.json.JSONArray -> {  
-                            (0 until cv.length()).map { cv.get(it).toString() }.toSet()  
-                        }  
-                        else -> emptySet()  
-                    }  
-                }  
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
-                    config.candidates.forEach { cand ->  
-                        val candStr = cand.value?.toString() ?: ""  
-                        val selected = selectedValues.contains(candStr)  
-                        FilterChip(  
-                            selected = selected,  
-                            onClick = {  
-                                val newSet = if (selected) {  
-                                    selectedValues - candStr  
-                                } else {  
-                                    selectedValues + candStr  
-                                }  
-                                // 保持原始类型：尝试转回数字  
-                                val newList = newSet.map { s ->  
-                                    s.toIntOrNull() ?: s.toDoubleOrNull() ?: s  
-                                }  
-                                onUpdateConfigList(config.key, newList)  
-                            },  
-                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
-                        )  
-                    }  
-                }  
-            }  
+"multi", "multi_search" -> {
+                Text(
+                    text = config.desc,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                // currentValue 是 JSONArray 或 List
+                val selectedValues = remember(config.currentValue) {
+                    when (val cv = config.currentValue) {
+                        is List<*> -> cv.map { it.toString() }.toSet()
+                        is org.json.JSONArray -> {
+                            (0 until cv.length()).map { cv.get(it).toString() }.toSet()
+                        }
+                        else -> emptySet()
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    visibleCandidates.forEach { cand ->
+                        val candStr = cand.value?.toString() ?: ""
+                        val selected = selectedValues.contains(candStr)
+                        FilterChip(
+                            selected = selected,
+                            onClick = {
+                                val newSet = if (selected) {
+                                    selectedValues - candStr
+                                } else {
+                                    selectedValues + candStr
+                                }
+                                // 保持原始类型：尝试转回数字
+                                val newList = newSet.map { s ->
+                                    s.toIntOrNull() ?: s.toDoubleOrNull() ?: s
+                                }
+                                onUpdateConfigList(config.key, newList)
+                            },
+                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }
+                        )
+                    }
+                }
+                if (hasMoreCandidates) {
+                    TextButton(onClick = { showAllCandidates = true }) {
+                        Text("展开更多 (${config.candidates.size - MAX_VISIBLE_CANDIDATES} more)", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
   
             "time" -> {  
                 Row(  
@@ -1542,59 +1566,13 @@ private fun DailyConfigItemView(
                 }  
             }  
   
-else -> {
-                Text(
-                    text = "${config.desc}: ${config.currentValue ?: config.default ?: ""}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        // 子选项展开/收起
-        if (config.subConfigs.isNotEmpty()) {
-            var isSubExpanded by remember { mutableStateOf(false) }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(modifier = Modifier.weight(1f))
-                TextButton(
-                    onClick = { isSubExpanded = !isSubExpanded },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                ) {
-                    Text(
-                        text = if (isSubExpanded) "收起子选项" else "展开子选项",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Icon(
-                        imageVector = if (isSubExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = isSubExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
-                    config.subConfigs.forEach { subCfg ->
-                        DailyConfigItemView(
-                            config = subCfg,
-                            onUpdateConfig = onUpdateConfig,
-                            onUpdateConfigList = onUpdateConfigList
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-                }
-            }
-        }
-    }
+            else -> {  
+                Text(  
+                    text = "${config.desc}: ${config.currentValue ?: config.default ?: ""}",  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+            }  
+        }  
+    }  
 }
