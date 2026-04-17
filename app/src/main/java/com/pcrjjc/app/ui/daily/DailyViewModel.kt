@@ -121,14 +121,15 @@ data class DailyCandidateEntry(
     val tags: List<String> = emptyList()  
 )  
   
-data class DailyConfigEntry(  
-    val key: String,  
-    val desc: String,  
-    val configType: String,       // bool / int / single / multi / multi_search / text / time  
-    val default: Any? = null,  
-    val currentValue: Any? = null,  
-    val candidates: List<DailyCandidateEntry> = emptyList()  
-)  
+data class DailyConfigEntry(
+    val key: String,
+    val desc: String,
+    val configType: String,       // bool / int / single / multi / multi_search / text / time
+    val default: Any? = null,
+    val currentValue: Any? = null,
+    val candidates: List<DailyCandidateEntry> = emptyList(),
+    val subConfigs: List<DailyConfigEntry> = emptyList()  // 子选项配置
+)
   
 data class DailyModuleItem(  
     val key: String,  

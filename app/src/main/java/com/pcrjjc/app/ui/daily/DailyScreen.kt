@@ -10,7 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column  
 import androidx.compose.foundation.layout.ExperimentalLayoutApi  
 import androidx.compose.foundation.layout.FlowRow  
-import androidx.compose.foundation.layout.Row  
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer  
 import androidx.compose.foundation.layout.fillMaxSize  
 import androidx.compose.foundation.layout.fillMaxWidth  
@@ -1541,13 +1542,59 @@ private fun DailyConfigItemView(
                 }  
             }  
   
-            else -> {  
-                Text(  
-                    text = "${config.desc}: ${config.currentValue ?: config.default ?: ""}",  
-                    style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.onSurfaceVariant  
-                )  
-            }  
-        }  
-    }  
+else -> {
+                Text(
+                    text = "${config.desc}: ${config.currentValue ?: config.default ?: ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // 子选项展开/收起
+        if (config.subConfigs.isNotEmpty()) {
+            var isSubExpanded by remember { mutableStateOf(false) }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = { isSubExpanded = !isSubExpanded },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = if (isSubExpanded) "收起子选项" else "展开子选项",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Icon(
+                        imageVector = if (isSubExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = isSubExpanded,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
+                    config.subConfigs.forEach { subCfg ->
+                        DailyConfigItemView(
+                            config = subCfg,
+                            onUpdateConfig = onUpdateConfig,
+                            onUpdateConfigList = onUpdateConfigList
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
+            }
+        }
+    }
 }
