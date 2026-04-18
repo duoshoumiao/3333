@@ -159,14 +159,15 @@ private fun PersonalInfoCard(uiState: DetailUiState) {
         modifier = Modifier.fillMaxWidth(),  
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)  
     ) {  
-        Column(modifier = Modifier.padding(16.dp)) {  
-            Text(text = uiState.userName, style = MaterialTheme.typography.headlineSmall)  
-            Spacer(modifier = Modifier.height(8.dp))  
-            InfoRow("UID", "${uiState.bind?.pcrid}")  
-            if (uiState.viewerId.isNotEmpty()) {  
-                InfoRow("Viewer ID", uiState.viewerId)  
-            }  
-            InfoRow("等级", "${uiState.teamLevel}")  
+Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = uiState.userName, style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            // 显示绑定名称（优先）或UID
+            InfoRow("绑定", uiState.bind?.name ?: "${uiState.bind?.pcrid}")
+            if (uiState.viewerId.isNotEmpty()) {
+                InfoRow("Viewer ID", uiState.viewerId)
+            }
+            InfoRow("等级", "${uiState.teamLevel}")
             InfoRow("全角色战力", "${uiState.totalPower}")  
             InfoRow("角色数", "${uiState.unitNum}")  
             if (uiState.clanName.isNotEmpty()) {  
