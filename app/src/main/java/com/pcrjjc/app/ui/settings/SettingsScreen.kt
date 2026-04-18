@@ -438,69 +438,10 @@ fun SettingsScreen(
                         }    
                     }    
                 }    
-            }    
-  
-            // ========== 检查更新 / 关于 Card ==========    
-            Card(    
-                modifier = Modifier.fillMaxWidth(),    
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)    
-            ) {    
-                Column(modifier = Modifier.padding(16.dp)) {    
-                    Text("关于", style = MaterialTheme.typography.titleMedium)    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Text(    
-                        text = "当前版本: v${BuildConfig.VERSION_NAME}",    
-                        style = MaterialTheme.typography.bodySmall,    
-                        color = MaterialTheme.colorScheme.onSurfaceVariant    
-                    )    
-                    Spacer(modifier = Modifier.height(12.dp))    
-  
-                    Button(    
-                        onClick = { viewModel.checkForUpdate() },    
-                        modifier = Modifier.fillMaxWidth(),    
-                        enabled = !uiState.isCheckingUpdate && !uiState.isDownloading    
-                    ) {    
-                        if (uiState.isCheckingUpdate) {    
-                            CircularProgressIndicator(    
-                                modifier = Modifier.size(20.dp),    
-                                strokeWidth = 2.dp    
-                            )    
-                            Spacer(modifier = Modifier.width(8.dp))    
-                        }    
-                        Text("检查更新")    
-                    }    
-  
-                    if (uiState.isDownloading) {    
-                        Spacer(modifier = Modifier.height(8.dp))    
-                        LinearProgressIndicator(    
-                            progress = { uiState.downloadProgress },    
-                            modifier = Modifier.fillMaxWidth()    
-                        )    
-                    }    
-  
-                    uiState.updateMessage?.let { msg ->    
-                        Spacer(modifier = Modifier.height(8.dp))    
-                        Text(    
-                            text = msg,    
-                            style = MaterialTheme.typography.bodySmall,    
-                            color = MaterialTheme.colorScheme.onSurfaceVariant    
-                        )    
-                    }    
-  
-                    if (uiState.updateInfo != null && !uiState.isDownloading) {    
-                        Spacer(modifier = Modifier.height(8.dp))    
-                        Button(    
-                            onClick = { viewModel.downloadAndInstall() },    
-                            modifier = Modifier.fillMaxWidth()    
-                        ) {    
-                            Text("下载并安装 v${uiState.updateInfo!!.versionName}")    
-                        }    
-                    }    
-                }    
-            }    
-        }    
-    }    
-}    
+}
+        }
+    }
+}
   
 @Composable    
 private fun NoticeCheckbox(    
