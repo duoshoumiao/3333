@@ -1,97 +1,214 @@
-package com.pcrjjc.app  
-  
-import android.Manifest  
-import android.content.Intent  
-import android.content.pm.PackageManager  
-import android.net.Uri  
-import android.os.Build  
-import android.os.Bundle  
-import android.widget.Toast  
-import androidx.activity.ComponentActivity  
-import androidx.activity.compose.setContent  
-import androidx.activity.result.contract.ActivityResultContracts  
-import androidx.compose.foundation.layout.Column  
-import androidx.compose.foundation.layout.Spacer  
-import androidx.compose.foundation.layout.fillMaxSize  
-import androidx.compose.foundation.layout.fillMaxWidth  
-import androidx.compose.foundation.layout.height  
-import androidx.compose.foundation.layout.size  
-import androidx.compose.material3.AlertDialog  
-import androidx.compose.material3.Button  
-import androidx.compose.material3.CircularProgressIndicator  
-import androidx.compose.material3.MaterialTheme  
-import androidx.compose.material3.OutlinedTextField  
-import androidx.compose.material3.Surface  
-import androidx.compose.material3.Text  
-import androidx.compose.material3.TextButton  
-import androidx.compose.runtime.Composable  
-import androidx.compose.runtime.collectAsState  
-import androidx.compose.runtime.getValue  
-import androidx.compose.runtime.mutableStateOf  
-import androidx.compose.runtime.remember  
-import androidx.compose.runtime.rememberCoroutineScope  
-import androidx.compose.runtime.setValue  
-import androidx.compose.ui.Alignment  
-import androidx.compose.ui.Modifier  
-import androidx.compose.ui.platform.LocalContext  
-import androidx.compose.ui.unit.dp  
-import androidx.core.content.ContextCompat  
-import com.pcrjjc.app.domain.CaptchaManager  
-import com.pcrjjc.app.domain.CaptchaRequest  
-import com.pcrjjc.app.domain.ClientManager  
-import com.pcrjjc.app.ui.navigation.PcrJjcNavHost  
-import com.pcrjjc.app.ui.theme.PcrJjcTheme  
-import dagger.hilt.android.AndroidEntryPoint  
-import kotlinx.coroutines.launch  
-import javax.inject.Inject  
-  
-@AndroidEntryPoint  
-class MainActivity : ComponentActivity() {  
-  
-    @Inject  
-    lateinit var clientManager: ClientManager  
-  
-    @Inject  
-    lateinit var captchaManager: CaptchaManager  
-  
-    private val requestPermissionLauncher =  
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _: Boolean ->  
-        }  
-  
-    override fun onCreate(savedInstanceState: Bundle?) {  
-        super.onCreate(savedInstanceState)  
-        requestNotificationPermission()  
-        parseCaptchaFromIntent(intent)  
-  
-        setContent {  
-            PcrJjcTheme {  
-                Surface(  
-                    modifier = Modifier.fillMaxSize(),  
-                    color = MaterialTheme.colorScheme.background  
-                ) {  
-                    PcrJjcNavHost()  
-  
-                    // 手动过码对话框覆盖层（全局）  
-                    val captchaRequest by captchaManager.pendingCaptcha.collectAsState()  
-                    captchaRequest?.let { data ->  
-                        ManualCaptchaDialog(  
-                            captchaRequest = data,  
-                            clientManager = clientManager,  
-                            onDismiss = { captchaManager.clearCaptcha() },  
-                            onSuccess = {  
-                                captchaManager.clearCaptcha()  
-                                Toast.makeText(  
-                                    this@MainActivity,  
-                                    "手动过码成功，登录完成",  
-                                    Toast.LENGTH_SHORT  
-                                ).show()  
-                            }  
-                        )  
-                    }  
-                }  
-            }  
-        }  
-    }  
+package com.pcrjjc.app
+
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.pcrjjc.app.BuildConfig
+import com.pcrjjc.app.domain.CaptchaManager
+import com.pcrjjc.app.domain.CaptchaRequest
+import com.pcrjjc.app.domain.ClientManager
+import com.pcrjjc.app.domain.UpdateChecker
+import com.pcrjjc.app.domain.UpdateInfo
+import com.pcrjjc.app.ui.navigation.PcrJjcNavHost
+import com.pcrjjc.app.ui.theme.PcrJjcTheme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var clientManager: ClientManager
+
+    @Inject
+    lateinit var captchaManager: CaptchaManager
+
+    @Inject
+    lateinit var settingsDataStore: SettingsDataStore
+
+    @Inject
+    lateinit var updateChecker: UpdateChecker
+
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _: Boolean ->
+        }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestNotificationPermission()
+        parseCaptchaFromIntent(intent)
+
+        setContent {
+            PcrJjcTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    PcrJjcNavHost()
+
+                    // 手动过码对话框覆盖层（全局）
+                    val captchaRequest by captchaManager.pendingCaptcha.collectAsState()
+                    captchaRequest?.let { data ->
+                        ManualCaptchaDialog(
+                            captchaRequest = data,
+                            clientManager = clientManager,
+                            onDismiss = { captchaManager.clearCaptcha() },
+                            onSuccess = {
+                                captchaManager.clearCaptcha()
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "手动过码成功，登录完成",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
+
+                    // 更新提醒对话框
+                    UpdateDialog()
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun UpdateDialog() {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+        var isDownloading by remember { mutableStateOf(false) }
+        var downloadProgress by remember { mutableStateOf(0f) }
+        val prefs = context.getSharedPreferences("update_prefs", android.content.Context.MODE_PRIVATE)
+
+        LaunchedEffect(Unit) {
+            val today = System.currentTimeMillis() / (24 * 60 * 60 * 1000)
+            val notifiedDate = prefs.getLong("notified_date", 0)
+
+            // 如果今天已经提醒过，不检查
+            if (notifiedDate == today) {
+                return@LaunchedEffect
+            }
+
+            // 检查更新
+            try {
+                val info = updateChecker.checkForUpdate(BuildConfig.VERSION_NAME)
+                updateInfo = info
+            } catch (e: Exception) {
+                // 检查失败，静默处理
+            }
+        }
+
+        updateInfo?.let { info ->
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("发现新版本 v${info.versionName}") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            "更新内容：",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            info.releaseNotes.ifBlank { "点击立即更新" },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (isDownloading) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LinearProgressIndicator(
+                                progress = { downloadProgress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                "正在下载... ${(downloadProgress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (!isDownloading) {
+                                isDownloading = true
+                                scope.launch {
+                                    try {
+                                        val file = updateChecker.downloadApk(info.downloadUrl) { progress ->
+                                            downloadProgress = progress
+                                        }
+                                        if (file != null) {
+                                            updateChecker.installApk(file)
+                                        } else {
+                                            Toast.makeText(context, "下载失败", Toast.LENGTH_SHORT).show()
+                                            isDownloading = false
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        isDownloading = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isDownloading
+                    ) {
+                        Text(if (isDownloading) "下载中..." else "立即更新")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            // 记录今日不提醒
+                            prefs.edit()
+                                .putLong("notified_date", System.currentTimeMillis() / (24 * 60 * 60 * 1000))
+                                .putString("notified_version", info.versionName)
+                                .apply()
+                            updateInfo = null
+                        }
+                    ) {
+                        Text("今日不提醒")
+                    }
+                }
+            )
+        }
+    }
   
     override fun onNewIntent(intent: Intent) {  
         super.onNewIntent(intent)  
