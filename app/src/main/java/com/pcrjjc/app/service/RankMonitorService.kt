@@ -113,19 +113,19 @@ class RankMonitorService : Service() {
                     if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  
                     } else {  
-                        coroutineScope {  
-                            accounts.map { account ->  
-                                async {  
-                                    try {  
-                                        val binds = bindDao.getBindsByPlatformSync(account.platform)  
-                                        if (binds.isEmpty()) return@async  
-  
-                                        val client = clientManager.getClient(account)  
-  
-                                        queryEngine.queryAll(binds, client) { result ->  
-                                            rankMonitor.processResult(result)  
-                                        }  
-                                    } catch (e: CaptchaRequiredException) {  
+coroutineScope {
+                            accounts.map { account ->
+                                async {
+                                    try {
+                                        val binds = bindDao.getBindsByPlatformSync(account.platform)
+                                        if (binds.isEmpty()) return@async
+
+                                        val client = clientManager.getClient(account)
+
+                                        // 全部查询完后再统一推送
+                                        val results = queryEngine.queryAll(binds, client)
+                                        rankMonitor.processResults(results)
+                                    } catch (e: CaptchaRequiredException) {
                                         Log.w(TAG, "Captcha required for account ${account.id}, sending notification")  
                                         sendCaptchaNotification(account, e)  
                                         // 同时通过全局 CaptchaManager 触发弹窗（如果 app 在前台则立即弹出）  

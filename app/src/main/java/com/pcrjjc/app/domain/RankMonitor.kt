@@ -28,6 +28,7 @@ class RankMonitor(
   
     private val cache = ConcurrentHashMap<Pair<Long, Int>, IntArray>()
     private val pendingHistories = mutableListOf<JjcHistory>()
+    private val pendingNotifications = mutableListOf<Pair<String, NoticeType>>()
   
     /**  
      * 从数据库加载已有的排名缓存到内存，避免 Service 重启后丢失比较基准  
@@ -40,96 +41,174 @@ class RankMonitor(
         Log.i(TAG, "Initialized cache from DB with ${allCaches.size} entries")  
     }  
   
-    suspend fun processResult(result: QueryEngine.QueryResult) {  
-        val bind = result.bind  
-        val userInfo = result.userInfo  
-  
-        val arenaRank = (userInfo["arena_rank"] as? Number)?.toInt() ?: return  
-        val grandArenaRank = (userInfo["grand_arena_rank"] as? Number)?.toInt() ?: return  
-        val lastLoginTime = (userInfo["last_login_time"] as? Number)?.toInt() ?: 0  
-  
-        val cacheKey = Pair(bind.pcrid, bind.platform)  
-        val current = intArrayOf(arenaRank, grandArenaRank, lastLoginTime)  
-  
-        // Always write to database for UI display  
-        rankCacheDao.upsert(  
-            RankCache(  
-                pcrid = bind.pcrid,  
-                platform = bind.platform,  
-                arenaRank = arenaRank,  
-                grandArenaRank = grandArenaRank,  
-                lastLoginTime = lastLoginTime  
-            )  
-        )  
-  
+suspend fun processResult(result: QueryEngine.QueryResult) {
+        val bind = result.bind
+        val userInfo = result.userInfo
+
+        val arenaRank = (userInfo["arena_rank"] as? Number)?.toInt() ?: return
+        val grandArenaRank = (userInfo["grand_arena_rank"] as? Number)?.toInt() ?: return
+        val lastLoginTime = (userInfo["last_login_time"] as? Number)?.toInt() ?: 0
+
+        val cacheKey = Pair(bind.pcrid, bind.platform)
+        val current = intArrayOf(arenaRank, grandArenaRank, lastLoginTime)
+
+        // Always write to database for UI display
+        rankCacheDao.upsert(
+            RankCache(
+                pcrid = bind.pcrid,
+                platform = bind.platform,
+                arenaRank = arenaRank,
+                grandArenaRank = grandArenaRank,
+                lastLoginTime = lastLoginTime
+            )
+        )
+
         val previous = cache[cacheKey]
         if (previous == null) {
             cache[cacheKey] = current
             return
         }
 
-        // 检查排名是否有变化
+        // 检查排名是否有变化，直接发送通知（保持原有行为）
         if (current[0] != previous[0]) {
-            handleRankChange(current[0], previous[0], bind, NoticeType.JJC)
+            handleRankChange(current[0], previous[0], bind, NoticeType.JJC, addToPending = false)
         }
         if (current[1] != previous[1]) {
-            handleRankChange(current[1], previous[1], bind, NoticeType.PJJC)
+            handleRankChange(current[1], previous[1], bind, NoticeType.PJJC, addToPending = false)
         }
         if (current[2] != previous[2]) {
-            handleRankChange(current[2], previous[2], bind, NoticeType.ONLINE)
+            handleRankChange(current[2], previous[2], bind, NoticeType.ONLINE, addToPending = false)
         }
 
         // 更新缓存
         cache[cacheKey] = current
-    }  
-  
-    private suspend fun handleRankChange(  
-		new: Int, old: Int, bind: PcrBind, noticeType: NoticeType  
-	) {  
-		val timestamp = System.currentTimeMillis() / 1000  
-	  
-		if (noticeType == NoticeType.ONLINE) {  
-			if (bind.onlineNotice == 0) return  
-			val msg = "${bind.name ?: bind.pcrid} 上线了！"  
-			sendNotification(msg, noticeType)  
-			Log.i(TAG, "Send Notice: $msg")  
-			return  
-		}  
-	  
-		// 无论通知开关如何，始终记录历史  
-		val isJjc = noticeType == NoticeType.JJC  
-		val prefix = if (isJjc) "jjc: " else "pjjc: "  
-		val change = if (new < old) {  
-			"$prefix$old->$new [▲${old - new}]"  
-		} else {  
-			"$prefix$old->$new [▽${new - old}]"  
-		}  
-	  
-		val history = JjcHistory(  
-			pcrid = bind.pcrid, name = bind.name ?: "",  
-			platform = bind.platform, date = timestamp,  
-			item = if (isJjc) 0 else 1, before = old, after = new  
-		)  
-		synchronized(pendingHistories) { pendingHistories.add(history) }  
-	  
+    }
+
+    /**
+     * 批量处理查询结果，全部查询完后再统一推送
+     */
+    suspend fun processResults(results: List<QueryEngine.QueryResult>) {
+        // 先处理所有结果，收集排名变化到待推送列表
+        for (result in results) {
+            processResultInternal(result)
+        }
+
+        // 批量发送通知
+        flushNotifications()
+    }
+
+    private suspend fun processResultInternal(result: QueryEngine.QueryResult) {
+        val bind = result.bind
+        val userInfo = result.userInfo
+
+        val arenaRank = (userInfo["arena_rank"] as? Number)?.toInt() ?: return
+        val grandArenaRank = (userInfo["grand_arena_rank"] as? Number)?.toInt() ?: return
+        val lastLoginTime = (userInfo["last_login_time"] as? Number)?.toInt() ?: 0
+
+        val cacheKey = Pair(bind.pcrid, bind.platform)
+        val current = intArrayOf(arenaRank, grandArenaRank, lastLoginTime)
+
+        // Always write to database for UI display
+        rankCacheDao.upsert(
+            RankCache(
+                pcrid = bind.pcrid,
+                platform = bind.platform,
+                arenaRank = arenaRank,
+                grandArenaRank = grandArenaRank,
+                lastLoginTime = lastLoginTime
+            )
+        )
+
+        val previous = cache[cacheKey]
+        if (previous == null) {
+            cache[cacheKey] = current
+            return
+        }
+
+        // 检查排名是否有变化，添加到待推送列表
+        if (current[0] != previous[0]) {
+            handleRankChange(current[0], previous[0], bind, NoticeType.JJC, addToPending = true)
+        }
+        if (current[1] != previous[1]) {
+            handleRankChange(current[1], previous[1], bind, NoticeType.PJJC, addToPending = true)
+        }
+        if (current[2] != previous[2]) {
+            handleRankChange(current[2], previous[2], bind, NoticeType.ONLINE, addToPending = true)
+        }
+
+        // 更新缓存
+        cache[cacheKey] = current
+    }
+
+    private suspend fun handleRankChange(
+		new: Int, old: Int, bind: PcrBind, noticeType: NoticeType, addToPending: Boolean = false
+	) {
+		val timestamp = System.currentTimeMillis() / 1000
+
+		if (noticeType == NoticeType.ONLINE) {
+			if (bind.onlineNotice == 0) return
+			val msg = "${bind.name ?: bind.pcrid} 上线了！"
+			if (addToPending) {
+				synchronized(pendingNotifications) { pendingNotifications.add(Pair(msg, noticeType)) }
+			} else {
+				sendNotification(msg, noticeType)
+			}
+			Log.i(TAG, "Send Notice: $msg")
+			return
+		}
+
+		// 无论通知开关如何，始终记录历史
+		val isJjc = noticeType == NoticeType.JJC
+		val prefix = if (isJjc) "jjc: " else "pjjc: "
+		val change = if (new < old) {
+			"$prefix$old->$new [▲${old - new}]"
+		} else {
+			"$prefix$old->$new [▽${new - old}]"
+		}
+
+		val history = JjcHistory(
+			pcrid = bind.pcrid, name = bind.name ?: "",
+			platform = bind.platform, date = timestamp,
+			item = if (isJjc) 0 else 1, before = old, after = new
+		)
+		synchronized(pendingHistories) { pendingHistories.add(history) }
+
 		// 通知开关只控制是否发送通知
 		val shouldNotify = if (isJjc) bind.jjcNotice else bind.pjjcNotice
 		if (!shouldNotify) return
 		if (!bind.upNotice && new < old) return
-	  
-		val msg = "${bind.name ?: bind.pcrid} $change"  
-		sendNotification(msg, noticeType)  
-		Log.i(TAG, "Send Notice: $msg")  
+
+		val msg = "${bind.name ?: bind.pcrid} $change"
+		if (addToPending) {
+			synchronized(pendingNotifications) { pendingNotifications.add(Pair(msg, noticeType)) }
+		} else {
+			sendNotification(msg, noticeType)
+		}
+		Log.i(TAG, "Send Notice: $msg")
 	}  
   
-    suspend fun flushHistories() {  
-        val toInsert: List<JjcHistory>  
-        synchronized(pendingHistories) {  
-            toInsert = pendingHistories.toList()  
-            pendingHistories.clear()  
-        }  
-        if (toInsert.isNotEmpty()) { historyDao.insertAll(toInsert) }  
-    }  
+suspend fun flushHistories() {
+        val toInsert: List<JjcHistory>
+        synchronized(pendingHistories) {
+            toInsert = pendingHistories.toList()
+            pendingHistories.clear()
+        }
+        if (toInsert.isNotEmpty()) { historyDao.insertAll(toInsert) }
+    }
+
+    /**
+     * 批量发送待推送的通知
+     */
+    private fun flushNotifications() {
+        val toSend: List<Pair<String, NoticeType>>
+        synchronized(pendingNotifications) {
+            toSend = pendingNotifications.toList()
+            pendingNotifications.clear()
+        }
+        for ((message, noticeType) in toSend) {
+            sendNotification(message, noticeType)
+        }
+    }
   
     private fun sendNotification(message: String, noticeType: NoticeType) {  
         val title = when (noticeType) {  
