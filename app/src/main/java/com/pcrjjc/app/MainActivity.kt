@@ -58,9 +58,6 @@ class MainActivity : ComponentActivity() {
     lateinit var captchaManager: CaptchaManager
 
     @Inject
-    lateinit var settingsDataStore: SettingsDataStore
-
-    @Inject
     lateinit var updateChecker: UpdateChecker
 
     private val requestPermissionLauncher =

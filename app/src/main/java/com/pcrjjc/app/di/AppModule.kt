@@ -4,9 +4,10 @@ import android.content.Context
 import androidx.room.Room  
 import androidx.room.migration.Migration  
 import androidx.sqlite.db.SupportSQLiteDatabase  
-import com.pcrjjc.app.data.local.AppDatabase  
-import com.pcrjjc.app.data.local.SettingsDataStore  
-import com.pcrjjc.app.data.local.dao.AccountDao  
+import com.pcrjjc.app.data.local.AppDatabase
+import com.pcrjjc.app.data.local.SettingsDataStore
+import com.pcrjjc.app.data.local.dao.AccountDao
+import com.pcrjjc.app.domain.UpdateChecker
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
 import com.pcrjjc.app.data.local.dao.RankCacheDao  
@@ -64,9 +65,15 @@ object AppModule {
             .build()  
     }  
   
-    @Provides  
-    @Singleton  
-    fun provideSettingsDataStore(@ApplicationContext context: Context): SettingsDataStore {  
-        return SettingsDataStore(context)  
-    }  
+    @Provides
+    @Singleton
+    fun provideSettingsDataStore(@ApplicationContext context: Context): SettingsDataStore {
+        return SettingsDataStore(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideUpdateChecker(@ApplicationContext context: Context): UpdateChecker {
+        return UpdateChecker(context)
+    }
 }
