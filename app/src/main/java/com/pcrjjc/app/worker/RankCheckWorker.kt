@@ -54,9 +54,9 @@ class RankCheckWorker @AssistedInject constructor(
   
                     val client = clientManager.getClient(account)  
   
-                    queryEngine.queryAll(binds, client) { result ->  
-                        rankMonitor.processResult(result)  
-                    }  
+                    // 全部查询完后再统一推送
+                    val results = queryEngine.queryAll(binds, client)
+                    rankMonitor.processResults(results)
                 } catch (e: Exception) {  
                     Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                     clientManager.clearClient(account.id)  
