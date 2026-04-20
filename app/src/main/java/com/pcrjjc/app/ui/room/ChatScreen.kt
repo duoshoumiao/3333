@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
 import androidx.compose.material.icons.automirrored.filled.Send  
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material3.*  
 import androidx.compose.runtime.*  
 import androidx.compose.ui.Alignment  
@@ -27,14 +28,22 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()  
     var inputText by remember { mutableStateOf("") }  
     val listState = rememberLazyListState()  
-  
+    var showDismissDialog by remember { mutableStateOf(false) }
+
     // 新消息到达时自动滚动到底部  
     LaunchedEffect(uiState.messages.size) {  
         if (uiState.messages.isNotEmpty()) {  
             listState.animateScrollToItem(uiState.messages.size - 1)  
         }  
     }  
-  
+
+    // 房主解散房间后自动退出
+    LaunchedEffect(uiState.isDismissed) {
+        if (uiState.isDismissed) {
+            onNavigateBack()
+        }
+    }
+
     Scaffold(  
         topBar = {  
             TopAppBar(  
@@ -55,7 +64,18 @@ fun ChatScreen(
                     }) {  
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "离开房间")  
                     }  
-                }  
+                },
+                actions = {
+                    if (uiState.isHost) {
+                        IconButton(onClick = { showDismissDialog = true }) {
+                            Icon(
+                                Icons.Default.DeleteForever,
+                                contentDescription = "解散房间",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
             )  
         },  
         bottomBar = {  
@@ -149,8 +169,31 @@ fun ChatScreen(
             Text(uiState.error!!)  
         }  
     }  
-}  
-  
+
+    if (showDismissDialog) {
+        AlertDialog(
+            onDismissRequest = { showDismissDialog = false },
+            title = { Text("解散房间") },
+            text = { Text("解散后所有玩家将被移出房间，此操作不可撤销。确定解散吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDismissDialog = false
+                        viewModel.dismissRoom()
+                    }
+                ) {
+                    Text("确定解散", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDismissDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
 @Composable  
 private fun ChatMessageItem(  
     message: ChatMessage,  

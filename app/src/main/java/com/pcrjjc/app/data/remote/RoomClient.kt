@@ -1,6 +1,7 @@
 package com.pcrjjc.app.data.remote  
   
 import com.pcrjjc.app.data.local.entity.ChatMessage  
+import com.pcrjjc.app.data.local.entity.PlayerInfo
 import com.pcrjjc.app.data.local.entity.Room  
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import kotlinx.coroutines.Dispatchers  
@@ -64,11 +65,29 @@ class RoomClient @Inject constructor(
                 hostName = obj.getString("host_name"),  
                 hostQq = obj.getString("host_qq"),  
                 playerCount = obj.optInt("player_count", 0),  
-                maxPlayers = obj.optInt("max_players", 8)  
+                maxPlayers = obj.optInt("max_players", 8),
+                players = parsePlayers(obj.optJSONArray("players"))
             ))  
         }  
         rooms  
-    }  
+    }
+
+    private fun parsePlayers(arr: JSONArray?): List<PlayerInfo> {
+        if (arr == null) return emptyList()
+        val result = mutableListOf<PlayerInfo>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            result.add(
+                PlayerInfo(
+                    name = o.optString("name", ""),
+                    qq = o.optString("qq", ""),
+                    isHost = o.optBoolean("is_host", false)
+                )
+            )
+        }
+        return result
+    }
+
   
     /**  
      * 创建房间  
@@ -110,7 +129,8 @@ class RoomClient @Inject constructor(
             hostName = obj.getString("host_name"),  
             hostQq = obj.getString("host_qq"),  
             playerCount = 1,  
-            maxPlayers = obj.optInt("max_players", 8)  
+            maxPlayers = obj.optInt("max_players", 8),
+            players = parsePlayers(obj.optJSONArray("players"))
         )  
     }  
   
@@ -160,7 +180,8 @@ class RoomClient @Inject constructor(
             hostName = obj.getString("host_name"),  
             hostQq = obj.getString("host_qq"),  
             playerCount = obj.optInt("player_count", 0),  
-            maxPlayers = obj.optInt("max_players", 8)  
+            maxPlayers = obj.optInt("max_players", 8),
+            players = parsePlayers(obj.optJSONArray("players"))
         )  
     }  
   
@@ -185,7 +206,35 @@ class RoomClient @Inject constructor(
             throw ApiException("离开房间失败: ${response.code}", response.code)  
         }  
     }  
-  
+
+    /**
+     * 解散房间（仅房主）
+     */
+    suspend fun dismissRoom(roomId: String, hostQq: String) = withContext(Dispatchers.IO) {
+        val baseUrl = getBaseUrl()
+
+        val json = JSONObject().apply {
+            put("room_id", roomId)
+            put("host_qq", hostQq)
+        }
+
+        val request = Request.Builder()
+            .url("$baseUrl/rooms/dismiss")
+            .post(json.toString().toRequestBody(jsonMediaType))
+            .build()
+
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) {
+            val errorBody = response.body?.string()
+            val errorMsg = try {
+                JSONObject(errorBody ?: "").optString("error", "解散房间失败")
+            } catch (e: Exception) {
+                "解散房间失败: ${response.code}"
+            }
+            throw ApiException(errorMsg, response.code)
+        }
+    }
+
     /**  
      * 获取房间聊天消息  
      */  

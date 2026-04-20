@@ -38,9 +38,9 @@ sealed class Screen(val route: String) {
     data object Fortnightly : Screen("fortnightly")  
     data object Daily : Screen("daily")  
     data object Room : Screen("room")  
-    data object Chat : Screen("chat/{roomId}/{playerQq}/{roomName}") {  
-        fun createRoute(roomId: String, playerQq: String, roomName: String) =  
-            "chat/$roomId/$playerQq/$roomName"  
+    data object Chat : Screen("chat/{roomId}/{playerQq}/{playerName}/{roomName}/{hostQq}") {
+        fun createRoute(roomId: String, playerQq: String, playerName: String, roomName: String, hostQq: String) =
+            "chat/$roomId/$playerQq/${java.net.URLEncoder.encode(playerName, "UTF-8")}/${java.net.URLEncoder.encode(roomName, "UTF-8")}/$hostQq"
     }  
 }  
   
@@ -136,8 +136,10 @@ fun PcrJjcNavHost() {
         composable(Screen.Room.route) {  
             RoomScreen(  
                 onNavigateBack = { navController.popBackStack() },  
-                onNavigateToChat = { roomId, playerQq, roomName ->  
-                    navController.navigate(Screen.Chat.createRoute(roomId, playerQq, roomName))  
+                onNavigateToChat = { roomId, playerQq, playerName, roomName, hostQq ->
+                    navController.navigate(
+                        Screen.Chat.createRoute(roomId, playerQq, playerName, roomName, hostQq)
+                    )
                 }  
             )  
         }  
@@ -148,7 +150,9 @@ fun PcrJjcNavHost() {
             arguments = listOf(  
                 navArgument("roomId") { type = NavType.StringType },  
                 navArgument("playerQq") { type = NavType.StringType },  
-                navArgument("roomName") { type = NavType.StringType }  
+                navArgument("playerName") { type = NavType.StringType },
+                navArgument("roomName") { type = NavType.StringType },
+                navArgument("hostQq") { type = NavType.StringType }
             )  
         ) {  
             ChatScreen(  
