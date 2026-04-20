@@ -65,7 +65,7 @@ class RoomClient @Inject constructor(
                 hostName = obj.getString("host_name"),  
                 hostQq = obj.getString("host_qq"),  
                 playerCount = obj.optInt("player_count", 0),  
-                maxPlayers = obj.optInt("max_players", 8),
+                maxPlayers = obj.optInt("max_players", 30),
                 players = parsePlayers(obj.optJSONArray("players"))
             ))  
         }  
@@ -129,7 +129,7 @@ class RoomClient @Inject constructor(
             hostName = obj.getString("host_name"),  
             hostQq = obj.getString("host_qq"),  
             playerCount = 1,  
-            maxPlayers = obj.optInt("max_players", 8),
+            maxPlayers = obj.optInt("max_players", 30),
             players = parsePlayers(obj.optJSONArray("players"))
         )  
     }  
@@ -180,7 +180,7 @@ class RoomClient @Inject constructor(
             hostName = obj.getString("host_name"),  
             hostQq = obj.getString("host_qq"),  
             playerCount = obj.optInt("player_count", 0),  
-            maxPlayers = obj.optInt("max_players", 8),
+            maxPlayers = obj.optInt("max_players", 30),
             players = parsePlayers(obj.optJSONArray("players"))
         )  
     }  
