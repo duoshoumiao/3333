@@ -71,7 +71,6 @@ fun RoomScreen(
                 .fillMaxSize()  
                 .padding(paddingValues)  
         ) {  
-            // 标签页：创建房间 / 查找房间  
             var selectedTab by remember { mutableIntStateOf(0) }  
             TabRow(selectedTabIndex = selectedTab) {  
                 Tab(  
@@ -90,7 +89,6 @@ fun RoomScreen(
   
             when (selectedTab) {  
                 0 -> {  
-                    // 查找房间列表  
                     if (uiState.isLoading) {  
                         Box(  
                             modifier = Modifier.fillMaxSize(),  
@@ -159,9 +157,9 @@ fun RoomScreen(
                     }  
                 }  
                 1 -> {  
-                    // 创建房间界面  
                     CreateRoomContent(  
                         isCreating = uiState.isCreating,  
+                        initialQq = uiState.savedQq,  
                         onCreateRoom = { name, password, qq ->  
                             viewModel.createRoom(name, password, qq)  
                         }  
@@ -175,6 +173,8 @@ fun RoomScreen(
     if (showJoinDialog && selectedRoom != null) {  
         JoinRoomDialog(  
             room = selectedRoom!!,  
+            initialQq = uiState.savedQq,  
+            initialPassword = viewModel.getCachedPassword(selectedRoom!!.roomId) ?: "",  
             onDismiss = {  
                 showJoinDialog = false  
                 selectedRoom = null  
@@ -186,8 +186,8 @@ fun RoomScreen(
             }  
         )  
     } else if (showJoinDialog) {  
-        // 快速加入对话框（输入房间号）  
         QuickJoinDialog(  
+            initialQq = uiState.savedQq,  
             onDismiss = { showJoinDialog = false },  
             onJoin = { roomId, password, qq ->  
                 viewModel.joinRoom(roomId, password, qq)  
@@ -196,7 +196,7 @@ fun RoomScreen(
         )  
     }  
   
-    // 创建成功对话框 → 点击"进入房间"导航到聊天界面  
+    // 创建成功对话框 → 进入房间  
     if (uiState.createdRoom != null) {  
         AlertDialog(  
             onDismissRequest = { viewModel.clearCreatedRoom() },  
@@ -213,7 +213,7 @@ fun RoomScreen(
             confirmButton = {  
                 Button(onClick = {  
                     val room = uiState.createdRoom!!  
-                    val qq = uiState.currentPlayerQq ?: ""  
+                    val qq = uiState.currentPlayerQq ?: uiState.savedQq  
                     viewModel.clearCreatedRoom()  
                     onNavigateToChat(room.roomId, qq, room.roomName)  
                 }) {  
@@ -228,17 +228,16 @@ fun RoomScreen(
         )  
     }  
   
-    // 加入成功 → 自动导航到聊天界面  
+    // 加入成功 → 自动导航到聊天  
     LaunchedEffect(uiState.joinedRoom) {  
         if (uiState.joinedRoom != null) {  
             val room = uiState.joinedRoom!!  
-            val qq = uiState.currentPlayerQq ?: ""  
+            val qq = uiState.currentPlayerQq ?: uiState.savedQq  
             viewModel.clearJoinedRoom()  
             onNavigateToChat(room.roomId, qq, room.roomName)  
         }  
     }  
-}  
-  
+}
 @Composable  
 private fun RoomCard(  
     room: Room,  
@@ -299,12 +298,19 @@ private fun RoomCard(
 @Composable  
 private fun CreateRoomContent(  
     isCreating: Boolean,  
+    initialQq: String = "",  
     onCreateRoom: (String, String?, String) -> Unit  
 ) {  
     var roomName by remember { mutableStateOf("") }  
     var password by remember { mutableStateOf("") }  
     var hasPassword by remember { mutableStateOf(false) }  
-    var qq by remember { mutableStateOf("") }  
+    var qq by remember { mutableStateOf(initialQq) }  
+  
+    LaunchedEffect(initialQq) {  
+        if (qq.isBlank() && initialQq.isNotBlank()) {  
+            qq = initialQq  
+        }  
+    }  
   
     Column(  
         modifier = Modifier  
@@ -379,12 +385,20 @@ private fun CreateRoomContent(
 @Composable  
 private fun JoinRoomDialog(  
     room: Room,  
+    initialQq: String = "",  
+    initialPassword: String = "",  
     onDismiss: () -> Unit,  
     onJoin: (String?, String) -> Unit  
 ) {  
-    var password by remember { mutableStateOf("") }  
-    var qq by remember { mutableStateOf("") }  
+    var password by remember { mutableStateOf(initialPassword) }  
+    var qq by remember { mutableStateOf(initialQq) }  
     var showError by remember { mutableStateOf(false) }  
+  
+    LaunchedEffect(initialQq) {  
+        if (qq.isBlank() && initialQq.isNotBlank()) {  
+            qq = initialQq  
+        }  
+    }  
   
     AlertDialog(  
         onDismissRequest = onDismiss,  
@@ -455,12 +469,19 @@ private fun JoinRoomDialog(
   
 @Composable  
 private fun QuickJoinDialog(  
+    initialQq: String = "",  
     onDismiss: () -> Unit,  
     onJoin: (String, String?, String) -> Unit  
 ) {  
     var roomId by remember { mutableStateOf("") }  
     var password by remember { mutableStateOf("") }  
-    var qq by remember { mutableStateOf("") }  
+    var qq by remember { mutableStateOf(initialQq) }  
+  
+    LaunchedEffect(initialQq) {  
+        if (qq.isBlank() && initialQq.isNotBlank()) {  
+            qq = initialQq  
+        }  
+    }  
   
     AlertDialog(  
         onDismissRequest = onDismiss,  

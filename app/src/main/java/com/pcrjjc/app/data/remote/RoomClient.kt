@@ -187,43 +187,18 @@ class RoomClient @Inject constructor(
     }  
   
     /**  
-     * 发送聊天消息  
-     */  
-    suspend fun sendMessage(  
-        roomId: String,  
-        senderQq: String,  
-        senderName: String,  
-        content: String  
-    ) = withContext(Dispatchers.IO) {  
-        val baseUrl = getBaseUrl()  
-  
-        val json = JSONObject().apply {  
-            put("room_id", roomId)  
-            put("sender_qq", senderQq)  
-            put("sender_name", senderName)  
-            put("content", content)  
-        }  
-  
-        val request = Request.Builder()  
-            .url("$baseUrl/rooms/$roomId/messages")  
-            .post(json.toString().toRequestBody(jsonMediaType))  
-            .build()  
-  
-        val response = client.newCall(request).execute()  
-        if (!response.isSuccessful) {  
-            throw ApiException("发送消息失败: ${response.code}", response.code)  
-        }  
-    }  
-  
-    /**  
-     * 获取聊天消息（轮询）  
-     * @param since 时间戳，只获取此时间之后的消息，0表示获取全部  
+     * 获取房间聊天消息  
      */  
     suspend fun getMessages(roomId: String, since: Long = 0): List<ChatMessage> = withContext(Dispatchers.IO) {  
         val baseUrl = getBaseUrl()  
+        val url = if (since > 0) {  
+            "$baseUrl/rooms/$roomId/messages?since=$since"  
+        } else {  
+            "$baseUrl/rooms/$roomId/messages"  
+        }  
   
         val request = Request.Builder()  
-            .url("$baseUrl/rooms/$roomId/messages?since=$since")  
+            .url(url)  
             .get()  
             .build()  
   
@@ -248,5 +223,45 @@ class RoomClient @Inject constructor(
             ))  
         }  
         messages  
+    }  
+  
+    /**  
+     * 发送聊天消息  
+     */  
+    suspend fun sendMessage(  
+        roomId: String,  
+        senderQq: String,  
+        senderName: String,  
+        content: String  
+    ): ChatMessage = withContext(Dispatchers.IO) {  
+        val baseUrl = getBaseUrl()  
+  
+        val json = JSONObject().apply {  
+            put("sender_qq", senderQq)  
+            put("sender_name", senderName)  
+            put("content", content)  
+        }  
+  
+        val request = Request.Builder()  
+            .url("$baseUrl/rooms/$roomId/messages")  
+            .post(json.toString().toRequestBody(jsonMediaType))  
+            .build()  
+  
+        val response = client.newCall(request).execute()  
+        if (!response.isSuccessful) {  
+            throw ApiException("发送消息失败: ${response.code}", response.code)  
+        }  
+  
+        val body = response.body?.string() ?: throw ApiException("服务器响应为空", -1)  
+        val obj = JSONObject(body)  
+  
+        ChatMessage(  
+            id = obj.getString("id"),  
+            roomId = obj.getString("room_id"),  
+            senderName = obj.getString("sender_name"),  
+            senderQq = obj.getString("sender_qq"),  
+            content = obj.getString("content"),  
+            timestamp = obj.getLong("timestamp")  
+        )  
     }  
 }

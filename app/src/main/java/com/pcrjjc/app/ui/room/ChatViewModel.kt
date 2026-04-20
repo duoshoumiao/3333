@@ -16,66 +16,91 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject  
   
 data class ChatUiState(  
+    val roomId: String = "",  
+    val roomName: String = "",  
+    val playerQq: String = "",  
     val messages: List<ChatMessage> = emptyList(),  
     val isLoading: Boolean = false,  
-    val isSending: Boolean = false,  
     val error: String? = null,  
-    val roomId: String = "",  
-    val playerQq: String = "",  
-    val roomName: String = ""  
+    val isSending: Boolean = false  
 )  
   
 @HiltViewModel  
 class ChatViewModel @Inject constructor(  
-    savedStateHandle: SavedStateHandle,  
-    private val roomClient: RoomClient  
+    private val roomClient: RoomClient,  
+    savedStateHandle: SavedStateHandle  
 ) : ViewModel() {  
   
-    private val roomId: String = savedStateHandle["roomId"] ?: ""  
-    private val playerQq: String = savedStateHandle["playerQq"] ?: ""  
-    private val roomName: String = savedStateHandle["roomName"] ?: ""  
-  
-    private val _uiState = MutableStateFlow(  
-        ChatUiState(  
-            roomId = roomId,  
-            playerQq = playerQq,  
-            roomName = roomName  
-        )  
-    )  
+    private val _uiState = MutableStateFlow(ChatUiState())  
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()  
   
     private var pollingJob: Job? = null  
     private var lastTimestamp: Long = 0  
   
     init {  
-        startPolling()  
+        val roomId = savedStateHandle.get<String>("roomId") ?: ""  
+        val playerQq = savedStateHandle.get<String>("playerQq") ?: ""  
+        val roomName = savedStateHandle.get<String>("roomName") ?: ""  
+  
+        _uiState.value = _uiState.value.copy(  
+            roomId = roomId,  
+            playerQq = playerQq,  
+            roomName = roomName  
+        )  
+  
+        if (roomId.isNotBlank()) {  
+            loadMessages()  
+            startPolling()  
+        }  
+    }  
+  
+    private fun loadMessages() {  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(isLoading = true)  
+            try {  
+                val messages = roomClient.getMessages(_uiState.value.roomId)  
+                if (messages.isNotEmpty()) {  
+                    lastTimestamp = messages.maxOf { it.timestamp }  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    messages = messages,  
+                    isLoading = false,  
+                    error = null  
+                )  
+            } catch (e: Exception) {  
+                _uiState.value = _uiState.value.copy(  
+                    isLoading = false,  
+                    error = e.message ?: "加载消息失败"  
+                )  
+            }  
+        }  
     }  
   
     private fun startPolling() {  
         pollingJob?.cancel()  
         pollingJob = viewModelScope.launch {  
             while (isActive) {  
+                delay(3000) // 每3秒轮询一次  
                 try {  
-                    val newMessages = roomClient.getMessages(roomId, lastTimestamp)  
+                    val newMessages = roomClient.getMessages(  
+                        _uiState.value.roomId,  
+                        since = lastTimestamp  
+                    )  
                     if (newMessages.isNotEmpty()) {  
                         lastTimestamp = newMessages.maxOf { it.timestamp }  
-                        val currentMessages = _uiState.value.messages.toMutableList()  
+                        val currentMessages = _uiState.value.messages  
                         val existingIds = currentMessages.map { it.id }.toSet()  
-                        val uniqueNew = newMessages.filter { it.id !in existingIds }  
-                        currentMessages.addAll(uniqueNew)  
-                        currentMessages.sortBy { it.timestamp }  
-                        _uiState.value = _uiState.value.copy(  
-                            messages = currentMessages,  
-                            isLoading = false,  
-                            error = null  
-                        )  
+                        val filtered = newMessages.filter { it.id !in existingIds }  
+                        if (filtered.isNotEmpty()) {  
+                            _uiState.value = _uiState.value.copy(  
+                                messages = currentMessages + filtered,  
+                                error = null  
+                            )  
+                        }  
                     }  
-                } catch (e: Exception) {  
-                    _uiState.value = _uiState.value.copy(  
-                        error = e.message ?: "获取消息失败"  
-                    )  
+                } catch (_: Exception) {  
+                    // 轮询失败静默忽略，下次重试  
                 }  
-                delay(3000) // 每3秒轮询一次  
             }  
         }  
     }  
@@ -85,30 +110,22 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {  
             _uiState.value = _uiState.value.copy(isSending = true)  
             try {  
-                roomClient.sendMessage(  
-                    roomId = roomId,  
-                    senderQq = playerQq,  
+                val msg = roomClient.sendMessage(  
+                    roomId = _uiState.value.roomId,  
+                    senderQq = _uiState.value.playerQq,  
                     senderName = "玩家",  
-                    content = content  
+                    content = content.trim()  
                 )  
-                _uiState.value = _uiState.value.copy(isSending = false)  
-                // 立即拉取新消息  
-                try {  
-                    val newMessages = roomClient.getMessages(roomId, lastTimestamp)  
-                    if (newMessages.isNotEmpty()) {  
-                        lastTimestamp = newMessages.maxOf { it.timestamp }  
-                        val currentMessages = _uiState.value.messages.toMutableList()  
-                        val existingIds = currentMessages.map { it.id }.toSet()  
-                        val uniqueNew = newMessages.filter { it.id !in existingIds }  
-                        currentMessages.addAll(uniqueNew)  
-                        currentMessages.sortBy { it.timestamp }  
-                        _uiState.value = _uiState.value.copy(messages = currentMessages)  
-                    }  
-                } catch (_: Exception) { }  
+                lastTimestamp = msg.timestamp  
+                _uiState.value = _uiState.value.copy(  
+                    messages = _uiState.value.messages + msg,  
+                    isSending = false,  
+                    error = null  
+                )  
             } catch (e: Exception) {  
                 _uiState.value = _uiState.value.copy(  
                     isSending = false,  
-                    error = e.message ?: "发送消息失败"  
+                    error = e.message ?: "发送失败"  
                 )  
             }  
         }  
@@ -117,8 +134,13 @@ class ChatViewModel @Inject constructor(
     fun leaveRoom() {  
         viewModelScope.launch {  
             try {  
-                roomClient.leaveRoom(roomId, playerQq)  
-            } catch (_: Exception) { }  
+                roomClient.leaveRoom(  
+                    roomId = _uiState.value.roomId,  
+                    playerQq = _uiState.value.playerQq  
+                )  
+            } catch (_: Exception) {  
+                // 离开失败静默忽略  
+            }  
         }  
     }  
   

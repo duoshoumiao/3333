@@ -35,24 +35,12 @@ fun ChatScreen(
         }  
     }  
   
-    // 显示错误 Snackbar  
-    val snackbarHostState = remember { SnackbarHostState() }  
-    LaunchedEffect(uiState.error) {  
-        if (uiState.error != null) {  
-            snackbarHostState.showSnackbar(uiState.error!!)  
-            viewModel.clearError()  
-        }  
-    }  
-  
     Scaffold(  
         topBar = {  
             TopAppBar(  
                 title = {  
                     Column {  
-                        Text(  
-                            text = uiState.roomName.ifBlank { "聊天" },  
-                            style = MaterialTheme.typography.titleMedium  
-                        )  
+                        Text(uiState.roomName.ifBlank { "聊天" })  
                         Text(  
                             text = "房间号: ${uiState.roomId}",  
                             style = MaterialTheme.typography.bodySmall,  
@@ -70,18 +58,14 @@ fun ChatScreen(
                 }  
             )  
         },  
-        snackbarHost = { SnackbarHost(snackbarHostState) },  
         bottomBar = {  
-            Surface(  
-                tonalElevation = 3.dp,  
-                shadowElevation = 3.dp  
-            ) {  
+            Surface(tonalElevation = 3.dp) {  
                 Row(  
                     modifier = Modifier  
                         .fillMaxWidth()  
-                        .padding(horizontal = 8.dp, vertical = 8.dp)  
-                        .imePadding(),  
-                    verticalAlignment = Alignment.CenterVertically  
+                        .padding(horizontal = 8.dp, vertical = 8.dp),  
+                    verticalAlignment = Alignment.CenterVertically,  
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)  
                 ) {  
                     OutlinedTextField(  
                         value = inputText,  
@@ -91,11 +75,10 @@ fun ChatScreen(
                         singleLine = false,  
                         maxLines = 4  
                     )  
-                    Spacer(modifier = Modifier.width(8.dp))  
                     IconButton(  
                         onClick = {  
                             if (inputText.isNotBlank()) {  
-                                viewModel.sendMessage(inputText.trim())  
+                                viewModel.sendMessage(inputText)  
                                 inputText = ""  
                             }  
                         },  
@@ -152,6 +135,20 @@ fun ChatScreen(
             }  
         }  
     }  
+  
+    // 错误提示  
+    if (uiState.error != null) {  
+        Snackbar(  
+            modifier = Modifier.padding(16.dp),  
+            action = {  
+                TextButton(onClick = { viewModel.clearError() }) {  
+                    Text("关闭")  
+                }  
+            }  
+        ) {  
+            Text(uiState.error!!)  
+        }  
+    }  
 }  
   
 @Composable  
@@ -165,7 +162,6 @@ private fun ChatMessageItem(
         modifier = Modifier.fillMaxWidth(),  
         horizontalAlignment = if (isMe) Alignment.End else Alignment.Start  
     ) {  
-        // 发送者名称和时间  
         Row(  
             horizontalArrangement = Arrangement.spacedBy(4.dp),  
             verticalAlignment = Alignment.CenterVertically  
@@ -184,7 +180,6 @@ private fun ChatMessageItem(
   
         Spacer(modifier = Modifier.height(2.dp))  
   
-        // 消息气泡  
         Surface(  
             shape = MaterialTheme.shapes.medium,  
             color = if (isMe)  

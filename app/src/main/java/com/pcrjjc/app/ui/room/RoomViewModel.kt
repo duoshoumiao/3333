@@ -2,6 +2,7 @@ package com.pcrjjc.app.ui.room
   
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
+import com.pcrjjc.app.data.local.SettingsDataStore  
 import com.pcrjjc.app.data.local.entity.Room  
 import com.pcrjjc.app.data.remote.RoomClient  
 import dagger.hilt.android.lifecycle.HiltViewModel  
@@ -18,20 +19,42 @@ data class RoomUiState(
     val isCreating: Boolean = false,  
     val createdRoom: Room? = null,  
     val joinedRoom: Room? = null,  
+    val savedQq: String = "",  
     val currentPlayerQq: String? = null  
 )  
   
 @HiltViewModel  
 class RoomViewModel @Inject constructor(  
-    private val roomClient: RoomClient  
+    private val roomClient: RoomClient,  
+    private val settingsDataStore: SettingsDataStore  
 ) : ViewModel() {  
   
     private val _uiState = MutableStateFlow(RoomUiState())  
     val uiState: StateFlow<RoomUiState> = _uiState.asStateFlow()  
   
+    // 房间密码缓存：roomId -> password  
+    private val passwordCache = mutableMapOf<String, String>()  
+  
     init {  
         refreshRoomList()  
+        loadSavedQq()  
     }  
+  
+    private fun loadSavedQq() {  
+        viewModelScope.launch {  
+            val qq = settingsDataStore.getUserQq()  
+            _uiState.value = _uiState.value.copy(savedQq = qq)  
+        }  
+    }  
+  
+    fun saveQq(qq: String) {  
+        viewModelScope.launch {  
+            settingsDataStore.setUserQq(qq)  
+            _uiState.value = _uiState.value.copy(savedQq = qq)  
+        }  
+    }  
+  
+    fun getCachedPassword(roomId: String): String? = passwordCache[roomId]  
   
     fun refreshRoomList() {  
         viewModelScope.launch {  
@@ -61,6 +84,7 @@ class RoomViewModel @Inject constructor(
                     hostName = "房主",  
                     hostQq = hostQq  
                 )  
+                saveQq(hostQq)  
                 _uiState.value = _uiState.value.copy(  
                     isCreating = false,  
                     createdRoom = room,  
@@ -86,6 +110,11 @@ class RoomViewModel @Inject constructor(
                     playerName = "玩家",  
                     playerQq = playerQq  
                 )  
+                // 加入成功后缓存密码和QQ  
+                if (!password.isNullOrBlank()) {  
+                    passwordCache[roomId] = password  
+                }  
+                saveQq(playerQq)  
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     joinedRoom = room,  
