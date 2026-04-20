@@ -38,7 +38,7 @@ class RoomClient @Inject constructor(
     /**
      * 获取房间列表
      */
-    suspend fun getRoomList(): List List<Room> = withContext(Dispatchers.IO) {
+    suspend fun getRoomList(): List<Room> = withContext(Dispatchers.IO) {
         val baseUrl = getBaseUrl()
         val request = Request.Builder()
             .url("$baseUrl/rooms")
@@ -53,7 +53,7 @@ class RoomClient @Inject constructor(
         val body = response.body?.string() ?: throw ApiException("服务器响应为空", -1)
         val jsonArray = JSONArray(body)
 
-        val rooms = mutableListOfOf<Room>()
+        val rooms = mutableListOf<Room>()
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
             rooms.add(Room(
