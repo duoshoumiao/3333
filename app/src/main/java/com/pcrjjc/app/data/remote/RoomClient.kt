@@ -32,13 +32,13 @@ class RoomClient @Inject constructor(
      * 获取房间服务器基础URL
      */
     private suspend fun getBaseUrl(): String {
-        return settingsDataStore.getRoomServerUrl() ?: throw ApiException("请先在设置中配置房间服务器地址")
+        return settingsDataStore.getRoomServerUrl() ?: throw ApiException("请先在设置中配置房间服务器地址", -1)
     }
 
     /**
      * 获取房间列表
      */
-    suspend fun getRoomList(): List<Room> = withContext(Dispatchers.IO) {
+    suspend fun getRoomList(): List List<Room> = withContext(Dispatchers.IO) {
         val baseUrl = getBaseUrl()
         val request = Request.Builder()
             .url("$baseUrl/rooms")
@@ -47,13 +47,13 @@ class RoomClient @Inject constructor(
 
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) {
-            throw ApiException("获取房间列表失败: ${response.code}")
+            throw ApiException("获取房间列表失败: ${response.code}", response.code)
         }
 
-        val body = response.body?.string() ?: throw ApiException("服务器响应为空")
+        val body = response.body?.string() ?: throw ApiException("服务器响应为空", -1)
         val jsonArray = JSONArray(body)
 
-        val rooms = mutableListOf<Room>()
+        val rooms = mutableListOfOf<Room>()
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
             rooms.add(Room(
@@ -96,10 +96,10 @@ class RoomClient @Inject constructor(
 
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) {
-            throw ApiException("创建房间失败: ${response.code}")
+            throw ApiException("创建房间失败: ${response.code}", response.code)
         }
 
-        val body = response.body?.string() ?: throw ApiException("服务器响应为空")
+        val body = response.body?.string() ?: throw ApiException("服务器响应为空", -1)
         val obj = JSONObject(body)
 
         Room(
@@ -146,10 +146,10 @@ class RoomClient @Inject constructor(
             } catch (e: Exception) {
                 "加入房间失败: ${response.code}"
             }
-            throw ApiException(errorMsg)
+            throw ApiException(errorMsg, response.code)
         }
 
-        val body = response.body?.string() ?: throw ApiException("服务器响应为空")
+        val body = response.body?.string() ?: throw ApiException("服务器响应为空", -1)
         val obj = JSONObject(body)
 
         Room(
@@ -181,7 +181,7 @@ class RoomClient @Inject constructor(
 
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) {
-            throw ApiException("离开房间失败: ${response.code}")
+            throw ApiException("离开房间失败: ${response.code}", response.code)
         }
     }
 }
