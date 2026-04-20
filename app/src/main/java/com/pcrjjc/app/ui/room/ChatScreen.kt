@@ -1,0 +1,207 @@
+package com.pcrjjc.app.ui.room  
+  
+import androidx.compose.foundation.layout.*  
+import androidx.compose.foundation.lazy.LazyColumn  
+import androidx.compose.foundation.lazy.items  
+import androidx.compose.foundation.lazy.rememberLazyListState  
+import androidx.compose.material.icons.Icons  
+import androidx.compose.material.icons.automirrored.filled.ArrowBack  
+import androidx.compose.material.icons.automirrored.filled.Send  
+import androidx.compose.material3.*  
+import androidx.compose.runtime.*  
+import androidx.compose.ui.Alignment  
+import androidx.compose.ui.Modifier  
+import androidx.compose.ui.unit.dp  
+import androidx.hilt.navigation.compose.hiltViewModel  
+import com.pcrjjc.app.data.local.entity.ChatMessage  
+import java.text.SimpleDateFormat  
+import java.util.Date  
+import java.util.Locale  
+  
+@OptIn(ExperimentalMaterial3Api::class)  
+@Composable  
+fun ChatScreen(  
+    viewModel: ChatViewModel = hiltViewModel(),  
+    onNavigateBack: () -> Unit  
+) {  
+    val uiState by viewModel.uiState.collectAsState()  
+    var inputText by remember { mutableStateOf("") }  
+    val listState = rememberLazyListState()  
+  
+    // 新消息到达时自动滚动到底部  
+    LaunchedEffect(uiState.messages.size) {  
+        if (uiState.messages.isNotEmpty()) {  
+            listState.animateScrollToItem(uiState.messages.size - 1)  
+        }  
+    }  
+  
+    // 显示错误 Snackbar  
+    val snackbarHostState = remember { SnackbarHostState() }  
+    LaunchedEffect(uiState.error) {  
+        if (uiState.error != null) {  
+            snackbarHostState.showSnackbar(uiState.error!!)  
+            viewModel.clearError()  
+        }  
+    }  
+  
+    Scaffold(  
+        topBar = {  
+            TopAppBar(  
+                title = {  
+                    Column {  
+                        Text(  
+                            text = uiState.roomName.ifBlank { "聊天" },  
+                            style = MaterialTheme.typography.titleMedium  
+                        )  
+                        Text(  
+                            text = "房间号: ${uiState.roomId}",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    }  
+                },  
+                navigationIcon = {  
+                    IconButton(onClick = {  
+                        viewModel.leaveRoom()  
+                        onNavigateBack()  
+                    }) {  
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "离开房间")  
+                    }  
+                }  
+            )  
+        },  
+        snackbarHost = { SnackbarHost(snackbarHostState) },  
+        bottomBar = {  
+            Surface(  
+                tonalElevation = 3.dp,  
+                shadowElevation = 3.dp  
+            ) {  
+                Row(  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .padding(horizontal = 8.dp, vertical = 8.dp)  
+                        .imePadding(),  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
+                    OutlinedTextField(  
+                        value = inputText,  
+                        onValueChange = { inputText = it },  
+                        modifier = Modifier.weight(1f),  
+                        placeholder = { Text("输入消息...") },  
+                        singleLine = false,  
+                        maxLines = 4  
+                    )  
+                    Spacer(modifier = Modifier.width(8.dp))  
+                    IconButton(  
+                        onClick = {  
+                            if (inputText.isNotBlank()) {  
+                                viewModel.sendMessage(inputText.trim())  
+                                inputText = ""  
+                            }  
+                        },  
+                        enabled = inputText.isNotBlank() && !uiState.isSending  
+                    ) {  
+                        if (uiState.isSending) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.size(24.dp),  
+                                strokeWidth = 2.dp  
+                            )  
+                        } else {  
+                            Icon(  
+                                Icons.AutoMirrored.Filled.Send,  
+                                contentDescription = "发送",  
+                                tint = if (inputText.isNotBlank())  
+                                    MaterialTheme.colorScheme.primary  
+                                else  
+                                    MaterialTheme.colorScheme.onSurfaceVariant  
+                            )  
+                        }  
+                    }  
+                }  
+            }  
+        }  
+    ) { paddingValues ->  
+        if (uiState.messages.isEmpty() && !uiState.isLoading) {  
+            Box(  
+                modifier = Modifier  
+                    .fillMaxSize()  
+                    .padding(paddingValues),  
+                contentAlignment = Alignment.Center  
+            ) {  
+                Text(  
+                    text = "暂无消息，发送第一条消息吧",  
+                    style = MaterialTheme.typography.bodyLarge,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+            }  
+        } else {  
+            LazyColumn(  
+                modifier = Modifier  
+                    .fillMaxSize()  
+                    .padding(paddingValues),  
+                state = listState,  
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),  
+                verticalArrangement = Arrangement.spacedBy(4.dp)  
+            ) {  
+                items(uiState.messages, key = { it.id }) { message ->  
+                    ChatMessageItem(  
+                        message = message,  
+                        isMe = message.senderQq == uiState.playerQq  
+                    )  
+                }  
+            }  
+        }  
+    }  
+}  
+  
+@Composable  
+private fun ChatMessageItem(  
+    message: ChatMessage,  
+    isMe: Boolean  
+) {  
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }  
+  
+    Column(  
+        modifier = Modifier.fillMaxWidth(),  
+        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start  
+    ) {  
+        // 发送者名称和时间  
+        Row(  
+            horizontalArrangement = Arrangement.spacedBy(4.dp),  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            Text(  
+                text = if (isMe) "我" else message.senderName,  
+                style = MaterialTheme.typography.labelSmall,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant  
+            )  
+            Text(  
+                text = timeFormat.format(Date(message.timestamp)),  
+                style = MaterialTheme.typography.labelSmall,  
+                color = MaterialTheme.colorScheme.outline  
+            )  
+        }  
+  
+        Spacer(modifier = Modifier.height(2.dp))  
+  
+        // 消息气泡  
+        Surface(  
+            shape = MaterialTheme.shapes.medium,  
+            color = if (isMe)  
+                MaterialTheme.colorScheme.primaryContainer  
+            else  
+                MaterialTheme.colorScheme.surfaceVariant,  
+            tonalElevation = 1.dp  
+        ) {  
+            Text(  
+                text = message.content,  
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),  
+                style = MaterialTheme.typography.bodyMedium,  
+                color = if (isMe)  
+                    MaterialTheme.colorScheme.onPrimaryContainer  
+                else  
+                    MaterialTheme.colorScheme.onSurfaceVariant  
+            )  
+        }  
+    }  
+}
