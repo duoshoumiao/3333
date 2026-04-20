@@ -19,12 +19,17 @@ data class ChatUiState(
     val roomId: String = "",  
     val roomName: String = "",  
     val playerQq: String = "",  
+    val playerName: String = "",
+    val hostQq: String = "",
     val messages: List<ChatMessage> = emptyList(),  
     val isLoading: Boolean = false,  
     val error: String? = null,  
-    val isSending: Boolean = false  
-)  
-  
+    val isSending: Boolean = false,
+    val isDismissed: Boolean = false
+) {
+    val isHost: Boolean get() = playerQq.isNotBlank() && playerQq == hostQq
+}
+
 @HiltViewModel  
 class ChatViewModel @Inject constructor(  
     private val roomClient: RoomClient,  
@@ -40,12 +45,16 @@ class ChatViewModel @Inject constructor(
     init {  
         val roomId = savedStateHandle.get<String>("roomId") ?: ""  
         val playerQq = savedStateHandle.get<String>("playerQq") ?: ""  
+        val playerName = savedStateHandle.get<String>("playerName") ?: ""
         val roomName = savedStateHandle.get<String>("roomName") ?: ""  
-  
+        val hostQq = savedStateHandle.get<String>("hostQq") ?: ""
+
         _uiState.value = _uiState.value.copy(  
             roomId = roomId,  
             playerQq = playerQq,  
-            roomName = roomName  
+            playerName = playerName,
+            roomName = roomName,
+            hostQq = hostQq
         )  
   
         if (roomId.isNotBlank()) {  
@@ -113,7 +122,7 @@ class ChatViewModel @Inject constructor(
                 val msg = roomClient.sendMessage(  
                     roomId = _uiState.value.roomId,  
                     senderQq = _uiState.value.playerQq,  
-                    senderName = "玩家",  
+                    senderName = _uiState.value.playerName.ifBlank { "玩家" },
                     content = content.trim()  
                 )  
                 lastTimestamp = msg.timestamp  
@@ -143,7 +152,26 @@ class ChatViewModel @Inject constructor(
             }  
         }  
     }  
-  
+
+    /**
+     * 解散房间（仅房主）。成功后设置 isDismissed 以便 UI 自动返回。
+     */
+    fun dismissRoom() {
+        viewModelScope.launch {
+            try {
+                roomClient.dismissRoom(
+                    roomId = _uiState.value.roomId,
+                    hostQq = _uiState.value.playerQq
+                )
+                _uiState.value = _uiState.value.copy(isDismissed = true)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "解散房间失败"
+                )
+            }
+        }
+    }
+
     fun clearError() {  
         _uiState.value = _uiState.value.copy(error = null)  
     }  

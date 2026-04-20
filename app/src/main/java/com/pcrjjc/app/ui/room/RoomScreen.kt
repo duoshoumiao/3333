@@ -23,7 +23,7 @@ import com.pcrjjc.app.data.local.entity.Room
 fun RoomScreen(  
     viewModel: RoomViewModel = hiltViewModel(),  
     onNavigateBack: () -> Unit,  
-    onNavigateToChat: (roomId: String, playerQq: String, roomName: String) -> Unit = { _, _, _ -> }  
+    onNavigateToChat: (roomId: String, playerQq: String, playerName: String, roomName: String, hostQq: String) -> Unit = { _, _, _, _, _ -> }
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
   
@@ -160,8 +160,9 @@ fun RoomScreen(
                     CreateRoomContent(  
                         isCreating = uiState.isCreating,  
                         initialQq = uiState.savedQq,  
-                        onCreateRoom = { name, password, qq ->  
-                            viewModel.createRoom(name, password, qq)  
+                        initialName = uiState.savedName,
+                        onCreateRoom = { roomName, password, qq, nickname ->
+                            viewModel.createRoom(roomName, password, qq, nickname)
                         }  
                     )  
                 }  
@@ -174,13 +175,14 @@ fun RoomScreen(
         JoinRoomDialog(  
             room = selectedRoom!!,  
             initialQq = uiState.savedQq,  
+            initialName = uiState.savedName,
             initialPassword = viewModel.getCachedPassword(selectedRoom!!.roomId) ?: "",  
             onDismiss = {  
                 showJoinDialog = false  
                 selectedRoom = null  
             },  
-            onJoin = { password, qq ->  
-                viewModel.joinRoom(selectedRoom!!.roomId, password, qq)  
+            onJoin = { password, qq, nickname ->
+                viewModel.joinRoom(selectedRoom!!.roomId, password, qq, nickname)
                 showJoinDialog = false  
                 selectedRoom = null  
             }  
@@ -188,9 +190,10 @@ fun RoomScreen(
     } else if (showJoinDialog) {  
         QuickJoinDialog(  
             initialQq = uiState.savedQq,  
+            initialName = uiState.savedName,
             onDismiss = { showJoinDialog = false },  
-            onJoin = { roomId, password, qq ->  
-                viewModel.joinRoom(roomId, password, qq)  
+            onJoin = { roomId, password, qq, nickname ->
+                viewModel.joinRoom(roomId, password, qq, nickname)
                 showJoinDialog = false  
             }  
         )  
@@ -214,8 +217,9 @@ fun RoomScreen(
                 Button(onClick = {  
                     val room = uiState.createdRoom!!  
                     val qq = uiState.currentPlayerQq ?: uiState.savedQq  
+                    val name = uiState.currentPlayerName ?: uiState.savedName
                     viewModel.clearCreatedRoom()  
-                    onNavigateToChat(room.roomId, qq, room.roomName)  
+                    onNavigateToChat(room.roomId, qq, name, room.roomName, room.hostQq)
                 }) {  
                     Text("进入房间")  
                 }  
@@ -233,8 +237,9 @@ fun RoomScreen(
         if (uiState.joinedRoom != null) {  
             val room = uiState.joinedRoom!!  
             val qq = uiState.currentPlayerQq ?: uiState.savedQq  
+            val name = uiState.currentPlayerName ?: uiState.savedName
             viewModel.clearJoinedRoom()  
-            onNavigateToChat(room.roomId, qq, room.roomName)  
+            onNavigateToChat(room.roomId, qq, name, room.roomName, room.hostQq)
         }  
     }  
 }
@@ -272,6 +277,14 @@ private fun RoomCard(
                     style = MaterialTheme.typography.bodySmall,  
                     color = MaterialTheme.colorScheme.onSurfaceVariant  
                 )  
+                if (room.players.isNotEmpty()) {
+                    Text(
+                        text = "成员: " + room.players.joinToString("、") { it.name.ifBlank { it.qq } },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
+                    )
+                }
             }  
             Row(  
                 horizontalArrangement = Arrangement.spacedBy(8.dp),  
@@ -299,18 +312,25 @@ private fun RoomCard(
 private fun CreateRoomContent(  
     isCreating: Boolean,  
     initialQq: String = "",  
-    onCreateRoom: (String, String?, String) -> Unit  
+    initialName: String = "",
+    onCreateRoom: (String, String?, String, String) -> Unit
 ) {  
     var roomName by remember { mutableStateOf("") }  
     var password by remember { mutableStateOf("") }  
     var hasPassword by remember { mutableStateOf(false) }  
     var qq by remember { mutableStateOf(initialQq) }  
-  
+    var nickname by remember { mutableStateOf(initialName) }
+
     LaunchedEffect(initialQq) {  
         if (qq.isBlank() && initialQq.isNotBlank()) {  
             qq = initialQq  
         }  
     }  
+    LaunchedEffect(initialName) {
+        if (nickname.isBlank() && initialName.isNotBlank()) {
+            nickname = initialName
+        }
+    }
   
     Column(  
         modifier = Modifier  
@@ -349,6 +369,15 @@ private fun CreateRoomContent(
             )  
         }  
   
+        OutlinedTextField(
+            value = nickname,
+            onValueChange = { nickname = it },
+            label = { Text("您的昵称") },
+            placeholder = { Text("显示给其他玩家的名字") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
         OutlinedTextField(  
             value = qq,  
             onValueChange = { qq = it },  
@@ -363,12 +392,12 @@ private fun CreateRoomContent(
   
         Button(  
             onClick = {  
-                if (roomName.isNotBlank() && qq.isNotBlank()) {  
-                    onCreateRoom(roomName, if (hasPassword && password.isNotBlank()) password else null, qq)  
+                if (roomName.isNotBlank() && qq.isNotBlank() && nickname.isNotBlank()) {
+                    onCreateRoom(roomName, if (hasPassword && password.isNotBlank()) password else null, qq, nickname)
                 }  
             },  
             modifier = Modifier.fillMaxWidth(),  
-            enabled = !isCreating && roomName.isNotBlank() && qq.isNotBlank()  
+            enabled = !isCreating && roomName.isNotBlank() && qq.isNotBlank() && nickname.isNotBlank()
         ) {  
             if (isCreating) {  
                 CircularProgressIndicator(  
@@ -386,12 +415,14 @@ private fun CreateRoomContent(
 private fun JoinRoomDialog(  
     room: Room,  
     initialQq: String = "",  
+    initialName: String = "",
     initialPassword: String = "",  
     onDismiss: () -> Unit,  
-    onJoin: (String?, String) -> Unit  
+    onJoin: (String?, String, String) -> Unit
 ) {  
     var password by remember { mutableStateOf(initialPassword) }  
     var qq by remember { mutableStateOf(initialQq) }  
+    var nickname by remember { mutableStateOf(initialName) }
     var showError by remember { mutableStateOf(false) }  
   
     LaunchedEffect(initialQq) {  
@@ -399,6 +430,11 @@ private fun JoinRoomDialog(
             qq = initialQq  
         }  
     }  
+    LaunchedEffect(initialName) {
+        if (nickname.isBlank() && initialName.isNotBlank()) {
+            nickname = initialName
+        }
+    }
   
     AlertDialog(  
         onDismissRequest = onDismiss,  
@@ -424,6 +460,18 @@ private fun JoinRoomDialog(
                     )  
                 }  
   
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = {
+                        nickname = it
+                        showError = false
+                    },
+                    label = { Text("您的昵称") },
+                    singleLine = true,
+                    isError = showError,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 OutlinedTextField(  
                     value = qq,  
                     onValueChange = {  
@@ -449,11 +497,11 @@ private fun JoinRoomDialog(
         confirmButton = {  
             Button(  
                 onClick = {  
-                    if (qq.isBlank() || (room.password != null && password.isBlank())) {  
+                    if (qq.isBlank() || nickname.isBlank() || (room.password != null && password.isBlank())) {
                         showError = true  
                         return@Button  
                     }  
-                    onJoin(if (password.isNotBlank()) password else null, qq)  
+                    onJoin(if (password.isNotBlank()) password else null, qq, nickname)
                 }  
             ) {  
                 Text("加入")  
@@ -470,18 +518,25 @@ private fun JoinRoomDialog(
 @Composable  
 private fun QuickJoinDialog(  
     initialQq: String = "",  
+    initialName: String = "",
     onDismiss: () -> Unit,  
-    onJoin: (String, String?, String) -> Unit  
+    onJoin: (String, String?, String, String) -> Unit
 ) {  
     var roomId by remember { mutableStateOf("") }  
     var password by remember { mutableStateOf("") }  
     var qq by remember { mutableStateOf(initialQq) }  
-  
+    var nickname by remember { mutableStateOf(initialName) }
+
     LaunchedEffect(initialQq) {  
         if (qq.isBlank() && initialQq.isNotBlank()) {  
             qq = initialQq  
         }  
     }  
+    LaunchedEffect(initialName) {
+        if (nickname.isBlank() && initialName.isNotBlank()) {
+            nickname = initialName
+        }
+    }
   
     AlertDialog(  
         onDismissRequest = onDismiss,  
@@ -505,6 +560,14 @@ private fun QuickJoinDialog(
                     modifier = Modifier.fillMaxWidth()  
                 )  
   
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = { nickname = it },
+                    label = { Text("您的昵称") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 OutlinedTextField(  
                     value = qq,  
                     onValueChange = { qq = it },  
@@ -518,11 +581,11 @@ private fun QuickJoinDialog(
         confirmButton = {  
             Button(  
                 onClick = {  
-                    if (roomId.isNotBlank() && qq.isNotBlank()) {  
-                        onJoin(roomId, if (password.isNotBlank()) password else null, qq)  
+                    if (roomId.isNotBlank() && qq.isNotBlank() && nickname.isNotBlank()) {
+                        onJoin(roomId, if (password.isNotBlank()) password else null, qq, nickname)
                     }  
                 },  
-                enabled = roomId.isNotBlank() && qq.isNotBlank()  
+                enabled = roomId.isNotBlank() && qq.isNotBlank() && nickname.isNotBlank()
             ) {  
                 Text("加入")  
             }  

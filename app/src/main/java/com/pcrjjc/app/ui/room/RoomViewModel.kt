@@ -20,7 +20,9 @@ data class RoomUiState(
     val createdRoom: Room? = null,  
     val joinedRoom: Room? = null,  
     val savedQq: String = "",  
-    val currentPlayerQq: String? = null  
+    val savedName: String = "",
+    val currentPlayerQq: String? = null,
+    val currentPlayerName: String? = null
 )  
   
 @HiltViewModel  
@@ -37,20 +39,22 @@ class RoomViewModel @Inject constructor(
   
     init {  
         refreshRoomList()  
-        loadSavedQq()  
+        loadSavedProfile()
     }  
   
-    private fun loadSavedQq() {  
+    private fun loadSavedProfile() {
         viewModelScope.launch {  
             val qq = settingsDataStore.getUserQq()  
-            _uiState.value = _uiState.value.copy(savedQq = qq)  
+            val name = settingsDataStore.getUserName()
+            _uiState.value = _uiState.value.copy(savedQq = qq, savedName = name)
         }  
     }  
   
-    fun saveQq(qq: String) {  
+    fun saveProfile(qq: String, name: String) {
         viewModelScope.launch {  
             settingsDataStore.setUserQq(qq)  
-            _uiState.value = _uiState.value.copy(savedQq = qq)  
+            settingsDataStore.setUserName(name)
+            _uiState.value = _uiState.value.copy(savedQq = qq, savedName = name)
         }  
     }  
   
@@ -74,21 +78,22 @@ class RoomViewModel @Inject constructor(
         }  
     }  
   
-    fun createRoom(roomName: String, password: String?, hostQq: String) {  
+    fun createRoom(roomName: String, password: String?, hostQq: String, hostName: String) {
         viewModelScope.launch {  
             _uiState.value = _uiState.value.copy(isCreating = true, error = null)  
             try {  
                 val room = roomClient.createRoom(  
                     roomName = roomName,  
                     password = password,  
-                    hostName = "房主",  
+                    hostName = hostName.ifBlank { "房主" },
                     hostQq = hostQq  
                 )  
-                saveQq(hostQq)  
+                saveProfile(hostQq, hostName)
                 _uiState.value = _uiState.value.copy(  
                     isCreating = false,  
                     createdRoom = room,  
-                    currentPlayerQq = hostQq  
+                    currentPlayerQq = hostQq,
+                    currentPlayerName = hostName
                 )  
                 refreshRoomList()  
             } catch (e: Exception) {  
@@ -100,25 +105,26 @@ class RoomViewModel @Inject constructor(
         }  
     }  
   
-    fun joinRoom(roomId: String, password: String?, playerQq: String) {  
+    fun joinRoom(roomId: String, password: String?, playerQq: String, playerName: String) {
         viewModelScope.launch {  
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)  
             try {  
                 val room = roomClient.joinRoom(  
                     roomId = roomId,  
                     password = password,  
-                    playerName = "玩家",  
+                    playerName = playerName.ifBlank { "玩家" },
                     playerQq = playerQq  
                 )  
                 // 加入成功后缓存密码和QQ  
                 if (!password.isNullOrBlank()) {  
                     passwordCache[roomId] = password  
                 }  
-                saveQq(playerQq)  
+                saveProfile(playerQq, playerName)
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     joinedRoom = room,  
-                    currentPlayerQq = playerQq  
+                    currentPlayerQq = playerQq,
+                    currentPlayerName = playerName
                 )  
             } catch (e: Exception) {  
                 _uiState.value = _uiState.value.copy(  

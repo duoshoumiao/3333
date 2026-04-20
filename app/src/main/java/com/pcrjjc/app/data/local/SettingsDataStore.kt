@@ -30,7 +30,8 @@ class SettingsDataStore(private val context: Context) {
         private val KEY_ROOM_SERVER_PORT = stringPreferencesKey("room_server_port")  
         private val KEY_LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")  
         private val KEY_NOTIFIED_VERSION = stringPreferencesKey("notified_version")  
-        private val KEY_USER_QQ = stringPreferencesKey("user_qq")  // 新增：用户QQ号  
+        private val KEY_USER_QQ = stringPreferencesKey("user_qq")  // 用户QQ号
+        private val KEY_USER_NAME = stringPreferencesKey("user_name")  // 用户昵称
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->    
@@ -68,6 +69,11 @@ class SettingsDataStore(private val context: Context) {
     val userQqFlow: Flow<String> = context.dataStore.data.map { prefs ->  
         prefs[KEY_USER_QQ] ?: ""  
     }  
+
+    val userNameFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_USER_NAME] ?: ""
+    }
+
   
     suspend fun setPollingInterval(seconds: Long) {    
         context.dataStore.edit { prefs ->    
@@ -105,6 +111,11 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setUserQq(qq: String) {  
         context.dataStore.edit { it[KEY_USER_QQ] = qq }  
     }  
+
+    suspend fun setUserName(name: String) {
+        context.dataStore.edit { it[KEY_USER_NAME] = name }
+    }
+
   
     suspend fun getPollingIntervalSync(): Long {    
         return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 1L    
@@ -117,6 +128,11 @@ class SettingsDataStore(private val context: Context) {
     suspend fun getUserQq(): String {  
         return context.dataStore.data.first()[KEY_USER_QQ] ?: ""  
     }  
+
+    suspend fun getUserName(): String {
+        return context.dataStore.data.first()[KEY_USER_NAME] ?: ""
+    }
+
   
     /**    
      * 获取用户自定义的服务器 URL。    
