@@ -6,16 +6,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable    
 import androidx.navigation.compose.rememberNavController    
 import androidx.navigation.navArgument    
-import com.pcrjjc.app.ui.account.AccountScreen    
-import com.pcrjjc.app.ui.bind.BindScreen    
-import com.pcrjjc.app.ui.daily.DailyScreen           // ← 新增  
-import com.pcrjjc.app.ui.detail.DetailScreen    
-import com.pcrjjc.app.ui.fortnightly.FortnightlyScreen    
-import com.pcrjjc.app.ui.history.HistoryScreen    
-import com.pcrjjc.app.ui.home.HomeScreen    
-import com.pcrjjc.app.ui.master.MasterScreen    
-import com.pcrjjc.app.ui.query.QueryScreen    
-import com.pcrjjc.app.ui.settings.SettingsScreen    
+import com.pcrjjc.app.ui.account.AccountScreen
+import com.pcrjjc.app.ui.bind.BindScreen
+import com.pcrjjc.app.ui.daily.DailyScreen           // ← 新增
+import com.pcrjjc.app.ui.detail.DetailScreen
+import com.pcrjjc.app.ui.fortnightly.FortnightlyScreen
+import com.pcrjjc.app.ui.history.HistoryScreen
+import com.pcrjjc.app.ui.home.HomeScreen
+import com.pcrjjc.app.ui.master.MasterScreen
+import com.pcrjjc.app.ui.query.QueryScreen
+import com.pcrjjc.app.ui.room.RoomScreen              // 新增
+import com.pcrjjc.app.ui.settings.SettingsScreen
   
 sealed class Screen(val route: String) {    
     data object Home : Screen("home")    
@@ -33,9 +34,10 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")    
     data object Account : Screen("account")    
     data object Master : Screen("master")    
-    data object Fortnightly : Screen("fortnightly")    
-    data object Daily : Screen("daily")                // ← 新增  
-}    
+data object Fortnightly : Screen("fortnightly")
+    data object Daily : Screen("daily")                // ← 新增
+    data object Room : Screen("room")                  // 新增：房间
+}
   
 @Composable    
 fun PcrJjcNavHost() {    
@@ -45,21 +47,22 @@ fun PcrJjcNavHost() {
         navController = navController,    
         startDestination = Screen.Home.route    
     ) {    
-        composable(Screen.Home.route) {    
-            HomeScreen(    
-                onNavigateToBind = { navController.navigate(Screen.Bind.route) },    
-                onNavigateToQuery = { bindId -> navController.navigate(Screen.Query.createRoute(bindId)) },    
-                onNavigateToDetail = { bindId -> navController.navigate(Screen.Detail.createRoute(bindId)) },    
-                onNavigateToHistory = { pcrid, platform ->    
-                    navController.navigate(Screen.History.createRoute(pcrid, platform))    
-                },    
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },    
-                onNavigateToAccount = { navController.navigate(Screen.Account.route) },    
-                onNavigateToMaster = { navController.navigate(Screen.Master.route) },    
-                onNavigateToFortnightly = { navController.navigate(Screen.Fortnightly.route) },  
-                onNavigateToDaily = { navController.navigate(Screen.Daily.route) }  // ← 新增  
-            )    
-        }    
+composable(Screen.Home.route) {
+            HomeScreen(
+                onNavigateToBind = { navController.navigate(Screen.Bind.route) },
+                onNavigateToQuery = { bindId -> navController.navigate(Screen.Query.createRoute(bindId)) },
+                onNavigateToDetail = { bindId -> navController.navigate(Screen.Detail.createRoute(bindId)) },
+                onNavigateToHistory = { pcrid, platform ->
+                    navController.navigate(Screen.History.createRoute(pcrid, platform))
+                },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToAccount = { navController.navigate(Screen.Account.route) },
+                onNavigateToMaster = { navController.navigate(Screen.Master.route) },
+                onNavigateToFortnightly = { navController.navigate(Screen.Fortnightly.route) },
+                onNavigateToDaily = { navController.navigate(Screen.Daily.route) },
+                onNavigateToRoom = { navController.navigate(Screen.Room.route) }
+            )
+        }
   
         composable(Screen.Bind.route) {    
             BindScreen(onNavigateBack = { navController.popBackStack() })    
@@ -123,6 +126,11 @@ fun PcrJjcNavHost() {
         // ← 新增：清日常路由  
         composable(Screen.Daily.route) {    
             DailyScreen(onNavigateBack = { navController.popBackStack() })    
-        }    
+        }
+
+        // 新增：房间路由
+        composable(Screen.Room.route) {
+            RoomScreen(onNavigateBack = { navController.popBackStack() })
+        }
     }    
 }

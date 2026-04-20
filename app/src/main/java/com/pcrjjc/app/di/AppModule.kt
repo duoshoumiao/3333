@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pcrjjc.app.data.local.AppDatabase
 import com.pcrjjc.app.data.local.SettingsDataStore
 import com.pcrjjc.app.data.local.dao.AccountDao
+import com.pcrjjc.app.data.remote.RoomClient
 import com.pcrjjc.app.domain.UpdateChecker
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
@@ -75,5 +76,11 @@ object AppModule {
     @Singleton
     fun provideUpdateChecker(@ApplicationContext context: Context): UpdateChecker {
         return UpdateChecker(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRoomClient(settingsDataStore: SettingsDataStore): RoomClient {
+        return RoomClient(settingsDataStore)
     }
 }

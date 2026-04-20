@@ -5,43 +5,49 @@ import android.content.Intent
 import android.net.Uri    
 import android.provider.Settings    
 import android.widget.Toast    
-import androidx.compose.foundation.clickable    
-import androidx.compose.foundation.layout.Arrangement    
-import androidx.compose.foundation.layout.Column    
-import androidx.compose.foundation.layout.Row    
-import androidx.compose.foundation.layout.Spacer    
-import androidx.compose.foundation.layout.fillMaxSize    
-import androidx.compose.foundation.layout.fillMaxWidth    
-import androidx.compose.foundation.layout.height    
-import androidx.compose.foundation.layout.padding    
-import androidx.compose.foundation.lazy.LazyColumn    
-import androidx.compose.foundation.lazy.itemsIndexed    
-import androidx.compose.foundation.pager.HorizontalPager    
-import androidx.compose.foundation.pager.rememberPagerState    
-import androidx.compose.material.icons.Icons    
-import androidx.compose.material.icons.filled.Add    
-import androidx.compose.material.icons.filled.CleaningServices        // ← 新增  
-import androidx.compose.material.icons.filled.ContentCut 
-import androidx.compose.material.icons.filled.DateRange    
-import androidx.compose.material.icons.filled.Delete    
-import androidx.compose.material.icons.filled.History    
-import androidx.compose.material.icons.filled.ManageAccounts    
-import androidx.compose.material.icons.filled.Search    
-import androidx.compose.material.icons.filled.Settings    
-import androidx.compose.material.icons.filled.Visibility    
-import androidx.compose.material3.Card    
-import androidx.compose.material3.CardDefaults    
-import androidx.compose.material3.ExperimentalMaterial3Api    
-import androidx.compose.material3.FloatingActionButton    
-import androidx.compose.material3.Icon    
-import androidx.compose.material3.IconButton    
-import androidx.compose.material3.MaterialTheme    
-import androidx.compose.material3.Scaffold    
-import androidx.compose.material3.Tab    
-import androidx.compose.foundation.ExperimentalFoundationApi    
-import androidx.compose.material3.TabRow    
-import androidx.compose.material3.Text    
-import com.pcrjjc.app.ui.components.ImageTopAppBar 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CleaningServices        // ← 新增
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.MeetingRoom
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import com.pcrjjc.app.ui.components.ImageTopAppBar
 import androidx.compose.runtime.Composable    
 import androidx.compose.runtime.collectAsState    
 import androidx.compose.runtime.getValue    
@@ -60,31 +66,64 @@ import kotlinx.coroutines.launch
   
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)    
 @Composable    
-fun HomeScreen(    
-    viewModel: HomeViewModel = hiltViewModel(),    
-    onNavigateToBind: () -> Unit,    
-    onNavigateToQuery: (Int) -> Unit,    
-    onNavigateToDetail: (Int) -> Unit,    
-    onNavigateToHistory: (Long, Int) -> Unit,    
-    onNavigateToSettings: () -> Unit,    
-    onNavigateToAccount: () -> Unit,    
-    onNavigateToMaster: () -> Unit,    
-    onNavigateToFortnightly: () -> Unit,  
-    onNavigateToDaily: () -> Unit                      // ← 新增参数  
-) {    
-    val jjcBinds by viewModel.jjcBinds.collectAsState()    
-    val pjjcBinds by viewModel.pjjcBinds.collectAsState()    
-    val manualBinds by viewModel.manualBinds.collectAsState()    
-    val rankCaches by viewModel.rankCaches.collectAsState()    
-    val context = LocalContext.current    
-  
-    val totalCount = jjcBinds.size + pjjcBinds.size + manualBinds.size    
-  
-    Scaffold(    
-        topBar = {    
-            ImageTopAppBar(  
-				title = { Text("LB") },  
-				actions = {  
+fun HomeScreen(
+    viewModel: HomeViewModel = hiltViewModel(),
+    onNavigateToBind: () -> Unit,
+    onNavigateToQuery: (Int) -> Unit,
+    onNavigateToDetail: (Int) -> Unit,
+    onNavigateToHistory: (Long, Int) -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToAccount: () -> Unit,
+    onNavigateToMaster: () -> Unit,
+    onNavigateToFortnightly: () -> Unit,
+    onNavigateToDaily: () -> Unit,
+    onNavigateToRoom: () -> Unit                      // ← 新增参数
+) {
+    val jjcBinds by viewModel.jjcBinds.collectAsState()
+    val pjjcBinds by viewModel.pjjcBinds.collectAsState()
+    val manualBinds by viewModel.manualBinds.collectAsState()
+    val rankCaches by viewModel.rankCaches.collectAsState()
+    val context = LocalContext.current
+
+    val totalCount = jjcBinds.size + pjjcBinds.size + manualBinds.size
+
+    // 折叠菜单状态
+    var showMenu by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            ImageTopAppBar(
+				title = {
+                    // 点击标题展开/折叠菜单
+                    Row(
+                        modifier = Modifier.clickable { showMenu = !showMenu },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("LB")
+                        Icon(
+                            if (showMenu) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = "菜单",
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                    // 折叠菜单下拉
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("房间") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToRoom()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.MeetingRoom, contentDescription = null)
+                            }
+                        )
+                    }
+                },
+				actions = {
 					IconButton(onClick = onNavigateToDaily) {  
 						Icon(Icons.Default.CleaningServices, contentDescription = "清日常")  
 					}  

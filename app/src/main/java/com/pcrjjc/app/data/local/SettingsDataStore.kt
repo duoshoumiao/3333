@@ -26,6 +26,8 @@ companion object {
         private val KEY_DAILY_SAVED_ACCOUNTS = stringPreferencesKey("daily_saved_accounts")
 		private val KEY_DAILY_SERVER_IP = stringPreferencesKey("daily_server_ip")
         private val KEY_DAILY_SERVER_PORT = stringPreferencesKey("daily_server_port")
+        private val KEY_ROOM_SERVER_IP = stringPreferencesKey("room_server_ip")    // 新增：房间服务器IP
+        private val KEY_ROOM_SERVER_PORT = stringPreferencesKey("room_server_port") // 新增：房间服务器端口
         private val KEY_LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
         private val KEY_NOTIFIED_VERSION = stringPreferencesKey("notified_version")
     }
@@ -50,8 +52,16 @@ companion object {
         prefs[KEY_DAILY_SERVER_IP] ?: ""  
     }  
   
-    val dailyServerPortFlow: Flow<String> = context.dataStore.data.map { prefs ->  
-        prefs[KEY_DAILY_SERVER_PORT] ?: ""  
+val dailyServerPortFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_DAILY_SERVER_PORT] ?: ""
+    }
+
+    val roomServerIpFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ROOM_SERVER_IP] ?: ""
+    }
+
+    val roomServerPortFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ROOM_SERVER_PORT] ?: ""
     }
 	
 	suspend fun setPollingInterval(seconds: Long) {  
@@ -76,8 +86,15 @@ companion object {
     suspend fun setDailyServerIp(ip: String) {  
         context.dataStore.edit { it[KEY_DAILY_SERVER_IP] = ip }  
     }  
-    suspend fun setDailyServerPort(port: String) {  
-        context.dataStore.edit { it[KEY_DAILY_SERVER_PORT] = port }  
+suspend fun setDailyServerPort(port: String) {
+        context.dataStore.edit { it[KEY_DAILY_SERVER_PORT] = port }
+    }
+
+    suspend fun setRoomServerIp(ip: String) {
+        context.dataStore.edit { it[KEY_ROOM_SERVER_IP] = ip }
+    }
+    suspend fun setRoomServerPort(port: String) {
+        context.dataStore.edit { it[KEY_ROOM_SERVER_PORT] = port }
     }
 	
 	suspend fun getPollingIntervalSync(): Long {  
@@ -100,16 +117,27 @@ companion object {
         return if (port.isBlank()) "http://$ip" else "http://$ip:$port"  
     }  
   
-    /**  
-     * 获取清日常服务器 URL（与通用服务器地址相同）。  
-     */  
-    suspend fun getDailyServerUrl(): String? {  
-        val prefs = context.dataStore.data.first()  
-        val ip = (prefs[KEY_DAILY_SERVER_IP] ?: "").trim()  
-        val port = (prefs[KEY_DAILY_SERVER_PORT] ?: "").trim()  
-        if (ip.isBlank()) return null  
-        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"  
-    }  
+/**
+     * 获取清日常服务器 URL（与通用服务器地址相同）。
+     */
+    suspend fun getDailyServerUrl(): String? {
+        val prefs = context.dataStore.data.first()
+        val ip = (prefs[KEY_DAILY_SERVER_IP] ?: "").trim()
+        val port = (prefs[KEY_DAILY_SERVER_PORT] ?: "").trim()
+        if (ip.isBlank()) return null
+        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"
+    }
+
+    /**
+     * 获取房间服务器 URL。
+     */
+    suspend fun getRoomServerUrl(): String? {
+        val prefs = context.dataStore.data.first()
+        val ip = (prefs[KEY_ROOM_SERVER_IP] ?: "").trim()
+        val port = (prefs[KEY_ROOM_SERVER_PORT] ?: "").trim()
+        if (ip.isBlank()) return null
+        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"
+    }
   
     // ==================== 清日常账号保存 ====================  
   

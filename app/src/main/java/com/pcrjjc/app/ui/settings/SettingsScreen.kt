@@ -251,6 +251,69 @@ fun SettingsScreen(
                 }    
             }    
   
+            // ========== 房间服务器地址 Card（新增）==========    
+            Card(    
+                modifier = Modifier.fillMaxWidth(),    
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)    
+            ) {    
+                Column(modifier = Modifier.padding(16.dp)) {    
+                    Text("房间服务器地址", style = MaterialTheme.typography.titleMedium)    
+                    Spacer(modifier = Modifier.height(8.dp))    
+                    Text(    
+                        text = "填写房间服务器地址，用于房间功能",    
+                        style = MaterialTheme.typography.bodySmall,    
+                        color = MaterialTheme.colorScheme.onSurfaceVariant    
+                    )    
+                    Spacer(modifier = Modifier.height(12.dp))    
+                    Row(    
+                        modifier = Modifier.fillMaxWidth(),    
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),    
+                        verticalAlignment = Alignment.CenterVertically    
+                    ) {    
+                        OutlinedTextField(    
+                            value = uiState.roomServerIpInput,    
+                            onValueChange = { viewModel.onRoomServerIpInputChanged(it) },    
+                            label = { Text("IP地址") },    
+                            placeholder = { Text("例: 192.168.1.100") },    
+                            singleLine = true,    
+                            modifier = Modifier.weight(2f)    
+                        )    
+                        OutlinedTextField(    
+                            value = uiState.roomServerPortInput,    
+                            onValueChange = { viewModel.onRoomServerPortInputChanged(it) },    
+                            label = { Text("端口") },    
+                            placeholder = { Text("例: 8080") },    
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),    
+                            singleLine = true,    
+                            modifier = Modifier.weight(1f),    
+                            isError = uiState.roomServerPortInput.isNotEmpty() &&    
+                                uiState.roomServerPortInput.toIntOrNull()    
+                                    .let { it == null || it < 1 || it > 65535 }    
+                        )    
+                    }    
+                    Spacer(modifier = Modifier.height(8.dp))    
+                    Button(    
+                        onClick = { viewModel.saveRoomServerAddress() },    
+                        modifier = Modifier.fillMaxWidth(),    
+                        enabled = uiState.roomServerIpInput.isNotBlank() && (    
+                            uiState.roomServerPortInput.isEmpty() ||    
+                            uiState.roomServerPortInput.toIntOrNull()    
+                                .let { it != null && it in 1..65535 }    
+                        )    
+                    ) {    
+                        Text("保存")    
+                    }    
+                    if (uiState.roomServerSaved) {    
+                        Spacer(modifier = Modifier.height(4.dp))    
+                        Text(    
+                            text = "已保存",    
+                            style = MaterialTheme.typography.bodySmall,    
+                            color = MaterialTheme.colorScheme.primary    
+                        )    
+                    }    
+                }    
+            }    
+  
             // ========== 头像缓存 Card ==========    
             Card(    
                 modifier = Modifier.fillMaxWidth(),    
