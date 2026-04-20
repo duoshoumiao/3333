@@ -2,7 +2,6 @@ package com.pcrjjc.app.data.remote
 
 import com.pcrjjc.app.data.local.entity.Room
 import com.pcrjjc.app.data.local.SettingsDataStore
-import com.pcrjjc.app.data.ApiException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
