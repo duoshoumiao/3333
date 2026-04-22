@@ -84,12 +84,4 @@
         </provider>  
     </application>  
   
-</manifest>pport.FILE_PROVIDER_PATHS"    
-                android:resource="@xml/file_paths" />    
-        </provider>    
-    </application>    
-  
-</manifest>ider>    
-    </application>    
-  
 </manifest>
