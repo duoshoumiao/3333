@@ -37,8 +37,7 @@ fun ChatScreen(
   
     HorizontalPager(  
         state = pagerState,  
-        modifier = Modifier.fillMaxSize(),  
-        beyondViewportPageCount = 1  // 预加载相邻页面  
+        modifier = Modifier.fillMaxSize()
     ) { page ->  
         when (page) {  
             0 -> ChatPageContent(  
