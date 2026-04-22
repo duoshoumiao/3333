@@ -105,22 +105,22 @@ class ClanBattleViewModel @Inject constructor(
         }    
   
         // 开始轮询房间消息中的会战状态    
-        startStatePolling()    
-    }    
+        startStatePolling()  
   
-    // 监听 battleState 变化，实时推送到浮窗  
-	viewModelScope.launch {  
-		_uiState  
-			.map { it.battleState }  
-			.distinctUntilChanged()  
-			.collect { battleState ->  
-				ClanBattleFloatingService.instance?.updateText(  
-					engine.generateFloatingText(battleState)  
-				)  
-			}  
-	}
-	
-	// ======================== 监控 ========================    
+        // 监听 battleState 变化，实时推送到浮窗  
+        viewModelScope.launch {  
+            _uiState  
+                .map { it.battleState }  
+                .distinctUntilChanged()  
+                .collect { battleState ->  
+                    ClanBattleFloatingService.instance?.updateText(  
+                        engine.generateFloatingText(battleState)  
+                    )  
+                }  
+        }  
+    }  // init 块结束  
+  
+    // ======================== 监控 ========================   
   
     /**    
      * 使用指定的"我的账号"开始出刀监控    
