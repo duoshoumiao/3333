@@ -1,49 +1,91 @@
 package com.pcrjjc.app.ui.room  
   
+import androidx.compose.foundation.ExperimentalFoundationApi  
 import androidx.compose.foundation.layout.*  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.items  
 import androidx.compose.foundation.lazy.rememberLazyListState  
+import androidx.compose.foundation.pager.HorizontalPager  
+import androidx.compose.foundation.pager.rememberPagerState  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
 import androidx.compose.material.icons.automirrored.filled.Send  
-import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.DeleteForever  
+import androidx.compose.material.icons.filled.SportsEsports  
 import androidx.compose.material3.*  
 import androidx.compose.runtime.*  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.text.style.TextOverflow  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import com.pcrjjc.app.data.local.entity.ChatMessage  
+import kotlinx.coroutines.launch  
 import java.text.SimpleDateFormat  
 import java.util.Date  
 import java.util.Locale  
   
-@OptIn(ExperimentalMaterial3Api::class)  
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)  
 @Composable  
 fun ChatScreen(  
     viewModel: ChatViewModel = hiltViewModel(),  
     onNavigateBack: () -> Unit  
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
+    val pagerState = rememberPagerState(initialPage = 0) { 2 }  
+    val coroutineScope = rememberCoroutineScope()  
+  
+    HorizontalPager(  
+        state = pagerState,  
+        modifier = Modifier.fillMaxSize(),  
+        beyondViewportPageCount = 1  // 预加载相邻页面  
+    ) { page ->  
+        when (page) {  
+            0 -> ChatPageContent(  
+                uiState = uiState,  
+                viewModel = viewModel,  
+                onNavigateBack = onNavigateBack,  
+                onNavigateToBoss = {  
+                    coroutineScope.launch { pagerState.animateScrollToPage(1) }  
+                }  
+            )  
+            1 -> ClanBattleScreen(  
+                onNavigateBack = {  
+                    coroutineScope.launch { pagerState.animateScrollToPage(0) }  
+                }  
+            )  
+        }  
+    }  
+}  
+  
+// ==================== 原有聊天页面内容（提取为独立 Composable） ====================  
+  
+@OptIn(ExperimentalMaterial3Api::class)  
+@Composable  
+private fun ChatPageContent(  
+    uiState: ChatUiState,  
+    viewModel: ChatViewModel,  
+    onNavigateBack: () -> Unit,  
+    onNavigateToBoss: () -> Unit  
+) {  
     var inputText by remember { mutableStateOf("") }  
     val listState = rememberLazyListState()  
-    var showDismissDialog by remember { mutableStateOf(false) }
-
+    var showDismissDialog by remember { mutableStateOf(false) }  
+  
     // 新消息到达时自动滚动到底部  
     LaunchedEffect(uiState.messages.size) {  
         if (uiState.messages.isNotEmpty()) {  
             listState.animateScrollToItem(uiState.messages.size - 1)  
         }  
     }  
-
-    // 房主解散房间后自动退出
-    LaunchedEffect(uiState.isDismissed) {
-        if (uiState.isDismissed) {
-            onNavigateBack()
-        }
-    }
-
+  
+    // 房主解散房间后自动退出  
+    LaunchedEffect(uiState.isDismissed) {  
+        if (uiState.isDismissed) {  
+            onNavigateBack()  
+        }  
+    }  
+  
     Scaffold(  
         topBar = {  
             TopAppBar(  
@@ -51,9 +93,11 @@ fun ChatScreen(
                     Column {  
                         Text(uiState.roomName.ifBlank { "聊天" })  
                         Text(  
-                            text = "房间号: ${uiState.roomId}",  
+                            text = "房间号: ${uiState.roomId}  ← 左滑查看Boss状态",  
                             style = MaterialTheme.typography.bodySmall,  
-                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                            maxLines = 1,  
+                            overflow = TextOverflow.Ellipsis  
                         )  
                     }  
                 },  
@@ -64,18 +108,26 @@ fun ChatScreen(
                     }) {  
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "离开房间")  
                     }  
-                },
-                actions = {
-                    if (uiState.isHost) {
-                        IconButton(onClick = { showDismissDialog = true }) {
-                            Icon(
-                                Icons.Default.DeleteForever,
-                                contentDescription = "解散房间",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
+                },  
+                actions = {  
+                    // Boss状态按钮（也可点击进入）  
+                    IconButton(onClick = onNavigateToBoss) {  
+                        Icon(  
+                            Icons.Default.SportsEsports,  
+                            contentDescription = "Boss状态",  
+                            tint = MaterialTheme.colorScheme.primary  
+                        )  
+                    }  
+                    if (uiState.isHost) {  
+                        IconButton(onClick = { showDismissDialog = true }) {  
+                            Icon(  
+                                Icons.Default.DeleteForever,  
+                                contentDescription = "解散房间",  
+                                tint = MaterialTheme.colorScheme.error  
+                            )  
+                        }  
+                    }  
+                }  
             )  
         },  
         bottomBar = {  
@@ -169,31 +221,33 @@ fun ChatScreen(
             Text(uiState.error!!)  
         }  
     }  
-
-    if (showDismissDialog) {
-        AlertDialog(
-            onDismissRequest = { showDismissDialog = false },
-            title = { Text("解散房间") },
-            text = { Text("解散后所有玩家将被移出房间，此操作不可撤销。确定解散吗？") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDismissDialog = false
-                        viewModel.dismissRoom()
-                    }
-                ) {
-                    Text("确定解散", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDismissDialog = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-}
-
+  
+    if (showDismissDialog) {  
+        AlertDialog(  
+            onDismissRequest = { showDismissDialog = false },  
+            title = { Text("解散房间") },  
+            text = { Text("解散后所有玩家将被移出房间，此操作不可撤销。确定解散吗？") },  
+            confirmButton = {  
+                TextButton(  
+                    onClick = {  
+                        showDismissDialog = false  
+                        viewModel.dismissRoom()  
+                    }  
+                ) {  
+                    Text("确定解散", color = MaterialTheme.colorScheme.error)  
+                }  
+            },  
+            dismissButton = {  
+                TextButton(onClick = { showDismissDialog = false }) {  
+                    Text("取消")  
+                }  
+            }  
+        )  
+    }  
+}  
+  
+// ==================== 聊天消息项（保持不变） ====================  
+  
 @Composable  
 private fun ChatMessageItem(  
     message: ChatMessage,  
