@@ -170,30 +170,30 @@ class ClanBattleViewModel @Inject constructor(
                 // 4. 同步初始状态到房间    
                 syncStateToRoom()    
   
-                // 5. 开始监控循环（在 IO 线程执行网络请求）    
-                withContext(Dispatchers.IO) {    
+                // 5. 开始监控循环（在 IO 线程执行网络请求）  
+                withContext(Dispatchers.IO) {  
                     engine.startMonitorLoop(  
-						onEvent = { eventMsg ->  
-							sendChatMessage(eventMsg)  
-							syncStateToRoom()  
-						},  
-						onBossKill = { bossOrder ->  
-							val state = _uiState.value.battleState  
-							val newState = state.copy(  
-								// 清除该 boss 的所有申请出刀记录  
-								applies = state.applies.filter { it.bossOrder != bossOrder },  
-								// 清除该 boss 的所有挂树记录  
-								trees = state.trees.filter { it.bossOrder != bossOrder },  
-								// 清除该 boss 已到达周目的预约（lapNum <= 当前周目表示预约已生效，应清除）  
-								subscribes = state.subscribes.filter {  
-									!(it.bossOrder == bossOrder && it.lapNum <= state.lapNum)  
-								}  
-							)  
-							_uiState.value = _uiState.value.copy(battleState = newState)  
-							sendChatMessage("${bossOrder}王已击破，自动清除该王的申请/挂树记录")  
-							syncStateToRoom()  
-						}  
-					)    
+                        onEvent = { eventMsg ->  
+                            // 每次有事件（出刀播报等），发送到房间聊天  
+                            sendChatMessage(eventMsg)  
+                            // 同步最新状态  
+                            syncStateToRoom()  
+                        },  
+                        onBossKill = { bossOrder ->  
+                            val state = _uiState.value.battleState  
+                            val clearedState = state.copy(  
+                                applies = state.applies.filter { it.bossOrder != bossOrder },  
+                                trees = state.trees.filter { it.bossOrder != bossOrder },  
+                                subscribes = state.subscribes.filter {  
+                                    !(it.bossOrder == bossOrder && it.lapNum <= state.lapNum)  
+                                }  
+                            )  
+                            _uiState.value = _uiState.value.copy(battleState = clearedState)  
+                            sendChatMessage("" + bossOrder + "王已击破，自动清除该王的申请/挂树记录")  
+                            syncStateToRoom()  
+                        }  
+                    )  
+                } 
   
             } catch (e: CaptchaRequiredException) {    
                 Log.e(TAG, "Captcha required during monitor start", e)    

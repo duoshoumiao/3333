@@ -119,11 +119,11 @@ class ClanBattleEngine {
      *    
      * @param onEvent 每次有事件（出刀播报、换面等）时回调    
      */    
-    @Suppress("UNCHECKED_CAST")    
-    suspend fun startMonitorLoop(  
-		onEvent: suspend (String) -> Unit,  
-		onBossKill: suspend (bossOrder: Int) -> Unit = {}  
-	) {    
+    @Suppress("UNCHECKED_CAST")  
+		suspend fun startMonitorLoop(  
+			onEvent: suspend (String) -> Unit,  
+			onBossKill: suspend (bossOrder: Int) -> Unit = {}  
+		) {
         val currentLoopNum = loopNum    
         errorCount = 0    
   
@@ -201,7 +201,8 @@ class ClanBattleEngine {
   
                             // 击破时播报当前进度    
                             if (kill) {    
-                                onEvent(generalBoss())    
+                                onEvent(generalBoss()) 
+								onBossKill(histOrder)     
                             }    
                         }    
                     }    
