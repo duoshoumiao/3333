@@ -120,7 +120,10 @@ class ClanBattleEngine {
      * @param onEvent 每次有事件（出刀播报、换面等）时回调    
      */    
     @Suppress("UNCHECKED_CAST")    
-    suspend fun startMonitorLoop(onEvent: suspend (String) -> Unit) {    
+		suspend fun startMonitorLoop(  
+		onEvent: suspend (String) -> Unit,  
+		onBossKill: suspend (bossOrder: Int) -> Unit = {}  
+	) {    
         val currentLoopNum = loopNum    
         errorCount = 0    
   
