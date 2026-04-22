@@ -1,14 +1,3 @@
-先发第一个：ClanBattleViewModel.kt
-
-改动点：
-
-新增 import Dispatchers、withContext、CaptchaRequiredException
-startMonitor() 中所有网络操作包裹 withContext(Dispatchers.IO)，新增 CaptchaRequiredException 捕获
-sendChatMessage()、sendActionToRoom()、syncStateToRoom() 内部包裹 withContext(Dispatchers.IO)
-fetchCurrentReport()、fetchMyReport()、fetchDayReport() 中网络调用包裹 withContext(Dispatchers.IO)
-
-// 文件：app/src/main/java/com/pcrjjc/app/ui/room/ClanBattleViewModel.kt  
-  
 package com.pcrjjc.app.ui.room    
   
 import android.util.Log    
