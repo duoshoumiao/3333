@@ -331,7 +331,12 @@ class ClanBattleFloatingService : Service() {
   
             while (isActive) {  
                 try {  
-                    val baseUrl = settingsDataStore.getRoomServerUrl() ?: continue  
+                    val baseUrl = settingsDataStore.getRoomServerUrl() ?: run {  
+                        delay(5000)  
+                        null  
+                    }  
+                    if (baseUrl == null) continue  
+  
                     val messages = withContext(Dispatchers.IO) {  
                         // 简单 HTTP 请求获取消息（不依赖 DI）  
                         val url = if (lastTimestamp > 0) {  

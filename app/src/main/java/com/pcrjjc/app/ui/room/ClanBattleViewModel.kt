@@ -31,6 +31,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch    
 import kotlinx.coroutines.withContext    
 import javax.inject.Inject    
+import kotlinx.coroutines.flow.distinctUntilChanged  
+import kotlinx.coroutines.flow.map
   
 data class ClanBattleUiState(    
     val roomId: String = "",    
@@ -106,7 +108,19 @@ class ClanBattleViewModel @Inject constructor(
         startStatePolling()    
     }    
   
-    // ======================== 监控 ========================    
+    // 监听 battleState 变化，实时推送到浮窗  
+	viewModelScope.launch {  
+		_uiState  
+			.map { it.battleState }  
+			.distinctUntilChanged()  
+			.collect { battleState ->  
+				ClanBattleFloatingService.instance?.updateText(  
+					engine.generateFloatingText(battleState)  
+				)  
+			}  
+	}
+	
+	// ======================== 监控 ========================    
   
     /**    
      * 使用指定的"我的账号"开始出刀监控    
