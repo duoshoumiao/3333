@@ -1,3 +1,14 @@
+先发第一个：ClanBattleViewModel.kt
+
+改动点：
+
+新增 import Dispatchers、withContext、CaptchaRequiredException
+startMonitor() 中所有网络操作包裹 withContext(Dispatchers.IO)，新增 CaptchaRequiredException 捕获
+sendChatMessage()、sendActionToRoom()、syncStateToRoom() 内部包裹 withContext(Dispatchers.IO)
+fetchCurrentReport()、fetchMyReport()、fetchDayReport() 中网络调用包裹 withContext(Dispatchers.IO)
+
+// 文件：app/src/main/java/com/pcrjjc/app/ui/room/ClanBattleViewModel.kt  
+  
 package com.pcrjjc.app.ui.room    
   
 import android.util.Log    
@@ -13,6 +24,7 @@ import com.pcrjjc.app.data.local.entity.ClanBattleState
 import com.pcrjjc.app.data.local.entity.SLRecord    
 import com.pcrjjc.app.data.local.entity.SubscribeRecord    
 import com.pcrjjc.app.data.local.entity.TreeRecord    
+import com.pcrjjc.app.data.remote.CaptchaRequiredException    
 import com.pcrjjc.app.data.remote.PcrClient    
 import com.pcrjjc.app.data.remote.RoomClient    
 import com.pcrjjc.app.domain.ClanBattleEngine    
@@ -20,6 +32,7 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.service.ClanBattleFloatingService    
 import com.pcrjjc.app.util.pcrDateMillis    
 import dagger.hilt.android.lifecycle.HiltViewModel    
+import kotlinx.coroutines.Dispatchers    
 import kotlinx.coroutines.Job    
 import kotlinx.coroutines.delay    
 import kotlinx.coroutines.flow.MutableStateFlow    
@@ -27,6 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow    
 import kotlinx.coroutines.isActive    
 import kotlinx.coroutines.launch    
+import kotlinx.coroutines.withContext    
 import javax.inject.Inject    
   
 data class ClanBattleUiState(    
@@ -119,8 +133,10 @@ class ClanBattleViewModel @Inject constructor(
             )    
   
             try {    
-                // 1. 登录账号    
-                val client = clientManager.getClient(account)    
+                // 1. 登录账号（在 IO 线程执行网络请求）    
+                val client = withContext(Dispatchers.IO) {    
+                    clientManager.getClient(account)    
+                }    
                 if (client !is PcrClient) {    
                     _uiState.value = _uiState.value.copy(    
                         isInitializing = false,    
@@ -129,8 +145,10 @@ class ClanBattleViewModel @Inject constructor(
                     return@launch    
                 }    
   
-                // 2. 初始化引擎    
-                engine.init(client)    
+                // 2. 初始化引擎（在 IO 线程执行网络请求）    
+                withContext(Dispatchers.IO) {    
+                    engine.init(client)    
+                }    
   
                 _uiState.value = _uiState.value.copy(    
                     isMonitoring = true,    
@@ -149,14 +167,23 @@ class ClanBattleViewModel @Inject constructor(
                 // 4. 同步初始状态到房间    
                 syncStateToRoom()    
   
-                // 5. 开始监控循环    
-                engine.startMonitorLoop { eventMsg ->    
-                    // 每次有事件（出刀播报等），发送到房间聊天    
-                    sendChatMessage(eventMsg)    
-                    // 同步最新状态    
-                    syncStateToRoom()    
+                // 5. 开始监控循环（在 IO 线程执行网络请求）    
+                withContext(Dispatchers.IO) {    
+                    engine.startMonitorLoop { eventMsg ->    
+                        // 每次有事件（出刀播报等），发送到房间聊天    
+                        sendChatMessage(eventMsg)    
+                        // 同步最新状态    
+                        syncStateToRoom()    
+                    }    
                 }    
   
+            } catch (e: CaptchaRequiredException) {    
+                Log.e(TAG, "Captcha required during monitor start", e)    
+                _uiState.value = _uiState.value.copy(    
+                    isMonitoring = false,    
+                    isInitializing = false,    
+                    error = "登录需要验证码，请先在账号管理中测试登录"    
+                )    
             } catch (e: Exception) {    
                 Log.e(TAG, "Monitor failed", e)    
                 _uiState.value = _uiState.value.copy(    
@@ -352,7 +379,7 @@ class ClanBattleViewModel @Inject constructor(
         viewModelScope.launch {    
             _uiState.value = _uiState.value.copy(isLoadingReport = true)    
             try {    
-                val records = engine.getAllRecords()    
+                val records = withContext(Dispatchers.IO) { engine.getAllRecords() }    
                 val report = engine.generateReport(records)    
                 _uiState.value = _uiState.value.copy(    
                     reportText = report,    
@@ -383,7 +410,7 @@ class ClanBattleViewModel @Inject constructor(
         viewModelScope.launch {    
             _uiState.value = _uiState.value.copy(isLoadingReport = true)    
             try {    
-                val records = engine.getAllRecords()    
+                val records = withContext(Dispatchers.IO) { engine.getAllRecords() }    
                 val report = engine.generatePlayerReport(records, gameName)    
                 _uiState.value = _uiState.value.copy(    
                     reportText = report,    
@@ -421,13 +448,15 @@ class ClanBattleViewModel @Inject constructor(
         viewModelScope.launch {    
             _uiState.value = _uiState.value.copy(isLoadingReport = true)    
             try {    
-                val allRecords = engine.getAllRecords()    
+                val allRecords = withContext(Dispatchers.IO) { engine.getAllRecords() }    
                 val todayStart = pcrDateMillis(System.currentTimeMillis())    
                 val targetStart = todayStart + offsetDays.toLong() * 86400_000    
                 val targetEnd = targetStart + 86400_000    
   
                 val filtered = allRecords.filter { it.time * 1000 in targetStart until targetEnd }    
-                val members = try { engine.getClanMembers() } catch (_: Exception) { emptyMap() }    
+                val members = withContext(Dispatchers.IO) {    
+                    try { engine.getClanMembers() } catch (_: Exception) { emptyMap() }    
+                }    
                 val report = "===== ${label}出刀 =====\n" + engine.generateDayReport(filtered, members)    
   
                 _uiState.value = _uiState.value.copy(    
@@ -451,12 +480,14 @@ class ClanBattleViewModel @Inject constructor(
      */    
     private suspend fun sendChatMessage(content: String) {    
         try {    
-            roomClient.sendMessage(    
-                roomId = _uiState.value.roomId,    
-                senderQq = _uiState.value.playerQq,    
-                senderName = _uiState.value.playerName.ifBlank { "系统" },    
-                content = content    
-            )    
+            withContext(Dispatchers.IO) {    
+                roomClient.sendMessage(    
+                    roomId = _uiState.value.roomId,    
+                    senderQq = _uiState.value.playerQq,    
+                    senderName = _uiState.value.playerName.ifBlank { "系统" },    
+                    content = content    
+                )    
+            }    
         } catch (e: Exception) {    
             Log.e(TAG, "Failed to send chat message", e)    
         }    
@@ -467,12 +498,14 @@ class ClanBattleViewModel @Inject constructor(
      */    
     private suspend fun sendActionToRoom(actionMsg: ClanBattleActionMessage) {    
         try {    
-            roomClient.sendMessage(    
-                roomId = _uiState.value.roomId,    
-                senderQq = _uiState.value.playerQq,    
-                senderName = _uiState.value.playerName.ifBlank { "系统" },    
-                content = actionMsg.toMessageContent()    
-            )    
+            withContext(Dispatchers.IO) {    
+                roomClient.sendMessage(    
+                    roomId = _uiState.value.roomId,    
+                    senderQq = _uiState.value.playerQq,    
+                    senderName = _uiState.value.playerName.ifBlank { "系统" },    
+                    content = actionMsg.toMessageContent()    
+                )    
+            }    
         } catch (e: Exception) {    
             Log.e(TAG, "Failed to send action message", e)    
         }    
@@ -496,12 +529,14 @@ class ClanBattleViewModel @Inject constructor(
             )    
             _uiState.value = _uiState.value.copy(battleState = mergedState)    
   
-            roomClient.sendMessage(    
-                roomId = _uiState.value.roomId,    
-                senderQq = "system",    
-                senderName = "会战系统",    
-                content = ClanBattleState.MESSAGE_PREFIX + mergedState.toJson().toString()    
-            )    
+            withContext(Dispatchers.IO) {    
+                roomClient.sendMessage(    
+                    roomId = _uiState.value.roomId,    
+                    senderQq = "system",    
+                    senderName = "会战系统",    
+                    content = ClanBattleState.MESSAGE_PREFIX + mergedState.toJson().toString()    
+                )    
+            }    
   
             // 直接更新浮窗（进程内），避免依赖浮窗自身的网络轮询    
             ClanBattleFloatingService.instance?.updateText(    
@@ -522,10 +557,12 @@ class ClanBattleViewModel @Inject constructor(
             while (isActive) {    
                 delay(10000) // 每10秒轮询一次    
                 try {    
-                    val messages = roomClient.getMessages(    
-                        _uiState.value.roomId,    
-                        since = lastTimestamp    
-                    )    
+                    val messages = withContext(Dispatchers.IO) {    
+                        roomClient.getMessages(    
+                            _uiState.value.roomId,    
+                            since = lastTimestamp    
+                        )    
+                    }    
                     if (messages.isEmpty()) continue    
                     lastTimestamp = messages.maxOf { it.timestamp }    
   

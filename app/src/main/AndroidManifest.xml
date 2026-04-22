@@ -50,10 +50,9 @@
             android:name=".service.FloatingWindowService"    
             android:exported="false" />    
   
-        <!-- 新增：会战状态浮窗服务 -->  
-        <service  
-            android:name=".service.ClanBattleFloatingService"  
-            android:exported="false" />  
+        <service    
+            android:name=".service.ClanBattleFloatingService"    
+            android:exported="false" />    
   
         <receiver    
             android:name=".service.BootReceiver"    
@@ -83,6 +82,9 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"    
                 android:resource="@xml/file_paths" />    
         </provider>    
+    </application>    
+  
+</manifest>ider>    
     </application>    
   
 </manifest>
