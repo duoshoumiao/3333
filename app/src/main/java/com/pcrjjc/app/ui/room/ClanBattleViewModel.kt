@@ -22,8 +22,7 @@ import com.pcrjjc.app.data.remote.CaptchaRequiredException
 import com.pcrjjc.app.data.remote.PcrClient        
 import com.pcrjjc.app.data.remote.RoomClient        
 import com.pcrjjc.app.domain.ClanBattleEngine        
-import com.pcrjjc.app.domain.ClientManager        
-import com.pcrjjc.app.service.ClanBattleFloatingService        
+import com.pcrjjc.app.domain.ClientManager             
 import com.pcrjjc.app.util.pcrDateMillis        
 import dagger.hilt.android.lifecycle.HiltViewModel        
 import dagger.hilt.android.qualifiers.ApplicationContext    
@@ -639,12 +638,7 @@ class ClanBattleViewModel @Inject constructor(
                     senderName = "会战系统",        
                     content = ClanBattleState.MESSAGE_PREFIX + mergedState.toJson().toString()        
                 )        
-            }        
-  
-            // 直接更新浮窗（进程内），避免依赖浮窗自身的网络轮询        
-            ClanBattleFloatingService.instance?.updateText(        
-                engine.generateFloatingText(mergedState)        
-            )        
+            }     
         } catch (e: Exception) {        
             Log.e(TAG, "Failed to sync state to room", e)        
         }        
@@ -833,12 +827,7 @@ class ClanBattleViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(reportText = "")        
     }        
   
-    /**        
-     * 生成浮窗显示文本        
-     */        
-    fun getFloatingText(): String {        
-        return engine.generateFloatingText(_uiState.value.battleState)        
-    }        
+     
   
     override fun onCleared() {        
         super.onCleared()        

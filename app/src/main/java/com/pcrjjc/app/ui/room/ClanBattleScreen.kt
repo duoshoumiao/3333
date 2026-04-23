@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel  
 import com.pcrjjc.app.data.local.entity.Account  
 import com.pcrjjc.app.data.local.entity.BossState  
-import com.pcrjjc.app.service.ClanBattleFloatingService  
 import com.pcrjjc.app.util.formatBigNum  
 import com.pcrjjc.app.util.formatPercent  
   
@@ -75,15 +74,6 @@ fun ClanBattleScreen(
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")  
-                    }  
-                },  
-                actions = {  
-                    // 浮窗按钮  
-                    IconButton(onClick = { toggleFloatingWindow(context, viewModel) }) {  
-                        Icon(  
-                            Icons.Default.PictureInPicture,  
-                            contentDescription = "浮窗"  
-                        )  
                     }  
                 }  
             )  

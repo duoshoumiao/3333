@@ -556,48 +556,6 @@ class ClanBattleEngine {
         return sb.toString().trimEnd()      
     }      
   
-    /**      
-     * 生成浮窗显示文本      
-     */      
-    fun generateFloatingText(state: ClanBattleState): String {      
-        val sb = StringBuilder()      
-        sb.appendLine("当前排名：${state.rank}")      
-        sb.appendLine("监控状态：${if (state.isMonitoring) "开启" else "关闭"}")      
-        if (state.monitorPlayerName.isNotEmpty()) {      
-            sb.appendLine("监控人为：${state.monitorPlayerName}")      
-        }      
-        sb.appendLine("当前进度：${state.periodName}")      
-        sb.appendLine()      
-  
-        for (boss in state.bosses) {      
-            if (boss.maxHp <= 0) continue      
-            sb.append("${boss.lapNum}周目${boss.order}王: ")      
-            sb.appendLine("HP: ${formatBigNum(boss.currentHp)}/${formatBigNum(boss.maxHp)} ${formatPercent(boss.hpPercent)}")      
-  
-            // 申请出刀      
-            val applies = state.getAppliesForBoss(boss.order)      
-            if (applies.isNotEmpty()) {      
-                val names = applies.joinToString(".") { it.playerName }      
-                sb.appendLine("${names} ${applies.size}人申请出刀")      
-            }      
-  
-            // 挂树      
-            val trees = state.getTreesForBoss(boss.order)      
-            if (trees.isNotEmpty()) {      
-                val names = trees.joinToString(".") { it.playerName }      
-                sb.appendLine("${names} ${trees.size}人挂树中")      
-            }      
-  
-            // 预约      
-            val subs = state.getSubscribesForBoss(boss.order)      
-            if (subs.isNotEmpty()) {      
-                for (sub in subs) {      
-                    sb.appendLine("${sub.playerName} 预约了下一周")      
-                }      
-            }      
-        }      
-        return sb.toString().trimEnd()      
-    }      
   
     // ======================== 内部辅助 ========================      
   
