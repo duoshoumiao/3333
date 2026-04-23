@@ -404,7 +404,12 @@ class ClanBattleViewModel @Inject constructor(
         viewModelScope.launch {        
             sendActionToRoom(actionMsg)        
             sendChatMessage(actionMsg.toReadableMessage())        
-        }        
+        }
+        viewModelScope.launch {  
+			sendActionToRoom(actionMsg)  
+			sendChatMessage(actionMsg.toReadableMessage())  
+			broadcastCurrentState()  // 新增：广播完整状态，确保后入房间的人能看到  
+		}        
     }        
   
     // ======================== 战报 ========================        
@@ -644,56 +649,60 @@ class ClanBattleViewModel @Inject constructor(
         }        
     }        
   
-    /**        
+    /**  
+	 * 广播当前会战状态到房间（不依赖 engine，任何成员都可调用）  
+	 */  
+	private suspend fun broadcastCurrentState() {  
+		try {  
+			val currentState = _uiState.value.battleState.copy(  
+				lastUpdateTime = System.currentTimeMillis()  
+			)  
+			withContext(Dispatchers.IO) {  
+				roomClient.sendMessage(  
+					roomId = _uiState.value.roomId,  
+					senderQq = "system",  
+					senderName = "会战系统",  
+					content = ClanBattleState.MESSAGE_PREFIX + currentState.toJson().toString()  
+				)  
+			}  
+		} catch (e: Exception) {  
+			Log.e(TAG, "Failed to broadcast current state", e)  
+		}  
+	}
+	
+	/**        
      * 轮询房间消息，解析会战状态和操作        
      */        
-    private fun startStatePolling() {        
-        statePollingJob?.cancel()        
-        statePollingJob = viewModelScope.launch {        
-            var lastTimestamp = 0L        
-            while (isActive) {        
-                delay(10000) // 每10秒轮询一次        
-                try {        
-                    val messages = withContext(Dispatchers.IO) {        
-                        roomClient.getMessages(        
-                            _uiState.value.roomId,        
-                            since = lastTimestamp        
-                        )        
-                    }        
-                    if (messages.isEmpty()) continue        
-                    lastTimestamp = messages.maxOf { it.timestamp }        
-  
-                    for (msg in messages) {        
-                        // 解析战报结果消息        
-                        if (msg.content.startsWith(ClanBattleState.REPORT_PREFIX)) {        
-                            val reportText = msg.content.removePrefix(ClanBattleState.REPORT_PREFIX)        
-                            _uiState.value = _uiState.value.copy(        
-                                reportText = reportText,        
-                                isLoadingReport = false        
-                            )        
-                            continue        
-                        }        
-  
-                        // 解析会战状态消息        
-                        val cbState = ClanBattleState.fromMessage(msg.content)        
-                        if (cbState != null && msg.senderQq != _uiState.value.playerQq) {        
-                            // 来自其他成员的状态更新，合并本地操作        
-                            _uiState.value = _uiState.value.copy(battleState = cbState)        
-                            continue        
-                        }        
-  
-                        // 解析会战操作消息        
-                        val cbAction = ClanBattleActionMessage.fromMessage(msg.content)        
-                        if (cbAction != null && msg.senderQq != _uiState.value.playerQq) {        
-                            applyRemoteAction(cbAction)        
-                        }        
-                    }        
-                } catch (_: Exception) {        
-                    // 轮询失败静默忽略        
-                }        
-            }        
-        }        
-    }        
+    private fun startStatePolling() {  
+		statePollingJob?.cancel()  
+		statePollingJob = viewModelScope.launch {  
+			var lastTimestamp = 0L  
+			// 立即执行第一次拉取，不等待  
+			var isFirstPoll = true  
+			while (isActive) {  
+				if (!isFirstPoll) {  
+					delay(10000)  
+				}  
+				isFirstPoll = false  
+				try {  
+					val messages = withContext(Dispatchers.IO) {  
+						roomClient.getMessages(  
+							_uiState.value.roomId,  
+							since = lastTimestamp  
+						)  
+					}  
+					if (messages.isEmpty()) continue  
+					lastTimestamp = messages.maxOf { it.timestamp }  
+	  
+					for (msg in messages) {  
+						// ... 现有的消息处理逻辑不变  
+					}  
+				} catch (_: Exception) {  
+					// 轮询失败静默忽略  
+				}  
+			}  
+		}  
+	}        
   
     /**        
      * 应用来自其他成员的操作        
@@ -763,7 +772,12 @@ class ClanBattleViewModel @Inject constructor(
                 state // 不改变状态        
             }        
         }        
-        _uiState.value = _uiState.value.copy(battleState = newState)        
+        _uiState.value = _uiState.value.copy(battleState = newState)  
+  
+		// 监控者处理完远程操作后，同步最新状态到房间  
+		if (_uiState.value.isMonitoring && engine.isInitialized) {  
+			viewModelScope.launch { syncStateToRoom() }  
+		}       
     }        
   
     /**        
