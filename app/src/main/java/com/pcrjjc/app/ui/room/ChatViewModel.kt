@@ -66,7 +66,8 @@ class ChatViewModel @Inject constructor(
   
     private fun isClanBattleSystemMessage(content: String): Boolean {  
         return content.startsWith(ClanBattleState.MESSAGE_PREFIX) ||  
-               content.startsWith(ClanBattleState.ACTION_PREFIX)  
+               content.startsWith(ClanBattleState.ACTION_PREFIX) ||  
+               content.startsWith(ClanBattleState.REPORT_PREFIX)  
     }  
   
     private fun loadMessages() {  
