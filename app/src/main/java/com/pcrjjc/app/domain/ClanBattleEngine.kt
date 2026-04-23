@@ -34,7 +34,7 @@ class ClanBattleEngine {
     companion object {  
         private const val TAG = "ClanBattleEngine"  
         private const val MAX_ERROR_COUNT = 3  
-        private const val MAX_RELOGIN_COUNT = 2 // 单次监控循环内最大重新登录次数  
+		private const val RELOGIN_COOLDOWN_MS = 5 * 60 * 1000L // 5分钟内只允许重登一次 
         private const val COIN_CACHE_DURATION_MS = 60_000L // coin 缓存 60 秒  
     }  
   
@@ -138,7 +138,7 @@ class ClanBattleEngine {
 	) {  
         val currentLoopNum = loopNum  
         errorCount = 0  
-        var reloginCount = 0  
+        var lastReloginTime = 0L   // 替换 reloginCount
   
         while (true) {  
             try {  
@@ -254,38 +254,39 @@ class ClanBattleEngine {
 					onEvent("检测到会话过期，但有其他人正在监控，避免互相抢登，监控已退出")  
 					return  
 				}  
-				if (reloginCount >= MAX_RELOGIN_COUNT) {  
-					onEvent("会话过期，已尝试重新登录${MAX_RELOGIN_COUNT}次仍失败，监控已退出")  
+				// ★ 5分钟内只允许重登一次  
+				val now = System.currentTimeMillis()  
+				if (now - lastReloginTime < RELOGIN_COOLDOWN_MS) {  
+					onEvent("5分钟内已尝试过重新登录，监控已退出")  
 					return  
 				}  
-                val mgr = clientManager  
-                val acct = account  
-                if (mgr != null && acct != null) {  
-                    try {  
-                        reloginCount++  
-                        onEvent("检测到会话过期，正在尝试重新登录（第${reloginCount}次）...")  
-                        val newClient = mgr.relogin(acct)  
-                        if (newClient is PcrClient) {  
-                            client = newClient  
-                            // 清除 coin 缓存，强制下次重新获取  
-                            coinCacheExpiry = 0L  
-                            onEvent("重新登录成功，继续监控")  
-                            Log.i(TAG, "Re-login succeeded, resuming monitor loop")  
-                            errorCount = 0  
-                        } else {  
-                            onEvent("重新登录返回了非预期的客户端类型，监控已退出")  
-                            return  
-                        }  
-                    } catch (reloginEx: Exception) {  
-                        Log.e(TAG, "Re-login failed", reloginEx)  
-                        onEvent("重新登录失败: ${reloginEx.message}，监控已退出")  
-                        return  
-                    }  
-                } else {  
-                    onEvent("会话过期，但未配置 ClientManager，无法自动重新登录，监控已退出")  
-                    return  
-                }  
-            } catch (e: Exception) {  
+				val mgr = clientManager  
+				val acct = account  
+				if (mgr != null && acct != null) {  
+					try {  
+						lastReloginTime = now  
+						onEvent("检测到会话过期，正在尝试重新登录...")  
+						val newClient = mgr.relogin(acct)  
+						if (newClient is PcrClient) {  
+							client = newClient  
+							coinCacheExpiry = 0L  
+							onEvent("重新登录成功，继续监控")  
+							Log.i(TAG, "Re-login succeeded, resuming monitor loop")  
+							errorCount = 0  
+						} else {  
+							onEvent("重新登录返回了非预期的客户端类型，监控已退出")  
+							return  
+						}  
+					} catch (reloginEx: Exception) {  
+						Log.e(TAG, "Re-login failed", reloginEx)  
+						onEvent("重新登录失败: ${reloginEx.message}，监控已退出")  
+						return  
+					}  
+				} else {  
+					onEvent("会话过期，但未配置 ClientManager，无法自动重新登录，监控已退出")  
+					return  
+				}  
+			} catch (e: Exception) {  
                 Log.e(TAG, "Monitor loop error", e)  
                 errorCount++  
                 if (currentLoopNum != loopNum) {  
