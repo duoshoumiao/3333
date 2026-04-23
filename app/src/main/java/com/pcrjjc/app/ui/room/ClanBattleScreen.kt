@@ -34,8 +34,9 @@ fun ClanBattleScreen(
     var showMyReportDialog by remember { mutableStateOf(false) }  
     var myReportName by remember { mutableStateOf("") }  
     var showReportDialog by remember { mutableStateOf(false) }  
-  
-    // 错误/Toast 提示  
+    var showSLDialog by remember { mutableStateOf(false) }
+    
+	// 错误/Toast 提示  
     LaunchedEffect(uiState.error) {  
         uiState.error?.let {  
             snackbarHostState.showSnackbar(it)  
@@ -146,7 +147,8 @@ fun ClanBattleScreen(
                 onMyReport = { showMyReportDialog = true },  
                 onTodayReport = { viewModel.fetchTodayReport() },  
                 onYesterdayReport = { viewModel.fetchYesterdayReport() },  
-                onSL = { viewModel.recordSL() }  
+				onSL = { viewModel.recordSL() },  
+				onCheckSL = { showSLDialog = true }  
             )  
   
             Spacer(modifier = Modifier.height(16.dp))  
@@ -164,8 +166,43 @@ fun ClanBattleScreen(
             onDismiss = { showAccountPicker = false }  
         )  
     }  
-  
-    // ==================== 我的战报 - 输入游戏名弹窗 ====================  
+	
+    // ==================== SL弹窗 ==================== 
+    if (showSLDialog) {  
+		val todayPcrDate = com.pcrjjc.app.util.pcrDateMillis(System.currentTimeMillis())  
+		val todaySLRecords = uiState.battleState.slRecords.filter { it.date == todayPcrDate }  
+		AlertDialog(  
+			onDismissRequest = { showSLDialog = false },  
+			title = { Text("今日SL记录") },  
+			text = {  
+				if (todaySLRecords.isEmpty()) {  
+					Text("今天还没有人记录SL")  
+				} else {  
+					Column(  
+						modifier = Modifier  
+							.fillMaxWidth()  
+							.heightIn(max = 300.dp)  
+							.verticalScroll(rememberScrollState()),  
+						verticalArrangement = Arrangement.spacedBy(4.dp)  
+					) {  
+						todaySLRecords.forEach { record ->  
+							Text(  
+								text = "${record.playerName} 已SL",  
+								style = MaterialTheme.typography.bodyMedium  
+							)  
+						}  
+					}  
+				}  
+			},  
+			confirmButton = {  
+				TextButton(onClick = { showSLDialog = false }) {  
+					Text("关闭")  
+				}  
+			}  
+		)  
+	}
+	
+	// ==================== 我的战报 - 输入游戏名弹窗 ====================  
     if (showMyReportDialog) {  
         AlertDialog(  
             onDismissRequest = { showMyReportDialog = false },  
@@ -445,7 +482,8 @@ private fun ActionButtonsCard(
     onMyReport: () -> Unit,  
     onTodayReport: () -> Unit,  
     onYesterdayReport: () -> Unit,  
-    onSL: () -> Unit  
+    onSL: () -> Unit,  
+    onCheckSL: () -> Unit   // 新增  
 ) {  
     Card(  
         modifier = Modifier.fillMaxWidth(),  
@@ -516,8 +554,12 @@ private fun ActionButtonsCard(
   
                 // SL  
                 OutlinedButton(onClick = onSL) {  
-                    Text("SL")  
-                }  
+                    Text("记录SL")  
+                }
+                // 查SL  
+				OutlinedButton(onClick = onCheckSL) {  
+					Text("查SL")  
+				}				
             }  
   
             // 加载指示器  
