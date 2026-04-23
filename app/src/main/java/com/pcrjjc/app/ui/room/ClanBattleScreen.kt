@@ -266,7 +266,7 @@ private fun StatusInfoCard(uiState: ClanBattleUiState) {
                     fontWeight = FontWeight.Bold  
                 )  
                 Text(  
-                    "监控状态：${if (uiState.battleState.isMonitoring) "开启" else "关闭"}"
+                    "监控状态：${if (uiState.battleState.isMonitoring) "开启" else "关闭"}",
                     style = MaterialTheme.typography.bodyMedium,  
                     color = if (uiState.battleState.isMonitoring)
                         MaterialTheme.colorScheme.primary  
