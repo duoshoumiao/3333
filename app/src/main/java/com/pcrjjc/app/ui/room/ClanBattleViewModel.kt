@@ -145,7 +145,7 @@ class ClanBattleViewModel @Inject constructor(
   
                 // 2. 初始化引擎（在 IO 线程执行网络请求）          
                 withContext(Dispatchers.IO) {          
-                    engine.init(client)          
+                    engine.init(client, clientManager, account)          
                 }          
   
                 _uiState.value = _uiState.value.copy(          
