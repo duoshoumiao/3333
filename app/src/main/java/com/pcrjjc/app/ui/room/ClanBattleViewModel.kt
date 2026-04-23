@@ -220,7 +220,15 @@ class ClanBattleViewModel @Inject constructor(
   
                             sendChatMessage("" + bossOrder + "王已击破，自动清除该王的申请/挂树记录")        
                             syncStateToRoom()        
-                        }        
+                        },
+						shouldRelogin = {  
+							val st = _uiState.value  
+							val bs = st.battleState  
+							// 如果房间中有其他人已开启监控（monitorPlayerName 不是自己），不重登  
+							!(bs.isMonitoring  
+								&& bs.monitorPlayerName.isNotEmpty()  
+								&& bs.monitorPlayerName != st.playerName)  
+						}
                     )        
                 }  
   

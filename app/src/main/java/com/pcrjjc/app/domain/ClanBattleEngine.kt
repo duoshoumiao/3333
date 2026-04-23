@@ -131,11 +131,11 @@ class ClanBattleEngine {
      * @param onEvent 每次有事件（出刀播报、换面等）时回调  
      * @param onBossKill boss 被击杀时回调，传入被击杀的 boss 编号  
      */  
-    @Suppress("UNCHECKED_CAST")  
     suspend fun startMonitorLoop(  
-        onEvent: suspend (String) -> Unit,  
-        onBossKill: suspend (bossOrder: Int) -> Unit = {}  
-    ) {  
+		onEvent: suspend (String) -> Unit,  
+		onBossKill: suspend (bossOrder: Int) -> Unit = {},  
+		shouldRelogin: suspend () -> Boolean = { true }  
+	) {  
         val currentLoopNum = loopNum  
         errorCount = 0  
         var reloginCount = 0  
@@ -248,12 +248,16 @@ class ClanBattleEngine {
             } catch (e: CancellationException) {  
                 throw e  
             } catch (e: SessionExpiredException) {  
-                // ★ 会话过期，尝试重新登录  
-                Log.w(TAG, "Session expired detected: ${e.message}")  
-                if (reloginCount >= MAX_RELOGIN_COUNT) {  
-                    onEvent("会话过期，已尝试重新登录${MAX_RELOGIN_COUNT}次仍失败，监控已退出")  
-                    return  
-                }  
+				// ★ 会话过期，先检查是否有其他人在监控，避免互相抢登  
+				Log.w(TAG, "Session expired detected: ${e.message}")  
+				if (!shouldRelogin()) {  
+					onEvent("检测到会话过期，但有其他人正在监控，避免互相抢登，监控已退出")  
+					return  
+				}  
+				if (reloginCount >= MAX_RELOGIN_COUNT) {  
+					onEvent("会话过期，已尝试重新登录${MAX_RELOGIN_COUNT}次仍失败，监控已退出")  
+					return  
+				}  
                 val mgr = clientManager  
                 val acct = account  
                 if (mgr != null && acct != null) {  
