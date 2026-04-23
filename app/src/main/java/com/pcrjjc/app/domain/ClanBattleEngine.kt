@@ -1,5 +1,3 @@
-// 文件路径: app/src/main/java/com/pcrjjc/app/domain/ClanBattleEngine.kt  
-  
 package com.pcrjjc.app.domain      
   
 import android.util.Log      
