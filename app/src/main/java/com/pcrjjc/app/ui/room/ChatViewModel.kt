@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
 import com.pcrjjc.app.data.local.entity.ChatMessage  
+import com.pcrjjc.app.data.local.entity.ClanBattleState  
 import com.pcrjjc.app.data.remote.RoomClient  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Job  
@@ -19,17 +20,17 @@ data class ChatUiState(
     val roomId: String = "",  
     val roomName: String = "",  
     val playerQq: String = "",  
-    val playerName: String = "",
-    val hostQq: String = "",
+    val playerName: String = "",  
+    val hostQq: String = "",  
     val messages: List<ChatMessage> = emptyList(),  
     val isLoading: Boolean = false,  
     val error: String? = null,  
-    val isSending: Boolean = false,
-    val isDismissed: Boolean = false
-) {
-    val isHost: Boolean get() = playerQq.isNotBlank() && playerQq == hostQq
-}
-
+    val isSending: Boolean = false,  
+    val isDismissed: Boolean = false  
+) {  
+    val isHost: Boolean get() = playerQq.isNotBlank() && playerQq == hostQq  
+}  
+  
 @HiltViewModel  
 class ChatViewModel @Inject constructor(  
     private val roomClient: RoomClient,  
@@ -45,16 +46,16 @@ class ChatViewModel @Inject constructor(
     init {  
         val roomId = savedStateHandle.get<String>("roomId") ?: ""  
         val playerQq = savedStateHandle.get<String>("playerQq") ?: ""  
-        val playerName = savedStateHandle.get<String>("playerName") ?: ""
+        val playerName = savedStateHandle.get<String>("playerName") ?: ""  
         val roomName = savedStateHandle.get<String>("roomName") ?: ""  
-        val hostQq = savedStateHandle.get<String>("hostQq") ?: ""
-
+        val hostQq = savedStateHandle.get<String>("hostQq") ?: ""  
+  
         _uiState.value = _uiState.value.copy(  
             roomId = roomId,  
             playerQq = playerQq,  
-            playerName = playerName,
-            roomName = roomName,
-            hostQq = hostQq
+            playerName = playerName,  
+            roomName = roomName,  
+            hostQq = hostQq  
         )  
   
         if (roomId.isNotBlank()) {  
@@ -63,16 +64,22 @@ class ChatViewModel @Inject constructor(
         }  
     }  
   
+    private fun isClanBattleSystemMessage(content: String): Boolean {  
+        return content.startsWith(ClanBattleState.MESSAGE_PREFIX) ||  
+               content.startsWith(ClanBattleState.ACTION_PREFIX)  
+    }  
+  
     private fun loadMessages() {  
         viewModelScope.launch {  
             _uiState.value = _uiState.value.copy(isLoading = true)  
             try {  
-                val messages = roomClient.getMessages(_uiState.value.roomId)  
-                if (messages.isNotEmpty()) {  
-                    lastTimestamp = messages.maxOf { it.timestamp }  
+                val allMessages = roomClient.getMessages(_uiState.value.roomId)  
+                if (allMessages.isNotEmpty()) {  
+                    lastTimestamp = allMessages.maxOf { it.timestamp }  
                 }  
+                val visibleMessages = allMessages.filter { !isClanBattleSystemMessage(it.content) }  
                 _uiState.value = _uiState.value.copy(  
-                    messages = messages,  
+                    messages = visibleMessages,  
                     isLoading = false,  
                     error = null  
                 )  
@@ -91,15 +98,17 @@ class ChatViewModel @Inject constructor(
             while (isActive) {  
                 delay(3000) // 每3秒轮询一次  
                 try {  
-                    val newMessages = roomClient.getMessages(  
+                    val allMessages = roomClient.getMessages(  
                         _uiState.value.roomId,  
                         since = lastTimestamp  
                     )  
-                    if (newMessages.isNotEmpty()) {  
-                        lastTimestamp = newMessages.maxOf { it.timestamp }  
+                    if (allMessages.isNotEmpty()) {  
+                        lastTimestamp = allMessages.maxOf { it.timestamp }  
                         val currentMessages = _uiState.value.messages  
                         val existingIds = currentMessages.map { it.id }.toSet()  
-                        val filtered = newMessages.filter { it.id !in existingIds }  
+                        val filtered = allMessages.filter {  
+                            it.id !in existingIds && !isClanBattleSystemMessage(it.content)  
+                        }  
                         if (filtered.isNotEmpty()) {  
                             _uiState.value = _uiState.value.copy(  
                                 messages = currentMessages + filtered,  
@@ -122,7 +131,7 @@ class ChatViewModel @Inject constructor(
                 val msg = roomClient.sendMessage(  
                     roomId = _uiState.value.roomId,  
                     senderQq = _uiState.value.playerQq,  
-                    senderName = _uiState.value.playerName.ifBlank { "玩家" },
+                    senderName = _uiState.value.playerName.ifBlank { "玩家" },  
                     content = content.trim()  
                 )  
                 lastTimestamp = msg.timestamp  
@@ -152,26 +161,26 @@ class ChatViewModel @Inject constructor(
             }  
         }  
     }  
-
-    /**
-     * 解散房间（仅房主）。成功后设置 isDismissed 以便 UI 自动返回。
-     */
-    fun dismissRoom() {
-        viewModelScope.launch {
-            try {
-                roomClient.dismissRoom(
-                    roomId = _uiState.value.roomId,
-                    hostQq = _uiState.value.playerQq
-                )
-                _uiState.value = _uiState.value.copy(isDismissed = true)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "解散房间失败"
-                )
-            }
-        }
-    }
-
+  
+    /**  
+     * 解散房间（仅房主）。成功后设置 isDismissed 以便 UI 自动返回。  
+     */  
+    fun dismissRoom() {  
+        viewModelScope.launch {  
+            try {  
+                roomClient.dismissRoom(  
+                    roomId = _uiState.value.roomId,  
+                    hostQq = _uiState.value.playerQq  
+                )  
+                _uiState.value = _uiState.value.copy(isDismissed = true)  
+            } catch (e: Exception) {  
+                _uiState.value = _uiState.value.copy(  
+                    error = e.message ?: "解散房间失败"  
+                )  
+            }  
+        }  
+    }  
+  
     fun clearError() {  
         _uiState.value = _uiState.value.copy(error = null)  
     }  
