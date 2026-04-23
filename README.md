@@ -1,8 +1,13 @@
-覆盖清日常文件
+## 覆盖清日常文件
 
 [httpserver.py](https://github.com/user-attachments/files/26810006/httpserver.py)
 
 [command_relay.py](https://github.com/user-attachments/files/26810005/command_relay.py)
+
+## 房间插件
+
+[room.py](https://github.com/user-attachments/files/26977086/room.py)
+
 ## 打包准备
 在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
 [__init__.py](https://github.com/user-attachments/files/26810816/__init__.py)
