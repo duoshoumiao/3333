@@ -1,8 +1,5 @@
 package com.pcrjjc.app.ui.room  
-  
-import android.content.Context  
-import android.content.Intent  
-import android.provider.Settings  
+
 import androidx.compose.foundation.layout.*  
 import androidx.compose.foundation.rememberScrollState  
 import androidx.compose.foundation.verticalScroll  
@@ -614,29 +611,3 @@ private fun AccountPickerDialog(
         }  
     )  
 }  
-  
-// ==================== 浮窗辅助函数 ====================  
-  
-private fun toggleFloatingWindow(context: Context, viewModel: ClanBattleViewModel) {  
-    if (!Settings.canDrawOverlays(context)) {  
-        // 跳转到悬浮窗权限设置  
-        val intent = Intent(  
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,  
-            android.net.Uri.parse("package:${context.packageName}")  
-        )  
-        context.startActivity(intent)  
-        return  
-    }  
-  
-    if (ClanBattleFloatingService.isRunning) {  
-        // 关闭浮窗  
-        context.stopService(Intent(context, ClanBattleFloatingService::class.java))  
-    } else {  
-        // 开启浮窗，传递当前状态文本  
-        val intent = Intent(context, ClanBattleFloatingService::class.java).apply {  
-            putExtra("floating_text", viewModel.getFloatingText())  
-            putExtra("room_id", viewModel.uiState.value.roomId)  
-        }  
-        context.startService(intent)  
-    }  
-}
