@@ -82,6 +82,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.draw.shadow  
 import androidx.compose.ui.zIndex
+import androidx.compose.material.icons.filled.Build  
+import androidx.compose.material.icons.filled.CalendarMonth  
+import androidx.compose.material.icons.filled.Groups  
+import androidx.compose.material.icons.filled.Warning  
+import androidx.compose.ui.graphics.Color  
+import androidx.compose.ui.graphics.vector.ImageVector
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -119,6 +125,46 @@ fun DailyScreen(
     // 指令输入弹窗状态  
     var showCommandDialog by remember { mutableStateOf(false) }  
     var commandDialogText by remember { mutableStateOf("") }  
+	
+	// 显示工具模块错误  
+    LaunchedEffect(uiState.toolError) {  
+        uiState.toolError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearSectionError("tool")  
+        }  
+    }  
+  
+    // 显示角色模块错误  
+    LaunchedEffect(uiState.unitError) {  
+        uiState.unitError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearSectionError("unit")  
+        }  
+    }  
+  
+    // 显示规划模块错误  
+    LaunchedEffect(uiState.planningError) {  
+        uiState.planningError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearSectionError("planning")  
+        }  
+    }  
+  
+    // 显示公会模块错误  
+    LaunchedEffect(uiState.clanError) {  
+        uiState.clanError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearSectionError("clan")  
+        }  
+    }  
+  
+    // 显示危险模块错误  
+    LaunchedEffect(uiState.dangerError) {  
+        uiState.dangerError?.let {  
+            snackbarHostState.showSnackbar(it)  
+            viewModel.clearSectionError("danger")  
+        }  
+    }
   
     // 执行结果弹窗（支持后端渲染的图片）  
     if (uiState.showResultDialog) {  
@@ -283,7 +329,70 @@ fun DailyScreen(
                     onToggleDailyModule = viewModel::toggleDailyModule,  
                     onUpdateDailyConfig = viewModel::updateDailyConfig,  
                     onUpdateDailyConfigList = viewModel::updateDailyConfigList,  
-                    onExpandDailyModule = viewModel::expandDailyModule  
+                    onExpandDailyModule = viewModel::expandDailyModule,
+                    // 工具模块相关  
+                    showToolSection = uiState.showToolSection,  
+                    toolModules = uiState.toolModules,  
+                    isLoadingTool = uiState.isLoadingTool,  
+                    isSavingTool = uiState.isSavingTool,  
+                    expandedToolModuleKey = uiState.expandedToolModuleKey,  
+                    onToggleToolSection = { viewModel.toggleSection("tool") },  
+                    onRefreshTool = { viewModel.loadSectionConfig("tool") },  
+                    onToggleToolModule = { key, enabled -> viewModel.toggleSectionModule("tool", key, enabled) },  
+                    onUpdateToolConfig = { key, value -> viewModel.updateSectionConfig("tool", key, value) },  
+                    onUpdateToolConfigList = { key, values -> viewModel.updateSectionConfigList("tool", key, values) },  
+                    onExpandToolModule = { key -> viewModel.expandSectionModule("tool", key) },  
+                    // 角色模块相关  
+                    showUnitSection = uiState.showUnitSection,  
+                    unitModules = uiState.unitModules,  
+                    isLoadingUnit = uiState.isLoadingUnit,  
+                    isSavingUnit = uiState.isSavingUnit,  
+                    expandedUnitModuleKey = uiState.expandedUnitModuleKey,  
+                    onToggleUnitSection = { viewModel.toggleSection("unit") },  
+                    onRefreshUnit = { viewModel.loadSectionConfig("unit") },  
+                    onToggleUnitModule = { key, enabled -> viewModel.toggleSectionModule("unit", key, enabled) },  
+                    onUpdateUnitConfig = { key, value -> viewModel.updateSectionConfig("unit", key, value) },  
+                    onUpdateUnitConfigList = { key, values -> viewModel.updateSectionConfigList("unit", key, values) },  
+                    onExpandUnitModule = { key -> viewModel.expandSectionModule("unit", key) },  
+                    // 规划模块相关  
+                    showPlanningSection = uiState.showPlanningSection,  
+                    planningModules = uiState.planningModules,  
+                    isLoadingPlanning = uiState.isLoadingPlanning,  
+                    isSavingPlanning = uiState.isSavingPlanning,  
+                    expandedPlanningModuleKey = uiState.expandedPlanningModuleKey,  
+                    onTogglePlanningSection = { viewModel.toggleSection("planning") },  
+                    onRefreshPlanning = { viewModel.loadSectionConfig("planning") },  
+                    onTogglePlanningModule = { key, enabled -> viewModel.toggleSectionModule("planning", key, enabled) },  
+                    onUpdatePlanningConfig = { key, value -> viewModel.updateSectionConfig("planning", key, value) },  
+                    onUpdatePlanningConfigList = { key, values -> viewModel.updateSectionConfigList("planning", key, values) },  
+                    onExpandPlanningModule = { key -> viewModel.expandSectionModule("planning", key) },  
+                    // 公会模块相关  
+                    showClanSection = uiState.showClanSection,  
+                    clanModules = uiState.clanModules,  
+                    isLoadingClan = uiState.isLoadingClan,  
+                    isSavingClan = uiState.isSavingClan,  
+                    expandedClanModuleKey = uiState.expandedClanModuleKey,  
+                    onToggleClanSection = { viewModel.toggleSection("clan") },  
+                    onRefreshClan = { viewModel.loadSectionConfig("clan") },  
+                    onToggleClanModule = { key, enabled -> viewModel.toggleSectionModule("clan", key, enabled) },  
+                    onUpdateClanConfig = { key, value -> viewModel.updateSectionConfig("clan", key, value) },  
+                    onUpdateClanConfigList = { key, values -> viewModel.updateSectionConfigList("clan", key, values) },  
+                    onExpandClanModule = { key -> viewModel.expandSectionModule("clan", key) },  
+                    // 危险模块相关  
+                    showDangerSection = uiState.showDangerSection,  
+                    dangerModules = uiState.dangerModules,  
+                    isLoadingDanger = uiState.isLoadingDanger,  
+                    isSavingDanger = uiState.isSavingDanger,  
+                    expandedDangerModuleKey = uiState.expandedDangerModuleKey,  
+                    onToggleDangerSection = { viewModel.toggleSection("danger") },  
+                    onRefreshDanger = { viewModel.loadSectionConfig("danger") },  
+                    onToggleDangerModule = { key, enabled -> viewModel.toggleSectionModule("danger", key, enabled) },  
+                    onUpdateDangerConfig = { key, value -> viewModel.updateSectionConfig("danger", key, value) },  
+                    onUpdateDangerConfigList = { key, values -> viewModel.updateSectionConfigList("danger", key, values) },  
+                    onExpandDangerModule = { key -> viewModel.expandSectionModule("danger", key) },  
+                    // 执行单个模块  
+                    executingModuleKey = uiState.executingModuleKey,  
+                    onExecuteModule = viewModel::executeModule					
                 )  
             }  
   
@@ -590,7 +699,70 @@ private fun CommandsContent(
     onToggleDailyModule: (String, Boolean) -> Unit,  
     onUpdateDailyConfig: (String, Any) -> Unit,  
     onUpdateDailyConfigList: (String, List<Any?>) -> Unit,  
-    onExpandDailyModule: (String?) -> Unit  
+    onExpandDailyModule: (String?) -> Unit, 
+    // 工具模块相关  
+    showToolSection: Boolean,  
+    toolModules: List<DailyModuleItem>,  
+    isLoadingTool: Boolean,  
+    isSavingTool: Boolean,  
+    expandedToolModuleKey: String?,  
+    onToggleToolSection: () -> Unit,  
+    onRefreshTool: () -> Unit,  
+    onToggleToolModule: (String, Boolean) -> Unit,  
+    onUpdateToolConfig: (String, Any) -> Unit,  
+    onUpdateToolConfigList: (String, List<Any?>) -> Unit,  
+    onExpandToolModule: (String?) -> Unit,  
+    // 角色模块相关  
+    showUnitSection: Boolean,  
+    unitModules: List<DailyModuleItem>,  
+    isLoadingUnit: Boolean,  
+    isSavingUnit: Boolean,  
+    expandedUnitModuleKey: String?,  
+    onToggleUnitSection: () -> Unit,  
+    onRefreshUnit: () -> Unit,  
+    onToggleUnitModule: (String, Boolean) -> Unit,  
+    onUpdateUnitConfig: (String, Any) -> Unit,  
+    onUpdateUnitConfigList: (String, List<Any?>) -> Unit,  
+    onExpandUnitModule: (String?) -> Unit,  
+    // 规划模块相关  
+    showPlanningSection: Boolean,  
+    planningModules: List<DailyModuleItem>,  
+    isLoadingPlanning: Boolean,  
+    isSavingPlanning: Boolean,  
+    expandedPlanningModuleKey: String?,  
+    onTogglePlanningSection: () -> Unit,  
+    onRefreshPlanning: () -> Unit,  
+    onTogglePlanningModule: (String, Boolean) -> Unit,  
+    onUpdatePlanningConfig: (String, Any) -> Unit,  
+    onUpdatePlanningConfigList: (String, List<Any?>) -> Unit,  
+    onExpandPlanningModule: (String?) -> Unit,  
+    // 公会模块相关  
+    showClanSection: Boolean,  
+    clanModules: List<DailyModuleItem>,  
+    isLoadingClan: Boolean,  
+    isSavingClan: Boolean,  
+    expandedClanModuleKey: String?,  
+    onToggleClanSection: () -> Unit,  
+    onRefreshClan: () -> Unit,  
+    onToggleClanModule: (String, Boolean) -> Unit,  
+    onUpdateClanConfig: (String, Any) -> Unit,  
+    onUpdateClanConfigList: (String, List<Any?>) -> Unit,  
+    onExpandClanModule: (String?) -> Unit,  
+    // 危险模块相关  
+    showDangerSection: Boolean,  
+    dangerModules: List<DailyModuleItem>,  
+    isLoadingDanger: Boolean,  
+    isSavingDanger: Boolean,  
+    expandedDangerModuleKey: String?,  
+    onToggleDangerSection: () -> Unit,  
+    onRefreshDanger: () -> Unit,  
+    onToggleDangerModule: (String, Boolean) -> Unit,  
+    onUpdateDangerConfig: (String, Any) -> Unit,  
+    onUpdateDangerConfigList: (String, List<Any?>) -> Unit,  
+    onExpandDangerModule: (String?) -> Unit,  
+    // 执行单个模块  
+    executingModuleKey: String?,  
+    onExecuteModule: (String) -> Unit	
 ) {  
     Column(  
         modifier = Modifier  
@@ -724,7 +896,317 @@ private fun CommandsContent(
                 Spacer(modifier = Modifier.height(8.dp))  
             }  
   
-            // ---- 指令列表 ----  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 工具模块区域 ----  
+            if (showToolSection) {  
+                stickyHeader {  
+                    Column(  
+                        modifier = Modifier  
+                            .zIndex(1f)  
+                            .shadow(elevation = 4.dp)  
+                            .background(MaterialTheme.colorScheme.surface)  
+                    ) {  
+                        ModuleSectionHeader(  
+                            title = "工具",  
+                            icon = Icons.Default.Build,  
+                            expanded = showToolSection,  
+                            isLoading = isLoadingTool,  
+                            isSaving = isSavingTool,  
+                            onToggle = onToggleToolSection,  
+                            onRefresh = onRefreshTool  
+                        )  
+                    }  
+                }  
+            } else {  
+                item {  
+                    ModuleSectionHeader(  
+                        title = "工具",  
+                        icon = Icons.Default.Build,  
+                        expanded = showToolSection,  
+                        isLoading = isLoadingTool,  
+                        isSaving = isSavingTool,  
+                        onToggle = onToggleToolSection,  
+                        onRefresh = onRefreshTool  
+                    )  
+                }  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showToolSection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    ExecutableSettingsSection(  
+                        modules = toolModules,  
+                        isLoading = isLoadingTool,  
+                        expandedModuleKey = expandedToolModuleKey,  
+                        executingModuleKey = executingModuleKey,  
+                        onToggleModule = onToggleToolModule,  
+                        onExpandModule = onExpandToolModule,  
+                        onExecuteModule = onExecuteModule,  
+                        onUpdateConfig = onUpdateToolConfig,  
+                        onUpdateConfigList = onUpdateToolConfigList  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 角色模块区域 ----  
+            if (showUnitSection) {  
+                stickyHeader {  
+                    Column(  
+                        modifier = Modifier  
+                            .zIndex(1f)  
+                            .shadow(elevation = 4.dp)  
+                            .background(MaterialTheme.colorScheme.surface)  
+                    ) {  
+                        ModuleSectionHeader(  
+                            title = "角色",  
+                            icon = Icons.Default.Person,  
+                            expanded = showUnitSection,  
+                            isLoading = isLoadingUnit,  
+                            isSaving = isSavingUnit,  
+                            onToggle = onToggleUnitSection,  
+                            onRefresh = onRefreshUnit  
+                        )  
+                    }  
+                }  
+            } else {  
+                item {  
+                    ModuleSectionHeader(  
+                        title = "角色",  
+                        icon = Icons.Default.Person,  
+                        expanded = showUnitSection,  
+                        isLoading = isLoadingUnit,  
+                        isSaving = isSavingUnit,  
+                        onToggle = onToggleUnitSection,  
+                        onRefresh = onRefreshUnit  
+                    )  
+                }  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showUnitSection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    ExecutableSettingsSection(  
+                        modules = unitModules,  
+                        isLoading = isLoadingUnit,  
+                        expandedModuleKey = expandedUnitModuleKey,  
+                        executingModuleKey = executingModuleKey,  
+                        onToggleModule = onToggleUnitModule,  
+                        onExpandModule = onExpandUnitModule,  
+                        onExecuteModule = onExecuteModule,  
+                        onUpdateConfig = onUpdateUnitConfig,  
+                        onUpdateConfigList = onUpdateUnitConfigList  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 规划模块区域 ----  
+            if (showPlanningSection) {  
+                stickyHeader {  
+                    Column(  
+                        modifier = Modifier  
+                            .zIndex(1f)  
+                            .shadow(elevation = 4.dp)  
+                            .background(MaterialTheme.colorScheme.surface)  
+                    ) {  
+                        ModuleSectionHeader(  
+                            title = "规划",  
+                            icon = Icons.Default.CalendarMonth,  
+                            expanded = showPlanningSection,  
+                            isLoading = isLoadingPlanning,  
+                            isSaving = isSavingPlanning,  
+                            onToggle = onTogglePlanningSection,  
+                            onRefresh = onRefreshPlanning  
+                        )  
+                    }  
+                }  
+            } else {  
+                item {  
+                    ModuleSectionHeader(  
+                        title = "规划",  
+                        icon = Icons.Default.CalendarMonth,  
+                        expanded = showPlanningSection,  
+                        isLoading = isLoadingPlanning,  
+                        isSaving = isSavingPlanning,  
+                        onToggle = onTogglePlanningSection,  
+                        onRefresh = onRefreshPlanning  
+                    )  
+                }  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showPlanningSection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    ExecutableSettingsSection(  
+                        modules = planningModules,  
+                        isLoading = isLoadingPlanning,  
+                        expandedModuleKey = expandedPlanningModuleKey,  
+                        executingModuleKey = executingModuleKey,  
+                        onToggleModule = onTogglePlanningModule,  
+                        onExpandModule = onExpandPlanningModule,  
+                        onExecuteModule = onExecuteModule,  
+                        onUpdateConfig = onUpdatePlanningConfig,  
+                        onUpdateConfigList = onUpdatePlanningConfigList  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 公会模块区域 ----  
+            if (showClanSection) {  
+                stickyHeader {  
+                    Column(  
+                        modifier = Modifier  
+                            .zIndex(1f)  
+                            .shadow(elevation = 4.dp)  
+                            .background(MaterialTheme.colorScheme.surface)  
+                    ) {  
+                        ModuleSectionHeader(  
+                            title = "公会",  
+                            icon = Icons.Default.Groups,  
+                            expanded = showClanSection,  
+                            isLoading = isLoadingClan,  
+                            isSaving = isSavingClan,  
+                            onToggle = onToggleClanSection,  
+                            onRefresh = onRefreshClan  
+                        )  
+                    }  
+                }  
+            } else {  
+                item {  
+                    ModuleSectionHeader(  
+                        title = "公会",  
+                        icon = Icons.Default.Groups,  
+                        expanded = showClanSection,  
+                        isLoading = isLoadingClan,  
+                        isSaving = isSavingClan,  
+                        onToggle = onToggleClanSection,  
+                        onRefresh = onRefreshClan  
+                    )  
+                }  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showClanSection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    ExecutableSettingsSection(  
+                        modules = clanModules,  
+                        isLoading = isLoadingClan,  
+                        expandedModuleKey = expandedClanModuleKey,  
+                        executingModuleKey = executingModuleKey,  
+                        onToggleModule = onToggleClanModule,  
+                        onExpandModule = onExpandClanModule,  
+                        onExecuteModule = onExecuteModule,  
+                        onUpdateConfig = onUpdateClanConfig,  
+                        onUpdateConfigList = onUpdateClanConfigList  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }  
+  
+            // ---- 危险模块区域 ----  
+            if (showDangerSection) {  
+                stickyHeader {  
+                    Column(  
+                        modifier = Modifier  
+                            .zIndex(1f)  
+                            .shadow(elevation = 4.dp)  
+                            .background(MaterialTheme.colorScheme.surface)  
+                    ) {  
+                        ModuleSectionHeader(  
+                            title = "危险",  
+                            icon = Icons.Default.Warning,  
+                            containerColor = MaterialTheme.colorScheme.errorContainer,  
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,  
+                            expanded = showDangerSection,  
+                            isLoading = isLoadingDanger,  
+                            isSaving = isSavingDanger,  
+                            onToggle = onToggleDangerSection,  
+                            onRefresh = onRefreshDanger  
+                        )  
+                    }  
+                }  
+            } else {  
+                item {  
+                    ModuleSectionHeader(  
+                        title = "危险",  
+                        icon = Icons.Default.Warning,  
+                        containerColor = MaterialTheme.colorScheme.errorContainer,  
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,  
+                        expanded = showDangerSection,  
+                        isLoading = isLoadingDanger,  
+                        isSaving = isSavingDanger,  
+                        onToggle = onToggleDangerSection,  
+                        onRefresh = onRefreshDanger  
+                    )  
+                }  
+            }  
+  
+            item {  
+                AnimatedVisibility(  
+                    visible = showDangerSection,  
+                    enter = expandVertically(),  
+                    exit = shrinkVertically()  
+                ) {  
+                    ExecutableSettingsSection(  
+                        modules = dangerModules,  
+                        isLoading = isLoadingDanger,  
+                        expandedModuleKey = expandedDangerModuleKey,  
+                        executingModuleKey = executingModuleKey,  
+                        onToggleModule = onToggleDangerModule,  
+                        onExpandModule = onExpandDangerModule,  
+                        onExecuteModule = onExecuteModule,  
+                        onUpdateConfig = onUpdateDangerConfig,  
+                        onUpdateConfigList = onUpdateDangerConfigList  
+                    )  
+                }  
+            }  
+  
+            item {  
+                Spacer(modifier = Modifier.height(4.dp))  
+                HorizontalDivider()  
+                Spacer(modifier = Modifier.height(8.dp))  
+            }
+			
+			// ---- 指令列表 ----  
             items(DAILY_COMMANDS) { cmd ->  
                 CommandCard(cmd = cmd, onClick = { onCommandClick(cmd) })  
             }  
@@ -1572,6 +2054,252 @@ private fun DailyConfigItemView(
                     style = MaterialTheme.typography.bodySmall,  
                     color = MaterialTheme.colorScheme.onSurfaceVariant  
                 )  
+            }  
+        }  
+    }  
+}
+
+// ==================== 通用模块区域标题 ====================  
+  
+@Composable  
+private fun ModuleSectionHeader(  
+    title: String,  
+    icon: ImageVector,  
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,  
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,  
+    expanded: Boolean,  
+    isLoading: Boolean,  
+    isSaving: Boolean,  
+    onToggle: () -> Unit,  
+    onRefresh: () -> Unit  
+) {  
+    Card(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .clickable(onClick = onToggle),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
+        colors = CardDefaults.cardColors(containerColor = containerColor)  
+    ) {  
+        Row(  
+            modifier = Modifier  
+                .fillMaxWidth()  
+                .padding(horizontal = 16.dp, vertical = 12.dp),  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            Icon(  
+                imageVector = icon,  
+                contentDescription = null,  
+                tint = contentColor,  
+                modifier = Modifier.size(22.dp)  
+            )  
+            Spacer(modifier = Modifier.width(10.dp))  
+            Text(  
+                text = "${title}模块设置",  
+                style = MaterialTheme.typography.titleSmall,  
+                fontWeight = FontWeight.Bold,  
+                color = contentColor,  
+                modifier = Modifier.weight(1f)  
+            )  
+            if (isLoading || isSaving) {  
+                CircularProgressIndicator(  
+                    modifier = Modifier.size(18.dp),  
+                    strokeWidth = 2.dp,  
+                    color = contentColor  
+                )  
+                Spacer(modifier = Modifier.width(8.dp))  
+            }  
+            if (expanded) {  
+                IconButton(  
+                    onClick = onRefresh,  
+                    modifier = Modifier.size(32.dp)  
+                ) {  
+                    Icon(  
+                        imageVector = Icons.Default.Refresh,  
+                        contentDescription = "刷新",  
+                        tint = contentColor,  
+                        modifier = Modifier.size(18.dp)  
+                    )  
+                }  
+            }  
+            Icon(  
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
+                contentDescription = if (expanded) "收起" else "展开",  
+                tint = contentColor  
+            )  
+        }  
+    }  
+}  
+  
+// ==================== 可执行模块列表 ====================  
+  
+@Composable  
+private fun ExecutableSettingsSection(  
+    modules: List<DailyModuleItem>,  
+    isLoading: Boolean,  
+    expandedModuleKey: String?,  
+    executingModuleKey: String?,  
+    onToggleModule: (String, Boolean) -> Unit,  
+    onExpandModule: (String?) -> Unit,  
+    onExecuteModule: (String) -> Unit,  
+    onUpdateConfig: (String, Any) -> Unit,  
+    onUpdateConfigList: (String, List<Any?>) -> Unit  
+) {  
+    Column(  
+        modifier = Modifier  
+            .fillMaxWidth()  
+            .padding(top = 8.dp),  
+        verticalArrangement = Arrangement.spacedBy(6.dp)  
+    ) {  
+        if (isLoading && modules.isEmpty()) {  
+            Box(  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 24.dp),  
+                contentAlignment = Alignment.Center  
+            ) {  
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {  
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Text(  
+                        text = "加载模块配置...",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            }  
+        } else if (modules.isEmpty()) {  
+            Text(  
+                text = "暂无模块配置",  
+                style = MaterialTheme.typography.bodyMedium,  
+                color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 16.dp),  
+                textAlign = TextAlign.Center  
+            )  
+        } else {  
+            modules.forEach { module ->  
+                ExecutableModuleCard(  
+                    module = module,  
+                    isExpanded = expandedModuleKey == module.key,  
+                    isExecuting = executingModuleKey == module.key,  
+                    onToggle = { enabled -> onToggleModule(module.key, enabled) },  
+                    onExpand = { onExpandModule(module.key) },  
+                    onExecute = { onExecuteModule(module.key) },  
+                    onUpdateConfig = onUpdateConfig,  
+                    onUpdateConfigList = onUpdateConfigList  
+                )  
+            }  
+        }  
+    }  
+}  
+  
+// ==================== 带执行按钮的模块卡片 ====================  
+  
+@OptIn(ExperimentalLayoutApi::class)  
+@Composable  
+private fun ExecutableModuleCard(  
+    module: DailyModuleItem,  
+    isExpanded: Boolean,  
+    isExecuting: Boolean,  
+    onToggle: (Boolean) -> Unit,  
+    onExpand: () -> Unit,  
+    onExecute: () -> Unit,  
+    onUpdateConfig: (String, Any) -> Unit,  
+    onUpdateConfigList: (String, List<Any?>) -> Unit  
+) {  
+    Card(  
+        modifier = Modifier.fillMaxWidth(),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
+        colors = CardDefaults.cardColors(  
+            containerColor = if (module.enabled)  
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)  
+            else  
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)  
+        )  
+    ) {  
+        Column(modifier = Modifier.padding(12.dp)) {  
+            // 主行：开关 + 名称 + 执行按钮 + 展开按钮  
+            Row(  
+                modifier = Modifier.fillMaxWidth(),  
+                verticalAlignment = Alignment.CenterVertically  
+            ) {  
+                Switch(  
+                    checked = module.enabled,  
+                    onCheckedChange = onToggle,  
+                    modifier = Modifier.size(width = 46.dp, height = 24.dp)  
+                )  
+                Spacer(modifier = Modifier.width(10.dp))  
+                Column(modifier = Modifier.weight(1f)) {  
+                    Text(  
+                        text = module.name,  
+                        style = MaterialTheme.typography.bodyMedium,  
+                        fontWeight = FontWeight.Bold,  
+                        maxLines = 1,  
+                        overflow = TextOverflow.Ellipsis  
+                    )  
+                    if (module.description.isNotBlank()) {  
+                        Text(  
+                            text = module.description,  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                            maxLines = 1,  
+                            overflow = TextOverflow.Ellipsis  
+                        )  
+                    }  
+                }  
+                // 执行按钮  
+                IconButton(  
+                    onClick = onExecute,  
+                    enabled = !isExecuting,  
+                    modifier = Modifier.size(32.dp)  
+                ) {  
+                    if (isExecuting) {  
+                        CircularProgressIndicator(  
+                            modifier = Modifier.size(18.dp),  
+                            strokeWidth = 2.dp  
+                        )  
+                    } else {  
+                        Icon(  
+                            imageVector = Icons.Default.PlayArrow,  
+                            contentDescription = "执行",  
+                            tint = MaterialTheme.colorScheme.primary,  
+                            modifier = Modifier.size(20.dp)  
+                        )  
+                    }  
+                }  
+                // 展开按钮  
+                if (module.configs.isNotEmpty()) {  
+                    IconButton(  
+                        onClick = onExpand,  
+                        modifier = Modifier.size(32.dp)  
+                    ) {  
+                        Icon(  
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
+                            contentDescription = if (isExpanded) "收起" else "展开配置",  
+                            modifier = Modifier.size(18.dp)  
+                        )  
+                    }  
+                }  
+            }  
+  
+            // 展开的子配置  
+            AnimatedVisibility(  
+                visible = isExpanded && module.configs.isNotEmpty(),  
+                enter = expandVertically(),  
+                exit = shrinkVertically()  
+            ) {  
+                Column(modifier = Modifier.padding(top = 8.dp)) {  
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))  
+                    module.configs.forEach { cfg ->  
+                        DailyConfigItemView(  
+                            config = cfg,  
+                            onUpdateConfig = onUpdateConfig,  
+                            onUpdateConfigList = onUpdateConfigList  
+                        )  
+                        Spacer(modifier = Modifier.height(6.dp))  
+                    }  
+                }  
             }  
         }  
     }  

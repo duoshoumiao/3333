@@ -175,7 +175,43 @@ data class DailyUiState(
     val isSavingDaily: Boolean = false,  
     val dailyModules: List<DailyModuleItem> = emptyList(),  
     val dailyError: String? = null,  
-    val expandedModuleKey: String? = null 
+    val expandedModuleKey: String? = null,
+	// ---- 工具模块 ----  
+    val showToolSection: Boolean = false,  
+    val isLoadingTool: Boolean = false,  
+    val isSavingTool: Boolean = false,  
+    val toolModules: List<DailyModuleItem> = emptyList(),  
+    val toolError: String? = null,  
+    val expandedToolModuleKey: String? = null,  
+    val executingModuleKey: String? = null,  // 正在执行单个模块的key（所有模块共用）  
+    // ---- 角色模块 ----  
+    val showUnitSection: Boolean = false,  
+    val isLoadingUnit: Boolean = false,  
+    val isSavingUnit: Boolean = false,  
+    val unitModules: List<DailyModuleItem> = emptyList(),  
+    val unitError: String? = null,  
+    val expandedUnitModuleKey: String? = null,  
+    // ---- 规划模块 ----  
+    val showPlanningSection: Boolean = false,  
+    val isLoadingPlanning: Boolean = false,  
+    val isSavingPlanning: Boolean = false,  
+    val planningModules: List<DailyModuleItem> = emptyList(),  
+    val planningError: String? = null,  
+    val expandedPlanningModuleKey: String? = null,  
+    // ---- 公会模块 ----  
+    val showClanSection: Boolean = false,  
+    val isLoadingClan: Boolean = false,  
+    val isSavingClan: Boolean = false,  
+    val clanModules: List<DailyModuleItem> = emptyList(),  
+    val clanError: String? = null,  
+    val expandedClanModuleKey: String? = null,  
+    // ---- 危险模块 ----  
+    val showDangerSection: Boolean = false,  
+    val isLoadingDanger: Boolean = false,  
+    val isSavingDanger: Boolean = false,  
+    val dangerModules: List<DailyModuleItem> = emptyList(),  
+    val dangerError: String? = null,  
+    val expandedDangerModuleKey: String? = null
 	
 )  
   
@@ -330,7 +366,33 @@ class DailyViewModel @Inject constructor(
             dailyModules = emptyList(),  
             showDailySection = false,  
             dailyError = null,  
-            expandedModuleKey = null  
+            expandedModuleKey = null,
+            // 切换账号时重置工具模块状态  
+            toolModules = emptyList(),  
+            showToolSection = false,  
+            toolError = null,  
+            expandedToolModuleKey = null,  
+            executingModuleKey = null,  
+            // 切换账号时重置角色模块状态  
+            unitModules = emptyList(),  
+            showUnitSection = false,  
+            unitError = null,  
+            expandedUnitModuleKey = null,  
+            // 切换账号时重置规划模块状态  
+            planningModules = emptyList(),  
+            showPlanningSection = false,  
+            planningError = null,  
+            expandedPlanningModuleKey = null,  
+            // 切换账号时重置公会模块状态  
+            clanModules = emptyList(),  
+            showClanSection = false,  
+            clanError = null,  
+            expandedClanModuleKey = null,  
+            // 切换账号时重置危险模块状态  
+            dangerModules = emptyList(),  
+            showDangerSection = false,  
+            dangerError = null,  
+            expandedDangerModuleKey = null			
         )    
     }  
   
@@ -1326,6 +1388,278 @@ class DailyViewModel @Inject constructor(
     fun clearDailyError() {  
         _uiState.value = _uiState.value.copy(dailyError = null)  
     }
+	
+	// ==================== 通用模块管理（工具/角色/规划/公会/危险） ====================  
+  
+    /** 获取指定 section 的当前模块列表 */  
+    private fun getModulesForSection(sectionKey: String): List<DailyModuleItem> {  
+        val s = _uiState.value  
+        return when (sectionKey) {  
+            "tool" -> s.toolModules  
+            "unit" -> s.unitModules  
+            "planning" -> s.planningModules  
+            "clan" -> s.clanModules  
+            "danger" -> s.dangerModules  
+            else -> emptyList()  
+        }  
+    }  
+  
+    /** 获取指定 section 是否正在加载 */  
+    private fun isSectionLoading(sectionKey: String): Boolean {  
+        val s = _uiState.value  
+        return when (sectionKey) {  
+            "tool" -> s.isLoadingTool  
+            "unit" -> s.isLoadingUnit  
+            "planning" -> s.isLoadingPlanning  
+            "clan" -> s.isLoadingClan  
+            "danger" -> s.isLoadingDanger  
+            else -> false  
+        }  
+    }  
+  
+    /** 获取指定 section 是否展开 */  
+    private fun isSectionShown(sectionKey: String): Boolean {  
+        val s = _uiState.value  
+        return when (sectionKey) {  
+            "tool" -> s.showToolSection  
+            "unit" -> s.showUnitSection  
+            "planning" -> s.showPlanningSection  
+            "clan" -> s.showClanSection  
+            "danger" -> s.showDangerSection  
+            else -> false  
+        }  
+    }  
+  
+    /** 更新指定 section 的 UI 状态 */  
+    private fun updateSectionState(  
+        sectionKey: String,  
+        show: Boolean? = null,  
+        modules: List<DailyModuleItem>? = null,  
+        isLoading: Boolean? = null,  
+        isSaving: Boolean? = null,  
+        error: String? = null,  
+        clearError: Boolean = false,  
+        expandedKey: String? = null,  
+        clearExpandedKey: Boolean = false  
+    ) {  
+        val s = _uiState.value  
+        _uiState.value = when (sectionKey) {  
+            "tool" -> s.copy(  
+                showToolSection = show ?: s.showToolSection,  
+                toolModules = modules ?: s.toolModules,  
+                isLoadingTool = isLoading ?: s.isLoadingTool,  
+                isSavingTool = isSaving ?: s.isSavingTool,  
+                toolError = if (clearError) null else (error ?: s.toolError),  
+                expandedToolModuleKey = if (clearExpandedKey) null else (expandedKey ?: s.expandedToolModuleKey)  
+            )  
+            "unit" -> s.copy(  
+                showUnitSection = show ?: s.showUnitSection,  
+                unitModules = modules ?: s.unitModules,  
+                isLoadingUnit = isLoading ?: s.isLoadingUnit,  
+                isSavingUnit = isSaving ?: s.isSavingUnit,  
+                unitError = if (clearError) null else (error ?: s.unitError),  
+                expandedUnitModuleKey = if (clearExpandedKey) null else (expandedKey ?: s.expandedUnitModuleKey)  
+            )  
+            "planning" -> s.copy(  
+                showPlanningSection = show ?: s.showPlanningSection,  
+                planningModules = modules ?: s.planningModules,  
+                isLoadingPlanning = isLoading ?: s.isLoadingPlanning,  
+                isSavingPlanning = isSaving ?: s.isSavingPlanning,  
+                planningError = if (clearError) null else (error ?: s.planningError),  
+                expandedPlanningModuleKey = if (clearExpandedKey) null else (expandedKey ?: s.expandedPlanningModuleKey)  
+            )  
+            "clan" -> s.copy(  
+                showClanSection = show ?: s.showClanSection,  
+                clanModules = modules ?: s.clanModules,  
+                isLoadingClan = isLoading ?: s.isLoadingClan,  
+                isSavingClan = isSaving ?: s.isSavingClan,  
+                clanError = if (clearError) null else (error ?: s.clanError),  
+                expandedClanModuleKey = if (clearExpandedKey) null else (expandedKey ?: s.expandedClanModuleKey)  
+            )  
+            "danger" -> s.copy(  
+                showDangerSection = show ?: s.showDangerSection,  
+                dangerModules = modules ?: s.dangerModules,  
+                isLoadingDanger = isLoading ?: s.isLoadingDanger,  
+                isSavingDanger = isSaving ?: s.isSavingDanger,  
+                dangerError = if (clearError) null else (error ?: s.dangerError),  
+                expandedDangerModuleKey = if (clearExpandedKey) null else (expandedKey ?: s.expandedDangerModuleKey)  
+            )  
+            else -> s  
+        }  
+    }  
+  
+    /** 展开/折叠模块区域，首次展开时自动加载 */  
+    fun toggleSection(sectionKey: String) {  
+        val newShow = !isSectionShown(sectionKey)  
+        updateSectionState(sectionKey, show = newShow)  
+        if (newShow && getModulesForSection(sectionKey).isEmpty() && !isSectionLoading(sectionKey)) {  
+            loadSectionConfig(sectionKey)  
+        }  
+    }  
+  
+    /** 加载指定模块区域的配置 */  
+    fun loadSectionConfig(sectionKey: String) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        updateSectionState(sectionKey, isLoading = true, clearError = true)  
+  
+        viewModelScope.launch {  
+            try {  
+                val modules = withContext(Dispatchers.IO) {  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/$sectionKey")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .get()  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "获取配置失败 (${resp.code})" })  
+                        parseDailyResponse(text)  
+                    }  
+                }  
+                updateSectionState(sectionKey, isLoading = false, modules = modules, clearError = true)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Load $sectionKey config failed: ${e.message}", e)  
+                updateSectionState(sectionKey, isLoading = false, error = "加载失败: ${e.message}")  
+            }  
+        }  
+    }  
+  
+    /** 开关模块 */  
+    fun toggleSectionModule(sectionKey: String, moduleKey: String, enabled: Boolean) {  
+        saveDailyField(moduleKey, enabled)  
+        val updated = getModulesForSection(sectionKey).map {  
+            if (it.key == moduleKey) it.copy(enabled = enabled) else it  
+        }  
+        updateSectionState(sectionKey, modules = updated)  
+    }  
+  
+    /** 更新模块配置（单值） */  
+    fun updateSectionConfig(sectionKey: String, configKey: String, value: Any) {  
+        saveDailyField(configKey, value)  
+        val updated = getModulesForSection(sectionKey).map { module ->  
+            module.copy(configs = module.configs.map { cfg ->  
+                if (cfg.key == configKey) cfg.copy(currentValue = value) else cfg  
+            })  
+        }  
+        updateSectionState(sectionKey, modules = updated)  
+    }  
+  
+    /** 更新模块配置（列表值） */  
+    fun updateSectionConfigList(sectionKey: String, configKey: String, values: List<Any?>) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        updateSectionState(sectionKey, isSaving = true)  
+  
+        // 乐观更新  
+        val updated = getModulesForSection(sectionKey).map { module ->  
+            module.copy(configs = module.configs.map { cfg ->  
+                if (cfg.key == configKey) cfg.copy(currentValue = values) else cfg  
+            })  
+        }  
+        updateSectionState(sectionKey, modules = updated)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put(configKey, JSONArray(values))  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/config")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        if (!resp.isSuccessful) {  
+                            val text = resp.body?.string() ?: ""  
+                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                        }  
+                    }  
+                }  
+                updateSectionState(sectionKey, isSaving = false, clearError = true)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save $sectionKey config list failed: ${e.message}", e)  
+                updateSectionState(sectionKey, isSaving = false, error = "保存失败: ${e.message}")  
+                loadSectionConfig(sectionKey)  
+            }  
+        }  
+    }  
+  
+    /** 展开/收起模块详情 */  
+    fun expandSectionModule(sectionKey: String, moduleKey: String?) {  
+        val currentKey = when (sectionKey) {  
+            "tool" -> _uiState.value.expandedToolModuleKey  
+            "unit" -> _uiState.value.expandedUnitModuleKey  
+            "planning" -> _uiState.value.expandedPlanningModuleKey  
+            "clan" -> _uiState.value.expandedClanModuleKey  
+            "danger" -> _uiState.value.expandedDangerModuleKey  
+            else -> null  
+        }  
+        val newKey = if (currentKey == moduleKey) null else moduleKey  
+        updateSectionState(sectionKey, expandedKey = newKey, clearExpandedKey = (newKey == null))  
+    }  
+  
+    /** 清除模块区域错误 */  
+    fun clearSectionError(sectionKey: String) {  
+        updateSectionState(sectionKey, clearError = true)  
+    }  
+  
+    // ==================== 执行单个模块 ====================  
+  
+    fun executeModule(moduleKey: String) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        _uiState.value = state.copy(executingModuleKey = moduleKey)  
+  
+        viewModelScope.launch {  
+            try {  
+                val resultText = withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put("order", moduleKey)  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$acc/do_single")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .post(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "执行失败 (${resp.code})" })  
+                        text  
+                    }  
+                }  
+                // 解析返回结果  
+                val resultArr = JSONArray(resultText)  
+                val summary = if (resultArr.length() > 0) {  
+                    val first = resultArr.getJSONObject(0)  
+                    val status = first.optString("status", "unknown")  
+                    val alias = first.optString("alias", moduleKey)  
+                    "$alias: $status"  
+                } else {  
+                    "执行完成"  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    executingModuleKey = null,  
+                    executionResult = summary,  
+                    showResultDialog = true  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Execute module $moduleKey failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    executingModuleKey = null,  
+                    executionResult = "执行失败: ${e.message}",  
+                    showResultDialog = true  
+                )  
+            }  
+        }  
+    }
   
     // ==================== 关闭结果弹窗 ====================  
   
@@ -1358,7 +1692,33 @@ class DailyViewModel @Inject constructor(
                     dailyModules = emptyList(),  
                     showDailySection = false,  
                     dailyError = null,  
-                    expandedModuleKey = null  
+                    expandedModuleKey = null,
+                    // 返回时重置工具模块状态  
+                    toolModules = emptyList(),  
+                    showToolSection = false,  
+                    toolError = null,  
+                    expandedToolModuleKey = null,  
+                    executingModuleKey = null,  
+                    // 返回时重置角色模块状态  
+                    unitModules = emptyList(),  
+                    showUnitSection = false,  
+                    unitError = null,  
+                    expandedUnitModuleKey = null,  
+                    // 返回时重置规划模块状态  
+                    planningModules = emptyList(),  
+                    showPlanningSection = false,  
+                    planningError = null,  
+                    expandedPlanningModuleKey = null,  
+                    // 返回时重置公会模块状态  
+                    clanModules = emptyList(),  
+                    showClanSection = false,  
+                    clanError = null,  
+                    expandedClanModuleKey = null,  
+                    // 返回时重置危险模块状态  
+                    dangerModules = emptyList(),  
+                    showDangerSection = false,  
+                    dangerError = null,  
+                    expandedDangerModuleKey = null					
                 )    
             }  
             DailyPhase.ACCOUNTS -> {  
