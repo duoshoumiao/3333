@@ -88,6 +88,13 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Warning  
 import androidx.compose.ui.graphics.Color  
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.gestures.detectTransformGestures  
+import androidx.compose.ui.graphics.graphicsLayer  
+import androidx.compose.ui.input.pointer.pointerInput  
+import androidx.compose.ui.window.Dialog  
+import androidx.compose.ui.window.DialogProperties  
+import androidx.compose.material.icons.filled.Close  
+import androidx.compose.runtime.mutableFloatStateOf
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -166,47 +173,89 @@ fun DailyScreen(
         }  
     }
   
-    // 执行结果弹窗（支持后端渲染的图片）  
+    // 执行结果弹窗（支持后端渲染的图片，图片支持双指缩放）  
     if (uiState.showResultDialog) {  
-        AlertDialog(  
-            onDismissRequest = { viewModel.dismissResult() },  
-            title = { Text("执行结果") },  
-            text = {  
-                val imageBase64 = uiState.resultImageBase64  
-                if (imageBase64 != null) {  
-                    val bitmap = remember(imageBase64) {  
-                        try {  
-                            val bytes = Base64.decode(imageBase64 as String, Base64.DEFAULT)
-                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
-                        } catch (e: Exception) { null }  
-                    }  
-                    if (bitmap != null) {  
-                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {  
-                            Image(  
-                                bitmap = bitmap.asImageBitmap(),  
-                                contentDescription = "执行结果",  
-                                modifier = Modifier.fillMaxWidth()  
+        val imageBase64 = uiState.resultImageBase64  
+        val bitmap = remember(imageBase64) {  
+            if (imageBase64 != null) {  
+                try {  
+                    val bytes = Base64.decode(imageBase64 as String, Base64.DEFAULT)  
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                } catch (e: Exception) { null }  
+            } else null  
+        }  
+  
+        if (bitmap != null) {  
+            Dialog(  
+                onDismissRequest = { viewModel.dismissResult() },  
+                properties = DialogProperties(usePlatformDefaultWidth = false)  
+            ) {  
+                Box(  
+                    modifier = Modifier  
+                        .fillMaxSize()  
+                        .background(Color.Black.copy(alpha = 0.9f))  
+                ) {  
+                    var scale by remember { mutableFloatStateOf(1f) }  
+                    var offsetX by remember { mutableFloatStateOf(0f) }  
+                    var offsetY by remember { mutableFloatStateOf(0f) }  
+  
+                    Image(  
+                        bitmap = bitmap.asImageBitmap(),  
+                        contentDescription = "执行结果",  
+                        modifier = Modifier  
+                            .fillMaxWidth()  
+                            .align(Alignment.Center)  
+                            .graphicsLayer(  
+                                scaleX = scale,  
+                                scaleY = scale,  
+                                translationX = offsetX,  
+                                translationY = offsetY  
                             )  
-                        }  
-                    } else {  
-                        Text(  
-                            text = uiState.executionResult ?: "",  
-                            modifier = Modifier.verticalScroll(rememberScrollState())  
+                            .pointerInput(Unit) {  
+                                detectTransformGestures { _, pan, zoom, _ ->  
+                                    scale = (scale * zoom).coerceIn(1f, 5f)  
+                                    if (scale > 1f) {  
+                                        offsetX += pan.x  
+                                        offsetY += pan.y  
+                                    } else {  
+                                        offsetX = 0f  
+                                        offsetY = 0f  
+                                    }  
+                                }  
+                            }  
+                    )  
+  
+                    IconButton(  
+                        onClick = { viewModel.dismissResult() },  
+                        modifier = Modifier  
+                            .align(Alignment.TopEnd)  
+                            .padding(16.dp)  
+                    ) {  
+                        Icon(  
+                            imageVector = Icons.Default.Close,  
+                            contentDescription = "关闭",  
+                            tint = Color.White  
                         )  
                     }  
-                } else {  
+                }  
+            }  
+        } else {  
+            AlertDialog(  
+                onDismissRequest = { viewModel.dismissResult() },  
+                title = { Text("执行结果") },  
+                text = {  
                     Text(  
                         text = uiState.executionResult ?: "",  
                         modifier = Modifier.verticalScroll(rememberScrollState())  
                     )  
+                },  
+                confirmButton = {  
+                    TextButton(onClick = { viewModel.dismissResult() }) {  
+                        Text("确定")  
+                    }  
                 }  
-            },  
-            confirmButton = {  
-                TextButton(onClick = { viewModel.dismissResult() }) {  
-                    Text("确定")  
-                }  
-            }  
-        )  
+            )  
+        }  
     }  
   
     // 指令编辑弹窗  
