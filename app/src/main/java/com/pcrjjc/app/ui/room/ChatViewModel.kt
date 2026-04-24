@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.room  
-  
+
+import com.pcrjjc.app.data.local.entity.ManualBattleState  
 import androidx.lifecycle.SavedStateHandle  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
@@ -67,7 +68,8 @@ class ChatViewModel @Inject constructor(
     private fun isClanBattleSystemMessage(content: String): Boolean {  
         return content.startsWith(ClanBattleState.MESSAGE_PREFIX) ||  
                content.startsWith(ClanBattleState.ACTION_PREFIX) ||  
-               content.startsWith(ClanBattleState.REPORT_PREFIX)  
+               content.startsWith(ClanBattleState.REPORT_PREFIX) ||  
+               content.startsWith(ManualBattleState.MESSAGE_PREFIX)  // ← 新增：过滤手动报刀状态消息  
     }  
   
     private fun loadMessages() {  

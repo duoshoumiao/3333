@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
 import androidx.compose.material.icons.automirrored.filled.Send  
 import androidx.compose.material.icons.filled.DeleteForever  
+import androidx.compose.material.icons.filled.Edit           // ← 新增  
 import androidx.compose.material.icons.filled.SportsEsports  
 import androidx.compose.material3.*  
 import androidx.compose.runtime.*  
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import com.pcrjjc.app.data.local.entity.ChatMessage  
+import com.pcrjjc.app.ui.manualbattle.ManualBattleScreen  // ← 新增  
 import kotlinx.coroutines.launch  
 import java.text.SimpleDateFormat  
 import java.util.Date  
@@ -32,12 +34,12 @@ fun ChatScreen(
     onNavigateBack: () -> Unit  
 ) {  
     val uiState by viewModel.uiState.collectAsState()  
-    val pagerState = rememberPagerState(initialPage = 0) { 2 }  
+    val pagerState = rememberPagerState(initialPage = 0) { 3 }  // ← 2 改为 3  
     val coroutineScope = rememberCoroutineScope()  
   
     HorizontalPager(  
         state = pagerState,  
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize()  
     ) { page ->  
         when (page) {  
             0 -> ChatPageContent(  
@@ -46,9 +48,17 @@ fun ChatScreen(
                 onNavigateBack = onNavigateBack,  
                 onNavigateToBoss = {  
                     coroutineScope.launch { pagerState.animateScrollToPage(1) }  
+                },  
+                onNavigateToManualBattle = {                    // ← 新增  
+                    coroutineScope.launch { pagerState.animateScrollToPage(2) }  
                 }  
             )  
             1 -> ClanBattleScreen(  
+                onNavigateBack = {  
+                    coroutineScope.launch { pagerState.animateScrollToPage(0) }  
+                }  
+            )  
+            2 -> ManualBattleScreen(                            // ← 新增：手动报刀页  
                 onNavigateBack = {  
                     coroutineScope.launch { pagerState.animateScrollToPage(0) }  
                 }  
@@ -57,7 +67,7 @@ fun ChatScreen(
     }  
 }  
   
-// ==================== 原有聊天页面内容（提取为独立 Composable） ====================  
+// ==================== 原有聊天页面内容（修改：增加手动报刀按钮） ====================  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -65,7 +75,8 @@ private fun ChatPageContent(
     uiState: ChatUiState,  
     viewModel: ChatViewModel,  
     onNavigateBack: () -> Unit,  
-    onNavigateToBoss: () -> Unit  
+    onNavigateToBoss: () -> Unit,  
+    onNavigateToManualBattle: () -> Unit              // ← 新增参数  
 ) {  
     var inputText by remember { mutableStateOf("") }  
     val listState = rememberLazyListState()  
@@ -92,7 +103,7 @@ private fun ChatPageContent(
                     Column {  
                         Text(uiState.roomName.ifBlank { "聊天" })  
                         Text(  
-                            text = "房间号: ${uiState.roomId}  ← 左滑查看Boss状态",  
+                            text = "房间号: ${uiState.roomId}  ← 左滑Boss状态/手动报刀",  // ← 修改提示文字  
                             style = MaterialTheme.typography.bodySmall,  
                             color = MaterialTheme.colorScheme.onSurfaceVariant,  
                             maxLines = 1,  
@@ -109,12 +120,20 @@ private fun ChatPageContent(
                     }  
                 },  
                 actions = {  
-                    // Boss状态按钮（也可点击进入）  
+                    // Boss状态按钮  
                     IconButton(onClick = onNavigateToBoss) {  
                         Icon(  
                             Icons.Default.SportsEsports,  
                             contentDescription = "Boss状态",  
                             tint = MaterialTheme.colorScheme.primary  
+                        )  
+                    }  
+                    // ← 新增：手动报刀按钮  
+                    IconButton(onClick = onNavigateToManualBattle) {  
+                        Icon(  
+                            Icons.Default.Edit,  
+                            contentDescription = "手动报刀",  
+                            tint = MaterialTheme.colorScheme.tertiary  
                         )  
                     }  
                     if (uiState.isHost) {  

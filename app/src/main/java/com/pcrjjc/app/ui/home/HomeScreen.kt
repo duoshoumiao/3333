@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.home    
-  
+
+import androidx.compose.material.icons.filled.Edit  // ← 新增  
 import android.content.Context    
 import android.content.Intent    
 import android.net.Uri    
@@ -109,21 +110,31 @@ fun HomeScreen(
                             modifier = Modifier.padding(start = 4.dp)
                         )
                     }
-                    // 折叠菜单下拉
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("房间") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToRoom()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.MeetingRoom, contentDescription = null)
-                            }
-                        )
+                    // 折叠菜单下拉（第113-127行替换为以下内容）  
+                    DropdownMenu(  
+                        expanded = showMenu,  
+                        onDismissRequest = { showMenu = false }  
+                    ) {  
+                        DropdownMenuItem(  
+                            text = { Text("房间") },  
+                            onClick = {  
+                                showMenu = false  
+                                onNavigateToRoom()  
+                            },  
+                            leadingIcon = {  
+                                Icon(Icons.Default.MeetingRoom, contentDescription = null)  
+                            }  
+                        )  
+                        DropdownMenuItem(                                    // ← 新增  
+                            text = { Text("手动报刀") },  
+                            onClick = {  
+                                showMenu = false  
+                                onNavigateToRoom()  // 同样导航到房间，进入房间后左滑到第3页  
+                            },  
+                            leadingIcon = {  
+                                Icon(Icons.Default.Edit, contentDescription = null)  
+                            }  
+                        )  
                     }
                 },
 				actions = {
