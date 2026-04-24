@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh  
 import androidx.compose.material.icons.filled.Schedule  
 import androidx.compose.material.icons.filled.Send  
+import androidx.compose.material.icons.filled.Search  
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AlertDialog  
 import androidx.compose.material3.Button  
 import androidx.compose.material3.Card  
@@ -1896,12 +1898,21 @@ private fun DailyConfigItemView(
     onUpdateConfigList: (String, List<Any?>) -> Unit
 ) {
     var showAllCandidates by remember { mutableStateOf(false) }
-    val visibleCandidates = if (config.candidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates) {
-        config.candidates.take(MAX_VISIBLE_CANDIDATES)
-    } else {
-        config.candidates
-    }
-    val hasMoreCandidates = config.candidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates
+	var searchQuery by remember { mutableStateOf("") }
+    val filteredCandidates = if (searchQuery.isNotBlank()) {  
+		config.candidates.filter { cand ->  
+			cand.display.contains(searchQuery, ignoreCase = true) ||  
+			cand.tags.any { it.contains(searchQuery, ignoreCase = true) }  
+		}  
+	} else {  
+		config.candidates  
+	}  
+	val visibleCandidates = if (searchQuery.isBlank() && filteredCandidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates) {  
+		filteredCandidates.take(MAX_VISIBLE_CANDIDATES)  
+	} else {  
+		filteredCandidates  
+	}
+    val hasMoreCandidates = searchQuery.isBlank() && filteredCandidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates
 
     Column(modifier = Modifier.fillMaxWidth()) {
         when (config.configType) {
@@ -2000,6 +2011,24 @@ private fun DailyConfigItemView(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+				if (config.candidates.size > MAX_VISIBLE_CANDIDATES) {  
+					OutlinedTextField(  
+						value = searchQuery,  
+						onValueChange = { searchQuery = it },  
+						modifier = Modifier.fillMaxWidth(),  
+						singleLine = true,  
+						placeholder = { Text("搜索角色...") },  
+						leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },  
+						trailingIcon = {  
+							if (searchQuery.isNotEmpty()) {  
+								IconButton(onClick = { searchQuery = "" }) {  
+									Icon(Icons.Default.Clear, contentDescription = "清除")  
+								}  
+							}  
+						}  
+					)  
+					Spacer(modifier = Modifier.height(4.dp))  
+				}
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     visibleCandidates.forEach { cand ->
                         val currentVal = config.currentValue?.toString()
@@ -2024,6 +2053,24 @@ private fun DailyConfigItemView(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+				if (config.candidates.size > MAX_VISIBLE_CANDIDATES) {  
+					OutlinedTextField(  
+						value = searchQuery,  
+						onValueChange = { searchQuery = it },  
+						modifier = Modifier.fillMaxWidth(),  
+						singleLine = true,  
+						placeholder = { Text("搜索角色...") },  
+						leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },  
+						trailingIcon = {  
+							if (searchQuery.isNotEmpty()) {  
+								IconButton(onClick = { searchQuery = "" }) {  
+									Icon(Icons.Default.Clear, contentDescription = "清除")  
+								}  
+							}  
+						}  
+					)  
+					Spacer(modifier = Modifier.height(4.dp))  
+				}
                 // currentValue 是 JSONArray 或 List
                 val selectedValues = remember(config.currentValue) {
                     when (val cv = config.currentValue) {
