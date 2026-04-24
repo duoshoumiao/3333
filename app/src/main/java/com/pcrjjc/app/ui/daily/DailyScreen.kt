@@ -363,7 +363,45 @@ fun DailyScreen(
         )  
     }  
   
-    val title = when (uiState.phase) {  
+    // ---- 修改密码弹窗 ----  
+    if (uiState.showChangePasswordDialog) {  
+        AlertDialog(  
+            onDismissRequest = { viewModel.dismissChangePasswordDialog() },  
+            title = { Text("修改登录密码") },  
+            text = {  
+                OutlinedTextField(  
+                    value = uiState.newPasswordInput,  
+                    onValueChange = viewModel::onNewPasswordInputChanged,  
+                    label = { Text("新密码") },  
+                    singleLine = true,  
+                    visualTransformation = PasswordVisualTransformation(),  
+                    modifier = Modifier.fillMaxWidth()  
+                )  
+            },  
+            confirmButton = {  
+                TextButton(  
+                    onClick = { viewModel.changePassword() },  
+                    enabled = !uiState.isChangingPassword  
+                ) {  
+                    if (uiState.isChangingPassword) {  
+                        CircularProgressIndicator(  
+                            modifier = Modifier.size(16.dp),  
+                            strokeWidth = 2.dp  
+                        )  
+                        Spacer(modifier = Modifier.width(8.dp))  
+                    }  
+                    Text("确认修改")  
+                }  
+            },  
+            dismissButton = {  
+                TextButton(onClick = { viewModel.dismissChangePasswordDialog() }) {  
+                    Text("取消")  
+                }  
+            }  
+        )  
+    }
+	
+	val title = when (uiState.phase) {  
         DailyPhase.LOGIN -> "清日常 - 登录"  
         DailyPhase.ACCOUNTS -> "清日常 - 选择账号"  
         DailyPhase.COMMANDS -> "清日常 - ${uiState.selectedAccount ?: ""}"  
@@ -411,7 +449,8 @@ fun DailyScreen(
                     isLoading = uiState.isLoading,  
                     onSelectAccount = viewModel::selectAccount,    
                     onCreateAccount = viewModel::showCreateDialog,    
-                    onEditAccount = viewModel::showEditDialog,    
+                    onChangePassword = viewModel::showChangePasswordDialog, 
+					onEditAccount = viewModel::showEditDialog,    
                     onDeleteAccount = viewModel::showDeleteConfirm    
                 )  
                 DailyPhase.COMMANDS -> CommandsContent(  
@@ -716,6 +755,7 @@ private fun AccountsContent(
     accounts: List<String>,  
     isLoading: Boolean,  
     onSelectAccount: (String) -> Unit,  
+    onChangePassword: () -> Unit,  
     onCreateAccount: () -> Unit,  
     onEditAccount: (String) -> Unit,  
     onDeleteAccount: (String) -> Unit  
@@ -816,6 +856,17 @@ private fun AccountsContent(
                         }  
                     }  
                 }  
+            }  
+  
+            // 修改登录密码按钮（在 Column 内、if/else 之后）  
+            Spacer(modifier = Modifier.height(16.dp))  
+            OutlinedButton(  
+                onClick = onChangePassword,  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(horizontal = 16.dp)  
+            ) {  
+                Text("修改登录密码")  
             }  
         }  
     }  

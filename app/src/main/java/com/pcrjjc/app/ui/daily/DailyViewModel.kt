@@ -211,7 +211,11 @@ data class DailyUiState(
     val isSavingDanger: Boolean = false,  
     val dangerModules: List<DailyModuleItem> = emptyList(),  
     val dangerError: String? = null,  
-    val expandedDangerModuleKey: String? = null,
+    val expandedDangerModuleKey: String? = null,  
+    // ---- 修改密码 ----  
+    val showChangePasswordDialog: Boolean = false,  
+    val newPasswordInput: String = "",  
+    val isChangingPassword: Boolean = false, 
 	// ---- 账号管理 ----  
     val showCreateAccountDialog: Boolean = false,  
     val createAccountAlias: String = "",  
@@ -1991,7 +1995,73 @@ class DailyViewModel @Inject constructor(
         }  
     }
   
-    // ==================== 关闭结果弹窗 ====================  
+    // ==================== 修改登录密码 ====================  
+  
+    fun showChangePasswordDialog() {  
+        _uiState.value = _uiState.value.copy(showChangePasswordDialog = true)  
+    }  
+  
+    fun dismissChangePasswordDialog() {  
+        _uiState.value = _uiState.value.copy(  
+            showChangePasswordDialog = false,  
+            newPasswordInput = "",  
+            isChangingPassword = false  
+        )  
+    }  
+  
+    fun onNewPasswordInputChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(newPasswordInput = value)  
+    }  
+  
+    fun changePassword() {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val newPassword = state.newPasswordInput.trim()  
+        if (newPassword.isBlank()) {  
+            _uiState.value = state.copy(errorMessage = "新密码不能为空")  
+            return  
+        }  
+  
+        _uiState.value = state.copy(isChangingPassword = true, errorMessage = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put("password", newPassword)  
+                    }  
+                    val request = Request.Builder()  
+                        .url("$baseUrl/daily/api/account")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(request).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "修改失败 (${resp.code})" })  
+                    }  
+                }  
+                // 同步更新本地保存的密码  
+                val qq = state.qqInput.trim()  
+                settingsDataStore.saveDailyAccount(qq, newPassword)  
+  
+                _uiState.value = _uiState.value.copy(  
+                    passwordInput = newPassword,  
+                    showChangePasswordDialog = false,  
+                    newPasswordInput = "",  
+                    isChangingPassword = false,  
+                    errorMessage = "密码修改成功"  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Change password failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isChangingPassword = false,  
+                    errorMessage = "修改密码失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }
+	
+	// ==================== 关闭结果弹窗 ====================  
   
     fun dismissResult() {  
 		_uiState.value = _uiState.value.copy(  
