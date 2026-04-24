@@ -212,7 +212,26 @@ data class DailyUiState(
     val dangerModules: List<DailyModuleItem> = emptyList(),  
     val dangerError: String? = null,  
     val expandedDangerModuleKey: String? = null
-	
+	// ---- 账号管理 ----  
+    val showCreateAccountDialog: Boolean = false,  
+    val createAccountAlias: String = "",  
+    val createAccountUsername: String = "",  
+    val createAccountPassword: String = "",  
+    val createAccountChannel: String = "官服",  
+    val isCreatingAccount: Boolean = false,  
+    val createAccountError: String? = null,  
+  
+    val showEditAccountDialog: Boolean = false,  
+    val editAccountAlias: String = "",  
+    val editAccountUsername: String = "",  
+    val editAccountPassword: String = "",  
+    val editAccountChannel: String = "官服",  
+    val isEditingAccount: Boolean = false,  
+    val editAccountError: String? = null,  
+  
+    val showDeleteConfirmDialog: Boolean = false,  
+    val deleteTargetAlias: String = "",  
+    val isDeletingAccount: Boolean = false
 )  
   
 // ==================== ViewModel ====================  
@@ -226,6 +245,7 @@ class DailyViewModel @Inject constructor(
         private const val TAG = "DailyVM"  
         private const val APP_VERSION = "1.7.0"  
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()  
+		val CHANNEL_OPTIONS = listOf("官服", "渠道服", "官服免登录") 
     }  
   
     private val _uiState = MutableStateFlow(DailyUiState())  
@@ -353,7 +373,257 @@ class DailyViewModel @Inject constructor(
         }  
     }  
   
-    // ==================== 选择账号 ====================  
+    // ==================== 账号管理 ====================  
+  
+    fun showCreateDialog() {  
+        _uiState.value = _uiState.value.copy(  
+            showCreateAccountDialog = true,  
+            createAccountAlias = "",  
+            createAccountUsername = "",  
+            createAccountPassword = "",  
+            createAccountChannel = "官服",  
+            createAccountError = null  
+        )  
+    }  
+  
+    fun dismissCreateDialog() {  
+        _uiState.value = _uiState.value.copy(  
+            showCreateAccountDialog = false,  
+            createAccountAlias = "",  
+            createAccountUsername = "",  
+            createAccountPassword = "",  
+            createAccountChannel = "官服",  
+            isCreatingAccount = false,  
+            createAccountError = null  
+        )  
+    }  
+  
+    fun onCreateAliasChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(createAccountAlias = value)  
+    }  
+  
+    fun onCreateUsernameChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(createAccountUsername = value)  
+    }  
+  
+    fun onCreatePasswordChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(createAccountPassword = value)  
+    }  
+  
+    fun onCreateChannelChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(createAccountChannel = value)  
+    }  
+  
+    fun createAccount() {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val alias = state.createAccountAlias.trim()  
+        if (alias.isBlank()) {  
+            _uiState.value = state.copy(createAccountError = "账号昵称不能为空")  
+            return  
+        }  
+  
+        _uiState.value = state.copy(isCreatingAccount = true, createAccountError = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    // 1. 创建账号  
+                    val createJson = JSONObject().apply { put("alias", alias) }  
+                    val createReq = Request.Builder()  
+                        .url("$baseUrl/daily/api/account")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .post(createJson.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(createReq).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "创建账号失败 (${resp.code})" })  
+                    }  
+  
+                    // 2. 如果填了用户名/密码，更新账号信息  
+                    val username = _uiState.value.createAccountUsername.trim()  
+                    val password = _uiState.value.createAccountPassword.trim()  
+                    val channel = _uiState.value.createAccountChannel  
+                    if (username.isNotBlank() || password.isNotBlank()) {  
+                        val updateJson = JSONObject().apply {  
+                            if (username.isNotBlank()) put("username", username)  
+                            if (password.isNotBlank()) put("password", password)  
+                            put("channel", channel)  
+                        }  
+                        val updateReq = Request.Builder()  
+                            .url("$baseUrl/daily/api/account/$alias")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .put(updateJson.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                            .build()  
+                        httpClient.newCall(updateReq).execute().use { resp ->  
+                            val text = resp.body?.string() ?: ""  
+                            if (!resp.isSuccessful) throw Exception(text.ifBlank { "保存账号信息失败 (${resp.code})" })  
+                        }  
+                    }  
+                }  
+                dismissCreateDialog()  
+                loadAccounts()  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Create account failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isCreatingAccount = false,  
+                    createAccountError = "创建失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    fun showEditDialog(alias: String) {  
+        _uiState.value = _uiState.value.copy(  
+            showEditAccountDialog = true,  
+            editAccountAlias = alias,  
+            editAccountUsername = "",  
+            editAccountPassword = "",  
+            editAccountChannel = "官服",  
+            isEditingAccount = true,  
+            editAccountError = null  
+        )  
+        val baseUrl = _uiState.value.serverUrl ?: return  
+        viewModelScope.launch {  
+            try {  
+                val info = withContext(Dispatchers.IO) {  
+                    val req = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$alias")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .get()  
+                        .build()  
+                    httpClient.newCall(req).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "获取账号信息失败 (${resp.code})" })  
+                        JSONObject(text)  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    editAccountUsername = info.optString("username", ""),  
+                    editAccountPassword = "",  
+                    editAccountChannel = info.optString("channel", "官服"),  
+                    isEditingAccount = false  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Load account info failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isEditingAccount = false,  
+                    editAccountError = "加载账号信息失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    fun dismissEditDialog() {  
+        _uiState.value = _uiState.value.copy(  
+            showEditAccountDialog = false,  
+            editAccountAlias = "",  
+            editAccountUsername = "",  
+            editAccountPassword = "",  
+            editAccountChannel = "官服",  
+            isEditingAccount = false,  
+            editAccountError = null  
+        )  
+    }  
+  
+    fun onEditUsernameChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(editAccountUsername = value)  
+    }  
+  
+    fun onEditPasswordChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(editAccountPassword = value)  
+    }  
+  
+    fun onEditChannelChanged(value: String) {  
+        _uiState.value = _uiState.value.copy(editAccountChannel = value)  
+    }  
+  
+    fun saveAccountInfo() {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val alias = state.editAccountAlias  
+  
+        _uiState.value = state.copy(isEditingAccount = true, editAccountError = null)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val json = JSONObject().apply {  
+                        put("username", state.editAccountUsername.trim())  
+                        put("password", state.editAccountPassword.trim())  
+                        put("channel", state.editAccountChannel)  
+                    }  
+                    val req = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$alias")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .build()  
+                    httpClient.newCall(req).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                    }  
+                }  
+                dismissEditDialog()  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save account info failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isEditingAccount = false,  
+                    editAccountError = "保存失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    fun showDeleteConfirm(alias: String) {  
+        _uiState.value = _uiState.value.copy(  
+            showDeleteConfirmDialog = true,  
+            deleteTargetAlias = alias  
+        )  
+    }  
+  
+    fun dismissDeleteConfirm() {  
+        _uiState.value = _uiState.value.copy(  
+            showDeleteConfirmDialog = false,  
+            deleteTargetAlias = "",  
+            isDeletingAccount = false  
+        )  
+    }  
+  
+    fun deleteAccount() {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val alias = state.deleteTargetAlias  
+        if (alias.isBlank()) return  
+  
+        _uiState.value = state.copy(isDeletingAccount = true)  
+  
+        viewModelScope.launch {  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val req = Request.Builder()  
+                        .url("$baseUrl/daily/api/account/$alias")  
+                        .addHeader("X-App-Version", APP_VERSION)  
+                        .delete()  
+                        .build()  
+                    httpClient.newCall(req).execute().use { resp ->  
+                        val text = resp.body?.string() ?: ""  
+                        if (!resp.isSuccessful) throw Exception(text.ifBlank { "删除失败 (${resp.code})" })  
+                    }  
+                }  
+                dismissDeleteConfirm()  
+                loadAccounts()  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Delete account failed: ${e.message}", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isDeletingAccount = false,  
+                    errorMessage = "删除账号失败: ${e.message}"  
+                )  
+                dismissDeleteConfirm()  
+            }  
+        }  
+    }
+	
+	// ==================== 选择账号 ====================  
   
     fun selectAccount(alias: String) {    
         _uiState.value = _uiState.value.copy(    

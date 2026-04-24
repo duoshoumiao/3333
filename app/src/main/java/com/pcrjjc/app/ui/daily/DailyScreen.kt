@@ -71,7 +71,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
-import androidx.compose.material.icons.filled.Delete  
+import androidx.compose.material.icons.filled.Delete    
+import androidx.compose.material.icons.filled.Add    
+import androidx.compose.material.icons.filled.Edit    
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Checklist  
 import androidx.compose.foundation.horizontalScroll  
@@ -304,6 +306,63 @@ fun DailyScreen(
         )  
     }  
   
+    // 创建账号弹窗  
+    if (uiState.showCreateAccountDialog) {  
+        CreateAccountDialog(  
+            alias = uiState.createAccountAlias,  
+            username = uiState.createAccountUsername,  
+            password = uiState.createAccountPassword,  
+            channel = uiState.createAccountChannel,  
+            isCreating = uiState.isCreatingAccount,  
+            error = uiState.createAccountError,  
+            onAliasChange = viewModel::onCreateAliasChanged,  
+            onUsernameChange = viewModel::onCreateUsernameChanged,  
+            onPasswordChange = viewModel::onCreatePasswordChanged,  
+            onChannelChange = viewModel::onCreateChannelChanged,  
+            onConfirm = viewModel::createAccount,  
+            onDismiss = viewModel::dismissCreateDialog  
+        )  
+    }  
+  
+    // 编辑账号弹窗  
+    if (uiState.showEditAccountDialog) {  
+        EditAccountDialog(  
+            alias = uiState.editAccountAlias,  
+            username = uiState.editAccountUsername,  
+            password = uiState.editAccountPassword,  
+            channel = uiState.editAccountChannel,  
+            isLoading = uiState.isEditingAccount,  
+            error = uiState.editAccountError,  
+            onUsernameChange = viewModel::onEditUsernameChanged,  
+            onPasswordChange = viewModel::onEditPasswordChanged,  
+            onChannelChange = viewModel::onEditChannelChanged,  
+            onConfirm = viewModel::saveAccountInfo,  
+            onDismiss = viewModel::dismissEditDialog  
+        )  
+    }  
+  
+    // 删除确认弹窗  
+    if (uiState.showDeleteConfirmDialog) {  
+        AlertDialog(  
+            onDismissRequest = { viewModel.dismissDeleteConfirm() },  
+            title = { Text("确认删除") },  
+            text = { Text("确定要删除账号「${uiState.deleteTargetAlias}」吗？此操作不可撤销。") },  
+            confirmButton = {  
+                TextButton(  
+                    onClick = { viewModel.deleteAccount() },  
+                    enabled = !uiState.isDeletingAccount  
+                ) {  
+                    Text("删除", color = MaterialTheme.colorScheme.error)  
+                }  
+            },  
+            dismissButton = {  
+                TextButton(onClick = { viewModel.dismissDeleteConfirm() }) {  
+                    Text("取消")  
+                }  
+            }  
+        )  
+    }  
+  
     val title = when (uiState.phase) {  
         DailyPhase.LOGIN -> "清日常 - 登录"  
         DailyPhase.ACCOUNTS -> "清日常 - 选择账号"  
@@ -350,7 +409,10 @@ fun DailyScreen(
                 DailyPhase.ACCOUNTS -> AccountsContent(  
                     accounts = uiState.accounts,  
                     isLoading = uiState.isLoading,  
-                    onSelectAccount = viewModel::selectAccount  
+                    onSelectAccount = viewModel::selectAccount,    
+                    onCreateAccount = viewModel::showCreateDialog,    
+                    onEditAccount = viewModel::showEditDialog,    
+                    onDeleteAccount = viewModel::showDeleteConfirm    
                 )  
                 DailyPhase.COMMANDS -> CommandsContent(  
                     selectedAccount = uiState.selectedAccount ?: "",  
@@ -653,7 +715,10 @@ private fun LoginContent(
 private fun AccountsContent(  
     accounts: List<String>,  
     isLoading: Boolean,  
-    onSelectAccount: (String) -> Unit  
+    onSelectAccount: (String) -> Unit,  
+    onCreateAccount: () -> Unit,  
+    onEditAccount: (String) -> Unit,  
+    onDeleteAccount: (String) -> Unit  
 ) {  
     if (isLoading) {  
         Box(  
@@ -666,60 +731,252 @@ private fun AccountsContent(
                 Text("加载账号列表...")  
             }  
         }  
-    } else if (accounts.isEmpty()) {  
-        Box(  
-            modifier = Modifier.fillMaxSize(),  
-            contentAlignment = Alignment.Center  
-        ) {  
-            Text(  
-                text = "暂无账号",  
-                style = MaterialTheme.typography.bodyLarge,  
-                color = MaterialTheme.colorScheme.onSurfaceVariant  
-            )  
-        }  
     } else {  
-        LazyColumn(  
-            modifier = Modifier  
-                .fillMaxSize()  
-                .padding(16.dp),  
-            verticalArrangement = Arrangement.spacedBy(8.dp)  
-        ) {  
-            items(accounts) { account ->  
-                Card(  
+        Column(modifier = Modifier.fillMaxSize()) {  
+            // 顶部创建账号按钮  
+            Row(  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(horizontal = 16.dp, vertical = 8.dp),  
+                horizontalArrangement = Arrangement.End  
+            ) {  
+                Button(onClick = onCreateAccount) {  
+                    Icon(Icons.Default.Add, contentDescription = null)  
+                    Spacer(modifier = Modifier.width(4.dp))  
+                    Text("创建账号")  
+                }  
+            }  
+  
+            if (accounts.isEmpty()) {  
+                Box(  
                     modifier = Modifier  
-                        .fillMaxWidth()  
-                        .clickable { onSelectAccount(account) },  
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+                        .fillMaxSize()  
+                        .weight(1f),  
+                    contentAlignment = Alignment.Center  
                 ) {  
-                    Row(  
-                        modifier = Modifier  
-                            .fillMaxWidth()  
-                            .padding(16.dp),  
-                        verticalAlignment = Alignment.CenterVertically  
-                    ) {  
-                        Column(modifier = Modifier.weight(1f)) {  
-                            Text(  
-                                text = account,  
-                                style = MaterialTheme.typography.titleMedium,  
-                                fontWeight = FontWeight.Bold  
-                            )  
-                            Text(  
-                                text = "点击进入指令面板",  
-                                style = MaterialTheme.typography.bodySmall,  
-                                color = MaterialTheme.colorScheme.onSurfaceVariant  
-                            )  
+                    Text(  
+                        text = "暂无账号",  
+                        style = MaterialTheme.typography.bodyLarge,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            } else {  
+                LazyColumn(  
+                    modifier = Modifier  
+                        .fillMaxSize()  
+                        .weight(1f)  
+                        .padding(horizontal = 16.dp),  
+                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                ) {  
+                    items(accounts) { account ->  
+                        Card(  
+                            modifier = Modifier  
+                                .fillMaxWidth()  
+                                .clickable { onSelectAccount(account) },  
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+                        ) {  
+                            Row(  
+                                modifier = Modifier  
+                                    .fillMaxWidth()  
+                                    .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),  
+                                verticalAlignment = Alignment.CenterVertically  
+                            ) {  
+                                Column(modifier = Modifier.weight(1f)) {  
+                                    Text(  
+                                        text = account,  
+                                        style = MaterialTheme.typography.titleMedium,  
+                                        fontWeight = FontWeight.Bold  
+                                    )  
+                                    Text(  
+                                        text = "点击进入指令面板",  
+                                        style = MaterialTheme.typography.bodySmall,  
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                    )  
+                                }  
+                                IconButton(onClick = { onEditAccount(account) }) {  
+                                    Icon(  
+                                        imageVector = Icons.Default.Edit,  
+                                        contentDescription = "编辑",  
+                                        tint = MaterialTheme.colorScheme.primary  
+                                    )  
+                                }  
+                                IconButton(onClick = { onDeleteAccount(account) }) {  
+                                    Icon(  
+                                        imageVector = Icons.Default.Delete,  
+                                        contentDescription = "删除",  
+                                        tint = MaterialTheme.colorScheme.error  
+                                    )  
+                                }  
+                                Icon(  
+                                    imageVector = Icons.Default.PlayArrow,  
+                                    contentDescription = "进入",  
+                                    tint = MaterialTheme.colorScheme.primary  
+                                )  
+                            }  
                         }  
-                        Icon(  
-                            imageVector = Icons.Default.PlayArrow,  
-                            contentDescription = "进入",  
-                            tint = MaterialTheme.colorScheme.primary  
-                        )  
                     }  
                 }  
             }  
         }  
     }  
+}
+
+// ==================== 创建账号弹窗 ====================  
+  
+@Composable  
+private fun CreateAccountDialog(  
+    alias: String,  
+    username: String,  
+    password: String,  
+    channel: String,  
+    isCreating: Boolean,  
+    error: String?,  
+    onAliasChange: (String) -> Unit,  
+    onUsernameChange: (String) -> Unit,  
+    onPasswordChange: (String) -> Unit,  
+    onChannelChange: (String) -> Unit,  
+    onConfirm: () -> Unit,  
+    onDismiss: () -> Unit  
+) {  
+    AlertDialog(  
+        onDismissRequest = { if (!isCreating) onDismiss() },  
+        title = { Text("创建账号") },  
+        text = {  
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {  
+                OutlinedTextField(  
+                    value = alias,  
+                    onValueChange = onAliasChange,  
+                    label = { Text("账号昵称（必填）") },  
+                    singleLine = true,  
+                    modifier = Modifier.fillMaxWidth()  
+                )  
+                OutlinedTextField(  
+                    value = username,  
+                    onValueChange = onUsernameChange,  
+                    label = { Text("游戏账号（选填）") },  
+                    singleLine = true,  
+                    modifier = Modifier.fillMaxWidth()  
+                )  
+                OutlinedTextField(  
+                    value = password,  
+                    onValueChange = onPasswordChange,  
+                    label = { Text("游戏密码（选填）") },  
+                    singleLine = true,  
+                    visualTransformation = PasswordVisualTransformation(),  
+                    modifier = Modifier.fillMaxWidth()  
+                )  
+                Text("服区选择", style = MaterialTheme.typography.labelMedium)  
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
+                    DailyViewModel.CHANNEL_OPTIONS.forEach { option ->  
+                        FilterChip(  
+                            selected = channel == option,  
+                            onClick = { onChannelChange(option) },  
+                            label = { Text(option) }  
+                        )  
+                    }  
+                }  
+                if (error != null) {  
+                    Text(  
+                        text = error,  
+                        color = MaterialTheme.colorScheme.error,  
+                        style = MaterialTheme.typography.bodySmall  
+                    )  
+                }  
+            }  
+        },  
+        confirmButton = {  
+            TextButton(onClick = onConfirm, enabled = !isCreating) {  
+                if (isCreating) {  
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)  
+                } else {  
+                    Text("创建")  
+                }  
+            }  
+        },  
+        dismissButton = {  
+            TextButton(onClick = onDismiss, enabled = !isCreating) {  
+                Text("取消")  
+            }  
+        }  
+    )  
 }  
+  
+// ==================== 编辑账号弹窗 ====================  
+  
+@Composable  
+private fun EditAccountDialog(  
+    alias: String,  
+    username: String,  
+    password: String,  
+    channel: String,  
+    isLoading: Boolean,  
+    error: String?,  
+    onUsernameChange: (String) -> Unit,  
+    onPasswordChange: (String) -> Unit,  
+    onChannelChange: (String) -> Unit,  
+    onConfirm: () -> Unit,  
+    onDismiss: () -> Unit  
+) {  
+    AlertDialog(  
+        onDismissRequest = { if (!isLoading) onDismiss() },  
+        title = { Text("编辑账号 - $alias") },  
+        text = {  
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {  
+                if (isLoading) {  
+                    Box(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        contentAlignment = Alignment.Center  
+                    ) {  
+                        CircularProgressIndicator()  
+                    }  
+                } else {  
+                    OutlinedTextField(  
+                        value = username,  
+                        onValueChange = onUsernameChange,  
+                        label = { Text("游戏账号") },  
+                        singleLine = true,  
+                        modifier = Modifier.fillMaxWidth()  
+                    )  
+                    OutlinedTextField(  
+                        value = password,  
+                        onValueChange = onPasswordChange,  
+                        label = { Text("游戏密码（留空则不修改）") },  
+                        singleLine = true,  
+                        visualTransformation = PasswordVisualTransformation(),  
+                        modifier = Modifier.fillMaxWidth()  
+                    )  
+                    Text("服区选择", style = MaterialTheme.typography.labelMedium)  
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
+                        DailyViewModel.CHANNEL_OPTIONS.forEach { option ->  
+                            FilterChip(  
+                                selected = channel == option,  
+                                onClick = { onChannelChange(option) },  
+                                label = { Text(option) }  
+                            )  
+                        }  
+                    }  
+                    if (error != null) {  
+                        Text(  
+                            text = error,  
+                            color = MaterialTheme.colorScheme.error,  
+                            style = MaterialTheme.typography.bodySmall  
+                        )  
+                    }  
+                }  
+            }  
+        },  
+        confirmButton = {  
+            TextButton(onClick = onConfirm, enabled = !isLoading) {  
+                Text("保存")  
+            }  
+        },  
+        dismissButton = {  
+            TextButton(onClick = onDismiss, enabled = !isLoading) {  
+                Text("取消")  
+            }  
+        }  
+    )  
+}
   
 // ==================== 指令列表界面 ====================  
   
