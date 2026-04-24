@@ -1620,34 +1620,93 @@ class DailyViewModel @Inject constructor(
   
         viewModelScope.launch {  
             try {  
-                val resultText = withContext(Dispatchers.IO) {  
-                    val json = JSONObject().apply {  
+                val (imageBytes, fallbackText) = withContext(Dispatchers.IO) {  
+                    // Step 1: 执行模块  
+                    val doJson = JSONObject().apply {  
                         put("order", moduleKey)  
                     }  
-                    val request = Request.Builder()  
+                    val doRequest = Request.Builder()  
                         .url("$baseUrl/daily/api/account/$acc/do_single")  
                         .addHeader("X-App-Version", APP_VERSION)  
-                        .post(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                        .post(doJson.toString().toRequestBody(JSON_MEDIA_TYPE))  
                         .build()  
-                    httpClient.newCall(request).execute().use { resp ->  
+                    val resultList = httpClient.newCall(doRequest).execute().use { resp ->  
                         val text = resp.body?.string() ?: ""  
                         if (!resp.isSuccessful) throw Exception(text.ifBlank { "执行失败 (${resp.code})" })  
-                        text  
+                        JSONArray(text)  
+                    }  
+  
+                    if (resultList.length() == 0) {  
+                        return@withContext Pair<ByteArray?, String>(null, "执行完成，无返回结果")  
+                    }  
+  
+                    // Step 2: 获取完整结果  
+                    val firstResult = resultList.getJSONObject(0)  
+                    val resultUrl = firstResult.optString("url", "")  
+  
+                    if (resultUrl.isBlank()) {  
+                        val status = firstResult.optString("status", "unknown")  
+                        val alias = firstResult.optString("alias", moduleKey)  
+                        return@withContext Pair<ByteArray?, String>(null, "$alias: $status")  
+                    }  
+  
+                    // 优先获取渲染好的结果图片  
+                    try {  
+                        val imgRequest = Request.Builder()  
+                            .url("$baseUrl$resultUrl")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .get()  
+                            .build()  
+                        val imgBytes = httpClient.newCall(imgRequest).execute().use { resp ->  
+                            if (!resp.isSuccessful) throw Exception("获取结果图片失败 (${resp.code})")  
+                            resp.body?.bytes()  
+                        }  
+                        if (imgBytes != null && imgBytes.isNotEmpty()) {  
+                            return@withContext Pair<ByteArray?, String>(imgBytes, "")  
+                        }  
+                    } catch (imgErr: Exception) {  
+                        Log.w(TAG, "Fetch result image failed, fallback to text: ${imgErr.message}")  
+                    }  
+  
+                    // 图片获取失败，回退到文本模式  
+                    try {  
+                        val textRequest = Request.Builder()  
+                            .url("$baseUrl$resultUrl?text=true")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .get()  
+                            .build()  
+                        val textJson = httpClient.newCall(textRequest).execute().use { resp ->  
+                            resp.body?.string() ?: ""  
+                        }  
+                        val resultObj = JSONObject(textJson)  
+                        val name = resultObj.optString("name", moduleKey)  
+                        val log = resultObj.optString("log", "")  
+                        val resultStatus = resultObj.optString("status", "")  
+                        val displayText = buildString {  
+                            if (name.isNotBlank()) {  
+                                append("【$name】")  
+                                if (resultStatus.isNotBlank()) append(" $resultStatus")  
+                                append("\n\n")  
+                            }  
+                            append(log.ifBlank { "(无日志输出)" })  
+                        }  
+                        return@withContext Pair<ByteArray?, String>(null, displayText)  
+                    } catch (textErr: Exception) {  
+                        Log.w(TAG, "Fetch result text also failed: ${textErr.message}")  
+                        val status = firstResult.optString("status", "unknown")  
+                        return@withContext Pair<ByteArray?, String>(null, "执行完成: $status")  
                     }  
                 }  
-                // 解析返回结果  
-                val resultArr = JSONArray(resultText)  
-                val summary = if (resultArr.length() > 0) {  
-                    val first = resultArr.getJSONObject(0)  
-                    val status = first.optString("status", "unknown")  
-                    val alias = first.optString("alias", moduleKey)  
-                    "$alias: $status"  
-                } else {  
-                    "执行完成"  
-                }  
+  
+                // 显示结果  
+                val imageBase64 = if (imageBytes != null) {  
+                    android.util.Base64.encodeToString(imageBytes, android.util.Base64.DEFAULT)  
+                } else null  
+  
                 _uiState.value = _uiState.value.copy(  
                     executingModuleKey = null,  
-                    executionResult = summary,  
+                    executionResult = fallbackText,  
+                    resultImageBase64 = imageBase64,  
                     showResultDialog = true  
                 )  
             } catch (e: Exception) {  
@@ -1655,6 +1714,7 @@ class DailyViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(  
                     executingModuleKey = null,  
                     executionResult = "执行失败: ${e.message}",  
+                    resultImageBase64 = null,  
                     showResultDialog = true  
                 )  
             }  
