@@ -211,12 +211,11 @@ fun ManualBattleScreen(
         )  
     }  
   
-    // 报刀  
+    // 报刀 (修复: bossHp -> bossCurrentHp, 移除 challengers)  
     if (showChallengeDialog) {  
         ChallengeDialog(  
             bossNum = challengeDialogBoss,  
-            bossHp = battleState.bosses.getOrNull(challengeDialogBoss - 1)?.currentHp ?: 0,  
-            challengers = battleState.getChallengersForBoss(challengeDialogBoss),  
+            bossCurrentHp = battleState.bosses.getOrNull(challengeDialogBoss - 1)?.currentHp ?: 0,  
             members = battleState.members,  
             onDismiss = { showChallengeDialog = false },  
             onChallenge = { defeat, damage, isContinue, behalfQq, behalfName, previousDay ->  
@@ -226,19 +225,24 @@ fun ManualBattleScreen(
         )  
     }  
   
-    // 挂树  
+    // 挂树 (修复: onTree -> onPutOnTree, 添加 onTakeOffTree 和 isOnTree)  
     if (showTreeDialog) {  
         TreeDialog(  
             bossNum = treeDialogBoss,  
             onDismiss = { showTreeDialog = false },  
-            onTree = { message ->  
+            onPutOnTree = { message ->  
                 viewModel.putOnTree(treeDialogBoss, message)  
                 showTreeDialog = false  
-            }  
+            },  
+            onTakeOffTree = {  
+                viewModel.takeOffTree()  
+                showTreeDialog = false  
+            },  
+            isOnTree = battleState.isOnTree(uiState.playerQq)  
         )  
     }  
   
-    // 查树  
+    // 查树 (修复: 定义已改为匹配此调用)  
     if (showQueryTreeDialog) {  
         QueryTreeDialog(  
             battleState = battleState,  
@@ -260,7 +264,7 @@ fun ManualBattleScreen(
         )  
     }  
   
-    // SL  
+    // SL (修复: 定义已改为匹配此调用)  
     if (showSLDialog) {  
         SLDialog(  
             hasSL = battleState.hasSLToday(  
@@ -461,6 +465,91 @@ fun ManualBattleScreen(
                 }) { Text("关闭") }  
             }  
         )  
+    }  
+}  
+  
+// ==================== 操作按钮卡片 (新增) ====================  
+  
+@OptIn(ExperimentalLayoutApi::class)  
+@Composable  
+private fun ManualActionButtonsCard(  
+    isMember: Boolean,  
+    hasApplied: Boolean,  
+    isOnTree: Boolean,  
+    isFetchingBoss: Boolean,  
+    onUndo: () -> Unit,  
+    onCancelApply: () -> Unit,  
+    onTakeOffTree: () -> Unit,  
+    onQueryTree: () -> Unit,  
+    onSubscribeTable: () -> Unit,  
+    onRecordSL: () -> Unit,  
+    onCheckSL: () -> Unit,  
+    onReportHurt: () -> Unit,  
+    onCombineBlade: () -> Unit,  
+    onChallengeRecord: () -> Unit,  
+    onScoreTable: () -> Unit,  
+    onMyDetail: () -> Unit,  
+    onModify: () -> Unit,  
+    onReset: () -> Unit,  
+    onFetchBoss: () -> Unit,  
+    onMemberList: () -> Unit,  
+    onNotFight: () -> Unit  
+) {  
+    Card(  
+        modifier = Modifier.fillMaxWidth(),  
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),  
+        colors = CardDefaults.cardColors(  
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)  
+        )  
+    ) {  
+        Column(  
+            modifier = Modifier.padding(12.dp),  
+            verticalArrangement = Arrangement.spacedBy(8.dp)  
+        ) {  
+            Text("操作", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)  
+            FlowRow(  
+                horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                verticalArrangement = Arrangement.spacedBy(6.dp)  
+            ) {  
+                ActionButton("撤销", onClick = onUndo)  
+                if (hasApplied) {  
+                    ActionButton("取消申请", onClick = onCancelApply)  
+                }  
+                if (isOnTree) {  
+                    ActionButton("下树", onClick = onTakeOffTree)  
+                }  
+                ActionButton("查树", onClick = onQueryTree)  
+                ActionButton("预约表", onClick = onSubscribeTable)  
+                ActionButton("SL", onClick = onRecordSL)  
+                ActionButton("查SL", onClick = onCheckSL)  
+                ActionButton("报伤害", onClick = onReportHurt)  
+                ActionButton("合刀", onClick = onCombineBlade)  
+                ActionButton("出刀记录", onClick = onChallengeRecord)  
+                ActionButton("业绩表", onClick = onScoreTable)  
+                ActionButton("我的详情", onClick = onMyDetail)  
+                ActionButton("修改boss", onClick = onModify)  
+                ActionButton("重置", onClick = onReset)  
+                ActionButton("获取boss", onClick = onFetchBoss, enabled = !isFetchingBoss)  
+                ActionButton("成员列表", onClick = onMemberList)  
+                ActionButton("不出刀", onClick = onNotFight)  
+            }  
+        }  
+    }  
+}  
+  
+@Composable  
+private fun ActionButton(  
+    text: String,  
+    onClick: () -> Unit,  
+    enabled: Boolean = true  
+) {  
+    FilledTonalButton(  
+        onClick = onClick,  
+        enabled = enabled,  
+        modifier = Modifier.height(32.dp),  
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)  
+    ) {  
+        Text(text, style = MaterialTheme.typography.labelSmall)  
     }  
 }  
   
@@ -1043,13 +1132,12 @@ private fun CancelSubscribeDialog(
     )  
 }  
   
-// ==================== SL 对话框 ====================  
+// ==================== SL 对话框 (修复: hasSLToday -> hasSL, 移除 onCheckSL) ====================  
   
 @Composable  
 private fun SLDialog(  
-    hasSLToday: Boolean,  
+    hasSL: Boolean,  
     onDismiss: () -> Unit,  
-    onCheckSL: () -> Unit,  
     onRecordSL: () -> Unit,  
     onCancelSL: () -> Unit  
 ) {  
@@ -1058,14 +1146,13 @@ private fun SLDialog(
         title = { Text("SL 管理") },  
         text = {  
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {  
-                Text(if (hasSLToday) "今日已使用SL" else "今日未使用SL")  
+                Text(if (hasSL) "今日已使用SL" else "今日未使用SL")  
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
-                    if (!hasSLToday) {  
+                    if (!hasSL) {  
                         Button(onClick = onRecordSL) { Text("记录SL") }  
                     } else {  
                         Button(onClick = onCancelSL) { Text("取消SL") }  
                     }  
-                    OutlinedButton(onClick = onCheckSL) { Text("查询SL") }  
                 }  
             }  
         },  
@@ -1328,231 +1415,51 @@ private fun MemberListDialog(
     }  
 }  
   
-// ==================== 报刀对话框 ====================  
+// ==================== 查树对话框 (重写以匹配调用处) ====================  
   
-@Composable  
-private fun ChallengeDialog(  
-    bossNum: Int,  
-    bossCurrentHp: Long,  
-    members: List<com.pcrjjc.app.data.local.entity.GuildMember>,  
-    onDismiss: () -> Unit,  
-    onChallenge: (defeat: Boolean, damage: Long, isContinue: Boolean, behalfQq: String?, behalfName: String?, previousDay: Boolean) -> Unit  
-) {  
-    var defeat by remember { mutableStateOf(false) }  
-    var damageText by remember { mutableStateOf("") }  
-    var isContinue by remember { mutableStateOf(false) }  
-    var previousDay by remember { mutableStateOf(false) }  
-    var useBehalfMode by remember { mutableStateOf(false) }  
-    var selectedMemberQq by remember { mutableStateOf<String?>(null) }  
-    var showMemberDropdown by remember { mutableStateOf(false) }  
-  
-    AlertDialog(  
-        onDismissRequest = onDismiss,  
-        title = { Text("报刀 - ${bossNum}王") },  
-        text = {  
-            Column(  
-                verticalArrangement = Arrangement.spacedBy(12.dp),  
-                modifier = Modifier.verticalScroll(rememberScrollState())  
-            ) {  
-                Text(  
-                    "当前血量：${ManualBattleEngine.formatDamage(bossCurrentHp)}",  
-                    style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.primary  
-                )  
-  
-                Row(  
-                    verticalAlignment = Alignment.CenterVertically,  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    modifier = Modifier.fillMaxWidth()  
-                ) {  
-                    Text("击败Boss（尾刀）")  
-                    Switch(checked = defeat, onCheckedChange = { defeat = it })  
-                }  
-  
-                if (!defeat) {  
-                    OutlinedTextField(  
-                        value = damageText,  
-                        onValueChange = { damageText = it.filter { c -> c.isDigit() } },  
-                        label = { Text("伤害值（万）") },  
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),  
-                        modifier = Modifier.fillMaxWidth(),  
-                        singleLine = true,  
-                        supportingText = {  
-                            val d = (damageText.toLongOrNull() ?: 0) * 10000  
-                            if (d > 0) Text("= ${ManualBattleEngine.formatDamage(d)}")  
-                        }  
-                    )  
-                }  
-  
-                Row(  
-                    verticalAlignment = Alignment.CenterVertically,  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    modifier = Modifier.fillMaxWidth()  
-                ) {  
-                    Text("补偿刀")  
-                    Switch(checked = isContinue, onCheckedChange = { isContinue = it })  
-                }  
-  
-                Row(  
-                    verticalAlignment = Alignment.CenterVertically,  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    modifier = Modifier.fillMaxWidth()  
-                ) {  
-                    Text("记为昨日")  
-                    Switch(checked = previousDay, onCheckedChange = { previousDay = it })  
-                }  
-  
-                Row(  
-                    verticalAlignment = Alignment.CenterVertically,  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    modifier = Modifier.fillMaxWidth()  
-                ) {  
-                    Text("代刀")  
-                    Switch(checked = useBehalfMode, onCheckedChange = { useBehalfMode = it })  
-                }  
-  
-                if (useBehalfMode) {  
-                    Box {  
-                        OutlinedButton(  
-                            onClick = { showMemberDropdown = true },  
-                            modifier = Modifier.fillMaxWidth()  
-                        ) {  
-                            Text(  
-                                members.firstOrNull { it.playerQq == selectedMemberQq }?.playerName  
-                                    ?: "选择成员"  
-                            )  
-                        }  
-                        DropdownMenu(  
-                            expanded = showMemberDropdown,  
-                            onDismissRequest = { showMemberDropdown = false }  
-                        ) {  
-                            members.forEach { m ->  
-                                DropdownMenuItem(  
-                                    text = { Text(m.playerName) },  
-                                    onClick = {  
-                                        selectedMemberQq = m.playerQq  
-                                        showMemberDropdown = false  
-                                    }  
-                                )  
-                            }  
-                        }  
-                    }  
-                }  
-            }  
-        },  
-        confirmButton = {  
-            TextButton(onClick = {  
-                val damage = if (defeat) 0L else (damageText.toLongOrNull() ?: 0) * 10000  
-                val behalf = if (useBehalfMode) selectedMemberQq else null  
-                val behalfName = if (useBehalfMode) members.firstOrNull { it.playerQq == selectedMemberQq }?.playerName else null  
-                onChallenge(defeat, damage, isContinue, behalf, behalfName, previousDay)  
-            }) { Text("确定报刀") }  
-        },  
-        dismissButton = {  
-            TextButton(onClick = onDismiss) { Text("取消") }  
-        }  
-    )  
-}  
-  
-// ==================== 预约对话框 ====================  
-  
-@Composable  
-private fun SubscribeDialog(  
-    bossNum: Int,  
-    onDismiss: () -> Unit,  
-    onSubscribe: (note: String) -> Unit  
-) {  
-    var note by remember { mutableStateOf("") }  
-  
-    AlertDialog(  
-        onDismissRequest = onDismiss,  
-        title = { Text("预约 - ${bossNum}王") },  
-        text = {  
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {  
-                Text("下个${bossNum}王出现时会提醒你", style = MaterialTheme.typography.bodySmall)  
-                OutlinedTextField(  
-                    value = note,  
-                    onValueChange = { note = it },  
-                    label = { Text("备注（可选）") },  
-                    modifier = Modifier.fillMaxWidth(),  
-                    singleLine = true  
-                )  
-            }  
-        },  
-        confirmButton = {  
-            TextButton(onClick = { onSubscribe(note) }) { Text("预约") }  
-        },  
-        dismissButton = {  
-            TextButton(onClick = onDismiss) { Text("取消") }  
-        }  
-    )  
-}  
-  
-// ==================== 查树对话框 ====================  
-  
+@OptIn(ExperimentalLayoutApi::class)  
 @Composable  
 private fun QueryTreeDialog(  
-    treeInfo: String,  
-    onDismiss: () -> Unit  
+    battleState: ManualBattleState,  
+    onDismiss: () -> Unit,  
+    onQuery: (bossNum: Int) -> Unit  
 ) {  
     AlertDialog(  
         onDismissRequest = onDismiss,  
         title = { Text("查树") },  
         text = {  
-            Column(  
-                modifier = Modifier  
-                    .fillMaxWidth()  
-                    .heightIn(max = 400.dp)  
-                    .verticalScroll(rememberScrollState())  
-            ) {  
-                Text(treeInfo, style = MaterialTheme.typography.bodyMedium)  
-            }  
-        },  
-        confirmButton = {},  
-        dismissButton = {  
-            TextButton(onClick = onDismiss) { Text("关闭") }  
-        }  
-    )  
-}  
-  
-// ==================== SL 对话框 ====================  
-  
-@Composable  
-private fun SLDialog(  
-    hasSLToday: Boolean,  
-    onDismiss: () -> Unit,  
-    onSL: () -> Unit,  
-    onCheckSL: () -> Unit,  
-    onCleanSL: () -> Unit  
-) {  
-    AlertDialog(  
-        onDismissRequest = onDismiss,  
-        title = { Text("SL 操作") },  
-        text = {  
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {  
-                Text(  
-                    if (hasSLToday) "今日已使用SL" else "今日未使用SL",  
-                    style = MaterialTheme.typography.bodyMedium,  
-                    color = if (hasSLToday) MaterialTheme.colorScheme.error  
-                            else MaterialTheme.colorScheme.primary  
-                )  
-            }  
-        },  
-        confirmButton = {  
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
-                if (!hasSLToday) {  
-                    TextButton(onClick = {  
-                        onSL()  
-                        onDismiss()  
-                    }) { Text("记录SL") }  
-                } else {  
-                    TextButton(onClick = {  
-                        onCleanSL()  
-                        onDismiss()  
-                    }) { Text("取消SL", color = MaterialTheme.colorScheme.error) }  
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {  
+                Text("点击查询对应Boss挂树情况：")  
+                FlowRow(  
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),  
+                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                ) {  
+                    (1..5).forEach { num ->  
+                        OutlinedButton(onClick = { onQuery(num) }) {  
+                            Text("${num}王")  
+                        }  
+                    }  
+                }  
+                // 显示当前挂树信息  
+                var hasTree = false  
+                (1..5).forEach { bossNum ->  
+                    val trees = battleState.getTreesForBoss(bossNum)  
+                    if (trees.isNotEmpty()) {  
+                        hasTree = true  
+                        Text(  
+                            "${bossNum}王挂树：${trees.joinToString("、") { it.playerName }}",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.error  
+                        )  
+                    }  
+                }  
+                if (!hasTree) {  
+                    Text("当前无人挂树", style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)  
                 }  
             }  
         },  
+        confirmButton = {},  
         dismissButton = {  
             TextButton(onClick = onDismiss) { Text("关闭") }  
         }  
