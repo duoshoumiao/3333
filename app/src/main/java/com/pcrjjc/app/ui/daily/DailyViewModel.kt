@@ -211,7 +211,7 @@ data class DailyUiState(
     val isSavingDanger: Boolean = false,  
     val dangerModules: List<DailyModuleItem> = emptyList(),  
     val dangerError: String? = null,  
-    val expandedDangerModuleKey: String? = null
+    val expandedDangerModuleKey: String? = null,
 	// ---- 账号管理 ----  
     val showCreateAccountDialog: Boolean = false,  
     val createAccountAlias: String = "",  
