@@ -87,10 +87,13 @@ class ClientManager @Inject constructor() {
 		validate: String  
 	): Any {  
 		return mutex.withLock {  
-			val biliAuth = BiliAuth(account, password, platform)  
-			val pcrClient = PcrClient(biliAuth)  
-			val (uid, accessKey) = biliAuth.bLoginWithValidate(challenge, gtUserId, validate)  
-			pcrClient.loginWithCredentials(uid, accessKey)  
+			val pcrClient = withContext(Dispatchers.IO) {  
+				val biliAuth = BiliAuth(account, password, platform)  
+				val client = PcrClient(biliAuth)  
+				val (uid, accessKey) = biliAuth.bLoginWithValidate(challenge, gtUserId, validate)  
+				client.loginWithCredentials(uid, accessKey)  
+				client  
+			}  
 			clients[accountId] = pcrClient  
 			Log.i(TAG, "Manual captcha login succeeded for account $accountId")  
 			pcrClient  
