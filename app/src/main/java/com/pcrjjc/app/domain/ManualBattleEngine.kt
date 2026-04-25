@@ -62,35 +62,39 @@ object ManualBattleEngine {
      * 移植自 realize.py create_group()  
      */  
     fun createGuild(  
-        state: ManualBattleState,  
-        gameServer: String = "cn"  
-    ): Result {  
-        if (state.isCreated) {  
-            return Result(state, "公会已经存在")  
-        }  
-        val level = BossConfig.levelByCycle(1, gameServer)  
-        val bosses = (0 until 5).map { i ->  
-            val hp = BossConfig.getFullHp(gameServer, level, i)  
-            ManualBossState(  
-                bossNum = i + 1,  
-                currentHp = hp,  
-                maxHp = hp,  
-                cycle = 1,  
-                isNext = false  
-            )  
-        }  
-        val newState = state.copy(  
-            isCreated = true,  
-            gameServer = gameServer,  
-            bossCycle = 1,  
-            bosses = bosses,  
-            challengingMembers = emptyList(),  
-            records = emptyList(),  
-            subscribes = emptyList(),  
-            lastUpdateTime = System.currentTimeMillis()  
-        )  
-        return Result(newState, "公会创建成功（${gameServer}服）")  
-    }  
+		state: ManualBattleState,  
+		gameServer: String = "cn"  
+	): Result {  
+		if (state.isCreated) {  
+			return Result(state, "公会已经存在")  
+		}  
+		val level = BossConfig.levelByCycle(1, gameServer)  
+		val nextLevel = BossConfig.levelByCycle(2, gameServer)  
+		val bosses = (0 until 5).map { i ->  
+			val hp = BossConfig.getFullHp(gameServer, level, i)  
+			val nextHp = BossConfig.getFullHp(gameServer, nextLevel, i)  
+			ManualBossState(  
+				bossNum = i + 1,  
+				currentHp = hp,  
+				maxHp = hp,  
+				cycle = 1,  
+				isNext = false,  
+				nextCycleHp = nextHp  
+			)  
+		}  
+		// 后面的 newState 和 return 保持不变  
+		val newState = state.copy(  
+			isCreated = true,  
+			gameServer = gameServer,  
+			bossCycle = 1,  
+			bosses = bosses,  
+			challengingMembers = emptyList(),  
+			records = emptyList(),  
+			subscribes = emptyList(),  
+			lastUpdateTime = System.currentTimeMillis()  
+		)  
+		return Result(newState, "公会创建成功（${gameServer}服）")  
+	}  
   
     // ======================== 加入公会 ========================  
   
