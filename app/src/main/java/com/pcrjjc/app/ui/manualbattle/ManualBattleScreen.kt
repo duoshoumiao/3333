@@ -123,13 +123,42 @@ fun ManualBattleScreen(
   
             // ==================== 5个 Boss 卡片 ====================  
             if (battleState.isCreated) {  
-                battleState.bosses.forEachIndexed { index, boss ->  
+                val currentLevel = ManualBattleEngine.BossConfig.levelByCycle(battleState.bossCycle, battleState.gameServer)  
+				val nextLevelVal = ManualBattleEngine.BossConfig.levelByCycle(battleState.bossCycle + 1, battleState.gameServer)  
+				val canNext = currentLevel == nextLevelVal
+				
+				battleState.bosses.forEachIndexed { index, boss ->  
+					val effectiveNextHp = if (boss.nextCycleHp == -1L) {  
+						if (boss.isNext) boss.maxHp else 0L  
+					} else {  
+						boss.nextCycleHp  
+					}  
+					val displayHp: Long  
+					val displayMaxHp: Long  
+					val displayCycle: Int  
+					if (boss.currentHp <= 0L && effectiveNextHp > 0L && canNext) {  
+						val nxtLevel = ManualBattleEngine.BossConfig.levelByCycle(battleState.bossCycle + 1, battleState.gameServer)  
+						displayMaxHp = ManualBattleEngine.BossConfig.getFullHp(battleState.gameServer, nxtLevel, index)  
+						displayHp = effectiveNextHp  
+						displayCycle = battleState.bossCycle + 1  
+					} else if (boss.currentHp <= 0L) {  
+						displayHp = 0  
+						displayMaxHp = boss.maxHp  
+						displayCycle = battleState.bossCycle + 1  
+					} else {  
+						displayHp = boss.currentHp  
+						displayMaxHp = boss.maxHp  
+						displayCycle = battleState.bossCycle  
+					}   
                     ManualBossCard(  
-                        boss = boss,  
-                        bossOrder = index + 1,  
-                        challengers = battleState.getChallengersForBoss(index + 1),  
-                        trees = battleState.getTreesForBoss(index + 1),  
-                        subscribes = battleState.getSubscribesForBoss(index + 1),  
+						boss = boss,  
+						bossOrder = index + 1,  
+						displayHp = displayHp,  
+						displayMaxHp = displayMaxHp,  
+						displayCycle = displayCycle,  
+						challengers = battleState.getChallengersForBoss(index + 1),  
+						trees = battleState.getTreesForBoss(index + 1),  
+						subscribes = battleState.getSubscribesForBoss(index + 1),  
                         hasApplied = battleState.hasApplied(uiState.playerQq) &&  
                                 battleState.getAppliedBossNum(uiState.playerQq) == index + 1,  
                         isOnTree = battleState.isOnTree(uiState.playerQq),  
@@ -593,7 +622,10 @@ private fun GuildSetupCard(
 @Composable  
 private fun ManualBossCard(  
     boss: ManualBossState,  
-    bossOrder: Int,  
+    bossOrder: Int, 
+    displayHp: Long,           // ← 新增  
+    displayMaxHp: Long,        // ← 新增  
+    displayCycle: Int,         // ← 新增    
     challengers: List<ChallengingMember>,  
     trees: List<ChallengingMember>,  
     subscribes: List<ManualSubscribeRecord>,  
@@ -622,23 +654,24 @@ private fun ManualBossCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)  
             ) {  
                 Text(  
-                    text = "${boss.cycle}周目${bossOrder}王",  
-                    style = MaterialTheme.typography.titleSmall,  
-                    fontWeight = FontWeight.Bold  
-                )  
+					text = "${displayCycle}周目${bossOrder}王",  
+					style = MaterialTheme.typography.titleSmall,  
+					fontWeight = FontWeight.Bold  
+				)  
   
-                LinearProgressIndicator(  
-                    progress = { boss.hpPercent.toFloat().coerceIn(0f, 1f) },  
-                    modifier = Modifier  
-                        .fillMaxWidth()  
-                        .height(10.dp),  
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,  
-                )  
+                val displayPercent = if (displayMaxHp > 0) displayHp.toFloat() / displayMaxHp.toFloat() else 0f  
+				LinearProgressIndicator(  
+					progress = { displayPercent.coerceIn(0f, 1f) },  
+					modifier = Modifier  
+						.fillMaxWidth()  
+						.height(10.dp),  
+					trackColor = MaterialTheme.colorScheme.surfaceVariant,  
+				)  
   
                 Text(  
-                    text = "HP: ${ManualBattleEngine.formatDamage(boss.currentHp)}/${ManualBattleEngine.formatDamage(boss.maxHp)} (${(boss.hpPercent * 100).toInt()}%)",  
-                    style = MaterialTheme.typography.bodySmall  
-                )  
+					text = "HP: ${ManualBattleEngine.formatDamage(displayHp)}/${ManualBattleEngine.formatDamage(displayMaxHp)} (${(displayPercent * 100).toInt()}%)",  
+					style = MaterialTheme.typography.bodySmall  
+				)  
   
                 // 挑战中的成员  
                 if (challengers.isNotEmpty()) {  
