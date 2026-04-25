@@ -217,10 +217,15 @@ class ClanBattleEngine {
                         val createTime = (history["create_time"] as? Number)?.toLong() ?: continue  
                         if (createTime > latestTime) {  
                             val name = history["name"]?.toString() ?: "未知"  
-                            val histLapNum = (history["lap_num"] as? Number)?.toInt() ?: 0  
-                            val histOrder = (history["order_num"] as? Number)?.toInt() ?: 0  
-                            val damage = (history["damage"] as? Number)?.toLong() ?: 0  
-                            val kill = history["kill"] as? Boolean ?: false  
+							val histLapNum = history["lap_num"]?.toString()?.toIntOrNull() ?: 0  
+							val histOrder = history["order_num"]?.toString()?.toIntOrNull() ?: 0  
+							val damage = history["damage"]?.toString()?.toLongOrNull() ?: 0
+                            val kill = when (val raw = history["kill"]) {  
+								is Boolean -> raw  
+								is Number -> raw.toInt() != 0  
+								is String -> raw.equals("true", ignoreCase = true) || raw == "1"  
+								else -> false  
+							}
                             val killText = if (kill) "并击破" else ""  
                             val msg = "${name}对${histLapNum}周目${histOrder}王造成了${damage}点伤害${killText}。"  
                             daoMessages.add(msg)  
