@@ -116,7 +116,7 @@ fun HomeScreen(
                         onDismissRequest = { showMenu = false }  
                     ) {  
                         DropdownMenuItem(  
-                            text = { Text("房间") },  
+                            text = { Text("公会战") },  
                             onClick = {  
                                 showMenu = false  
                                 onNavigateToRoom()  
@@ -124,17 +124,7 @@ fun HomeScreen(
                             leadingIcon = {  
                                 Icon(Icons.Default.MeetingRoom, contentDescription = null)  
                             }  
-                        )  
-                        DropdownMenuItem(                                    // ← 新增  
-                            text = { Text("手动报刀") },  
-                            onClick = {  
-                                showMenu = false  
-                                onNavigateToRoom()  // 同样导航到房间，进入房间后左滑到第3页  
-                            },  
-                            leadingIcon = {  
-                                Icon(Icons.Default.Edit, contentDescription = null)  
-                            }  
-                        )  
+                        )    
                     }
                 },
 				actions = {
