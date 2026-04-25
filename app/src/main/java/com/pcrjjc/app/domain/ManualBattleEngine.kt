@@ -932,28 +932,45 @@ object ManualBattleEngine {
   
         val sb = StringBuilder("===== 业绩表 =====\n")  
   
-        // 按成员汇总  
+        // 按成员汇总积分  
         data class MemberScore(  
             val name: String,  
-            var totalDamage: Long = 0,  
+            var totalPoints: Double = 0.0,  
             var bladeCount: Int = 0  
         )  
   
         val scoreMap = mutableMapOf<String, MemberScore>()  
         for (r in state.records) {  
-            val ms = scoreMap.getOrPut(r.playerQq) { MemberScore(r.playerName) }  
-            ms.totalDamage += r.challengeDamage  
-            ms.bladeCount += 1  
+            // 计算本刀分值：完整刀1分，尾刀0.5分，补偿刀0.5分  
+            val point = when {  
+                r.isContinue -> 0.5                        // 补偿刀  
+                r.bossHealthRemain == 0L -> 0.5            // 尾刀  
+                else -> 1.0                                // 完整刀  
+            }  
+  
+            // 代刀：积分算给代刀人(behalf)，被代刀的人(playerQq)不计分  
+            if (r.behalf != null) {  
+                val ms = scoreMap.getOrPut(r.behalf!!) { MemberScore(r.behalfName ?: r.behalf!!) }  
+                ms.totalPoints += point  
+                ms.bladeCount += 1  
+            } else {  
+                val ms = scoreMap.getOrPut(r.playerQq) { MemberScore(r.playerName) }  
+                ms.totalPoints += point  
+                ms.bladeCount += 1  
+            }  
         }  
   
-        val sorted = scoreMap.values.sortedByDescending { it.totalDamage }  
+        val sorted = scoreMap.values.sortedByDescending { it.totalPoints }  
         var rank = 1  
         for (ms in sorted) {  
-            sb.appendLine("${rank}. ${ms.name}：${formatDamage(ms.totalDamage)}（${ms.bladeCount}刀）")  
+            val pointStr = if (ms.totalPoints == ms.totalPoints.toLong().toDouble()) "${ms.totalPoints.toLong()}" else "${ms.totalPoints}"  
+            sb.appendLine("${rank}. ${ms.name}：${pointStr}分（${ms.bladeCount}刀）")  
             rank++  
         }  
         sb.appendLine("=================")  
-        sb.append("总伤害：${formatDamage(sorted.sumOf { it.totalDamage })}")  
+        val totalPoints = sorted.sumOf { it.totalPoints }  
+        val totalStr = if (totalPoints == totalPoints.toLong().toDouble()) "${totalPoints.toLong()}" else "$totalPoints"  
+        sb.append("总积分：${totalStr}")  
   
         return Result(state, sb.toString())  
     }  
