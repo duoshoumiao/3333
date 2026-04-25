@@ -82,11 +82,19 @@ class ManualBattleViewModel @Inject constructor(
     // ======================== 公会管理 ========================  
   
     /** 创建公会 */  
-    fun createGuild(gameServer: String = "cn") {  
-        val state = _uiState.value.battleState  
-        val result = ManualBattleEngine.createGuild(state, gameServer)  
-        applyResult(result)  
-    }  
+    fun createGuild(state: ManualBattleState, gameServer: String = "cn"): Result {  
+		val level = BossConfig.levelByCycle(1, gameServer)  
+		val nextLevel = BossConfig.levelByCycle(2, gameServer)  
+		val bosses = (0 until 5).map { i ->  
+			val hp = BossConfig.getFullHp(gameServer, level, i)  
+			val nextHp = BossConfig.getFullHp(gameServer, nextLevel, i)  
+			ManualBossState(  
+				bossNum = i + 1, currentHp = hp, maxHp = hp,  
+				cycle = 1, isNext = false, nextCycleHp = nextHp  
+			)  
+		}  
+		// ...  
+	}  
   
     /** 加入公会 */  
     fun joinGuild() {  

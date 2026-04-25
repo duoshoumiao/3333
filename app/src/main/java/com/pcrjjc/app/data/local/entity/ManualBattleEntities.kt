@@ -74,11 +74,12 @@ object BossConfig {
  * 单个 Boss 的手动报刀状态  
  */  
 data class ManualBossState(  
-    val bossNum: Int = 0,               // 1-5  
-    val currentHp: Long = 0,            // 当前血量  
-    val maxHp: Long = 0,                // 满血量  
-    val cycle: Int = 1,                 // 该boss所在周目  
-    val isNext: Boolean = false         // 是否是下一周目的boss  
+    val bossNum: Int = 0,  
+    val currentHp: Long = 0,        // = now_cycle_boss_health[boss_num]  
+    val maxHp: Long = 0,            // 满血量（用于显示血条）  
+    val cycle: Int = 1,  
+    val isNext: Boolean = false,    // 保留向后兼容，可由 currentHp <= 0 推导  
+    val nextCycleHp: Long = -1      // = next_cycle_boss_health[boss_num]，-1表示未初始化  
 ) {  
     val hpPercent: Double  
         get() = if (maxHp > 0) currentHp.toDouble() / maxHp else 0.0  
