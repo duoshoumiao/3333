@@ -21,6 +21,7 @@ import com.pcrjjc.app.data.local.entity.ManualBossState
 import com.pcrjjc.app.data.local.entity.ChallengingMember  
 import com.pcrjjc.app.data.local.entity.ManualSubscribeRecord  
 import com.pcrjjc.app.domain.ManualBattleEngine  
+import com.pcrjjc.app.data.local.entity.BossConfig
   
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)  
 @Composable  
