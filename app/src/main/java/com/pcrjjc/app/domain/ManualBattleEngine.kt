@@ -1023,10 +1023,8 @@ object ManualBattleEngine {
             val remainSeconds = 90 - killSeconds  
             val compensationTime = minOf(90L, maxOf(20L, remainSeconds + 20))  
             val compensationDamage = (damage2.toDouble() * compensationTime / 90).toLong()  
-            sb.appendLine("方案A：先出伤害1（${formatDamage(damage1)}），再出伤害2收尾")  
-            sb.appendLine("  伤害2需打：${formatDamage(remain)}，约需${killSeconds}秒")  
+            sb.appendLine("方案A：先出伤害1（${formatDamage(damage1)}），再出伤害2收尾")
             sb.appendLine("  补偿刀时间：${compensationTime}秒")  
-            sb.appendLine("  伤害2补偿刀预估伤害：${formatDamage(compensationDamage)}")  
         } 
   
         // 方案B：先出伤害2，再出伤害1收尾  
@@ -1037,9 +1035,7 @@ object ManualBattleEngine {
             val compensationTime = minOf(90L, maxOf(20L, remainSeconds + 20))  
             val compensationDamage = (damage1.toDouble() * compensationTime / 90).toLong()  
             sb.appendLine("方案B：先出伤害2（${formatDamage(damage2)}），再出伤害1收尾")  
-            sb.appendLine("  伤害1需打：${formatDamage(remain)}，约需${killSeconds}秒")  
             sb.appendLine("  补偿刀时间：${compensationTime}秒")  
-            sb.appendLine("  伤害1补偿刀预估伤害：${formatDamage(compensationDamage)}")  
         }  
   
         // 如果某一刀单独就能击杀  
