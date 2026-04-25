@@ -1019,17 +1019,27 @@ object ManualBattleEngine {
         // 方案A：先出伤害1，再出伤害2收尾  
         if (damage1 < bossHp) {  
             val remain = bossHp - damage1  
-            val compensation2 = remain  // 伤害2的补偿刀伤害 = 剩余血量（尾刀）  
+            val killSeconds = Math.ceil(remain.toDouble() / damage2 * 90).toLong()  
+            val remainSeconds = 90 - killSeconds  
+            val compensationTime = minOf(90L, maxOf(20L, remainSeconds + 20))  
+            val compensationDamage = (damage2.toDouble() * compensationTime / 90).toLong()  
             sb.appendLine("方案A：先出伤害1（${formatDamage(damage1)}），再出伤害2收尾")  
-            sb.appendLine("  伤害2补偿刀可造成：${formatDamage(damage2)}（90秒内）")  
-        }  
+            sb.appendLine("  伤害2需打：${formatDamage(remain)}，约需${killSeconds}秒")  
+            sb.appendLine("  补偿刀时间：${compensationTime}秒")  
+            sb.appendLine("  伤害2补偿刀预估伤害：${formatDamage(compensationDamage)}")  
+        } 
   
         // 方案B：先出伤害2，再出伤害1收尾  
         if (damage2 < bossHp) {  
             val remain = bossHp - damage2  
-            val compensation1 = remain  // 伤害1的补偿刀伤害 = 剩余血量（尾刀）  
+            val killSeconds = Math.ceil(remain.toDouble() / damage1 * 90).toLong()  
+            val remainSeconds = 90 - killSeconds  
+            val compensationTime = minOf(90L, maxOf(20L, remainSeconds + 20))  
+            val compensationDamage = (damage1.toDouble() * compensationTime / 90).toLong()  
             sb.appendLine("方案B：先出伤害2（${formatDamage(damage2)}），再出伤害1收尾")  
-            sb.appendLine("  伤害1补偿刀可造成：${formatDamage(damage1)}（90秒内）")  
+            sb.appendLine("  伤害1需打：${formatDamage(remain)}，约需${killSeconds}秒")  
+            sb.appendLine("  补偿刀时间：${compensationTime}秒")  
+            sb.appendLine("  伤害1补偿刀预估伤害：${formatDamage(compensationDamage)}")  
         }  
   
         // 如果某一刀单独就能击杀  
