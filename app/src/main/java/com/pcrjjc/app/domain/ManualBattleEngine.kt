@@ -426,10 +426,23 @@ object ManualBattleEngine {
 			}  
 		} 
   
-        // 取消申请出刀  
+        // 取消申请出刀 & 挂树  
         var newChallengingMembers = workingState.challengingMembers  
+        var treeMsg = ""  
+        var applyMsg = ""  
         if (defeat) {  
-            // 击败boss：取消该boss上所有挂树的人的挂树状态（通知下树），然后取消自己的申请  
+            // 击败boss：清空该boss上所有人的申请出刀和挂树，并收集通知名单  
+            val onTreeMembers = newChallengingMembers.filter { it.bossNum == actualBossNum && it.isOnTree && it.playerQq != realQq }  
+            val onApplyMembers = newChallengingMembers.filter { it.bossNum == actualBossNum && !it.isOnTree && it.playerQq != realQq }  
+            if (onTreeMembers.isNotEmpty()) {  
+                treeMsg = "\n${actualBossNum}王已击破，挂树自动清除：${onTreeMembers.joinToString("、") { it.playerName }}"  
+            }  
+            if (onApplyMembers.isNotEmpty()) {  
+                applyMsg = "\n${actualBossNum}王已击破，申请出刀自动清除：${onApplyMembers.joinToString("、") { it.playerName }}"  
+            }  
+            // 移除该boss上所有人的记录（包括出刀者自己）  
+            newChallengingMembers = newChallengingMembers.filter { it.bossNum != actualBossNum }  
+            // 同时移除出刀者在其他boss上的申请（原有逻辑）  
             newChallengingMembers = newChallengingMembers.filter { it.playerQq != realQq }  
         } else {  
             newChallengingMembers = newChallengingMembers.filter { it.playerQq != realQq }  
@@ -464,7 +477,7 @@ object ManualBattleEngine {
             val bladeType = if (actualIsContinue) "尾余刀" else "收尾刀"  
             "${realName}${behalfStr}对${actualBossNum}号boss造成了${formatDamage(challengeDamage)}点伤害，击败了boss\n" +  
                 "（今日已完成${newFinished}刀，还有补偿刀${newContBlade}刀，本刀是${bladeType}）" +  
-                subscribeMsg  
+                treeMsg + applyMsg + subscribeMsg  
         } else {  
             val newContBlade = if (actualIsContinue) contBlade - 1 else contBlade  
             val bladeType = if (actualIsContinue) "剩余刀" else "完整刀"  
