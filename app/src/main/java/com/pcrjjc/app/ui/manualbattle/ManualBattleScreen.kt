@@ -124,8 +124,8 @@ fun ManualBattleScreen(
   
             // ==================== 5个 Boss 卡片 ====================  
             if (battleState.isCreated) {  
-                val currentLevel = ManualBattleEngine.BossConfig.levelByCycle(battleState.bossCycle, battleState.gameServer)  
-				val nextLevelVal = ManualBattleEngine.BossConfig.levelByCycle(battleState.bossCycle + 1, battleState.gameServer)  
+                val currentLevel = BossConfig.levelByCycle(battleState.bossCycle, battleState.gameServer)  
+				val nextLevelVal = BossConfig.levelByCycle(battleState.bossCycle + 1, battleState.gameServer)  
 				val canNext = currentLevel == nextLevelVal
 				
 				battleState.bosses.forEachIndexed { index, boss ->  
@@ -138,8 +138,8 @@ fun ManualBattleScreen(
 					val displayMaxHp: Long  
 					val displayCycle: Int  
 					if (boss.currentHp <= 0L && effectiveNextHp > 0L && canNext) {  
-						val nxtLevel = ManualBattleEngine.BossConfig.levelByCycle(battleState.bossCycle + 1, battleState.gameServer)  
-						displayMaxHp = ManualBattleEngine.BossConfig.getFullHp(battleState.gameServer, nxtLevel, index)  
+						val nxtLevel = BossConfig.levelByCycle(battleState.bossCycle + 1, battleState.gameServer)  
+						displayMaxHp = BossConfig.getFullHp(battleState.gameServer, nxtLevel, index)  
 						displayHp = effectiveNextHp  
 						displayCycle = battleState.bossCycle + 1  
 					} else if (boss.currentHp <= 0L) {  
