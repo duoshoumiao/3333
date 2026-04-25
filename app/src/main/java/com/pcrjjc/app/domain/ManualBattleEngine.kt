@@ -30,7 +30,19 @@ object ManualBattleEngine {
         val message: String  
     )  
   
-    // ======================== PCR 日期工具 ========================  
+    // ======================== 查刀返回类型 ========================  
+  
+    enum class BladeType { NORMAL, TAIL, COMPENSATION }  
+  
+    data class BladeDetail(  
+        val playerName: String,  
+        val bossNum: Int,  
+        val bossCycle: Int,  
+        val damage: Long,  
+        val type: BladeType  
+    )
+	
+	// ======================== PCR 日期工具 ========================  
   
     /**  
      * 获取 PCR 日期（以凌晨5点为分界）  
@@ -874,7 +886,41 @@ object ManualBattleEngine {
         return Result(state, sb.toString())  
     }  
   
-    // ======================== 业绩表 ========================  
+    // ======================== 查刀（所有人出刀详情） ========================  
+  
+    /**  
+     * 查刀：返回所有成员今日的出刀详情（结构化数据，用于颜色渲染）  
+     * 完整刀 -> NORMAL, 尾刀 -> TAIL, 补偿刀 -> COMPENSATION  
+     */  
+    fun queryAllBlades(state: ManualBattleState): List<Pair<String, List<BladeDetail>>> {  
+        if (!state.isCreated) return emptyList()  
+        val todayPcrDate = getPcrDate(state.gameServer)  
+        val result = mutableListOf<Pair<String, List<BladeDetail>>>()  
+  
+        for (member in state.members) {  
+            val memberRecords = state.records.filter {  
+                it.playerQq == member.playerQq && it.pcrDate == todayPcrDate  
+            }  
+            val details = memberRecords.map { r ->  
+                val type = when {  
+                    r.isContinue -> BladeType.COMPENSATION  
+                    r.bossHealthRemain == 0L -> BladeType.TAIL  
+                    else -> BladeType.NORMAL  
+                }  
+                BladeDetail(  
+                    playerName = member.playerName,  
+                    bossNum = r.bossNum,  
+                    bossCycle = r.bossCycle,  
+                    damage = r.challengeDamage,  
+                    type = type  
+                )  
+            }  
+            result.add(member.playerName to details)  
+        }  
+        return result  
+    }
+	
+	// ======================== 业绩表 ========================  
   
     /**  
      * 业绩表（按成员统计总伤害）  

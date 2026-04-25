@@ -38,7 +38,8 @@ data class ManualBattleUiState(
     // 通用  
     val isLoading: Boolean = false,  
     val error: String? = null,  
-    val toastMessage: String? = null  
+    val toastMessage: String? = null,   // ← 加逗号  
+    val bladeQueryData: List<Pair<String, List<ManualBattleEngine.BladeDetail>>>? = null  
 ) {  
     val isHost: Boolean get() = playerQq.isNotBlank() && playerQq == hostQq  
 }  
@@ -271,7 +272,14 @@ class ManualBattleViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(resultMessage = result.message)  
     }  
   
-    /** 业绩表 */  
+    /** 查刀（所有人出刀详情，带颜色分类） */  
+    fun queryAllBlades() {  
+        val state = _uiState.value.battleState  
+        val data = ManualBattleEngine.queryAllBlades(state)  
+        _uiState.value = _uiState.value.copy(bladeQueryData = data)  
+    }
+	
+	/** 业绩表 */  
     fun scoreTable() {  
         val state = _uiState.value.battleState  
         val result = ManualBattleEngine.scoreTable(state)  
@@ -510,7 +518,11 @@ class ManualBattleViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(resultMessage = null)  
     }  
   
-    fun clearToast() {  
+    fun clearBladeQueryData() {  
+        _uiState.value = _uiState.value.copy(bladeQueryData = null)  
+    }
+	
+	fun clearToast() {  
         _uiState.value = _uiState.value.copy(toastMessage = null)  
     }  
   

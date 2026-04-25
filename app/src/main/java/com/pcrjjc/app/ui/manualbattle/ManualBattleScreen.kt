@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType  
 import androidx.compose.foundation.text.KeyboardOptions  
 import androidx.compose.ui.text.style.TextOverflow  
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import com.pcrjjc.app.data.local.entity.ManualBattleState  
@@ -54,7 +55,8 @@ fun ManualBattleScreen(
     var showRecordDialog by remember { mutableStateOf(false) }  
     var showScoreDialog by remember { mutableStateOf(false) }  
     var showFetchBossDialog by remember { mutableStateOf(false) }  
-    var showMemberListDialog by remember { mutableStateOf(false) }  
+    var showMemberListDialog by remember { mutableStateOf(false) }
+    var showBladeQueryDialog by remember { mutableStateOf(false) }	
   
     // 错误/结果提示  
     LaunchedEffect(uiState.error) {  
@@ -200,7 +202,8 @@ fun ManualBattleScreen(
                     onCheckSL = { viewModel.checkSL() },  
                     onReportHurt = { showReportHurtDialog = true },  
                     onCombineBlade = { showCombineDialog = true },  
-                    onChallengeRecord = { viewModel.challengeRecord(); showRecordDialog = true },  
+                    onChallengeRecord = { viewModel.challengeRecord(); showRecordDialog = true },
+					onQueryBlades = { viewModel.queryAllBlades(); showBladeQueryDialog = true },
                     onScoreTable = { viewModel.scoreTable(); showScoreDialog = true },  
                     onMyDetail = { viewModel.memberTodayDetail() },  
                     onModify = { showModifyDialog = true },  
@@ -473,7 +476,62 @@ fun ManualBattleScreen(
             }  
         )  
     }  
-  
+    
+	// 查刀弹窗（颜色区分）  
+    if (showBladeQueryDialog && uiState.bladeQueryData != null) {  
+        AlertDialog(  
+            onDismissRequest = {  
+                showBladeQueryDialog = false  
+                viewModel.clearBladeQueryData()  
+            },  
+            title = { Text("查刀（所有人出刀详情）") },  
+            text = {  
+                Column(  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .heightIn(max = 400.dp)  
+                        .verticalScroll(rememberScrollState()),  
+                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                ) {  
+                    uiState.bladeQueryData!!.forEach { (memberName, details) ->  
+                        Text(  
+                            text = memberName,  
+                            style = MaterialTheme.typography.titleSmall,  
+                            fontWeight = FontWeight.Bold  
+                        )  
+                        if (details.isEmpty()) {  
+                            Text(  
+                                text = "  未出刀",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = Color.Gray  
+                            )  
+                        } else {  
+                            details.forEach { blade ->  
+                                val (label, color) = when (blade.type) {  
+                                    ManualBattleEngine.BladeType.NORMAL -> "[完整刀]" to Color.Black  
+                                    ManualBattleEngine.BladeType.TAIL -> "[尾刀]" to Color(0xFFFF8C00)  
+                                    ManualBattleEngine.BladeType.COMPENSATION -> "[补偿刀]" to Color.Red  
+                                }  
+                                Text(  
+                                    text = "  $label ${blade.bossNum}王 ${ManualBattleEngine.formatDamage(blade.damage)}",  
+                                    style = MaterialTheme.typography.bodySmall,  
+                                    color = color  
+                                )  
+                            }  
+                        }  
+                        HorizontalDivider()  
+                    }  
+                }  
+            },  
+            confirmButton = {  
+                TextButton(onClick = {  
+                    showBladeQueryDialog = false  
+                    viewModel.clearBladeQueryData()  
+                }) { Text("关闭") }  
+            }  
+        )  
+    }
+	
     // 业绩表弹窗  
     if (showScoreDialog && uiState.resultMessage != null) {  
         AlertDialog(  
@@ -517,7 +575,8 @@ private fun ManualActionButtonsCard(
     onReportHurt: () -> Unit,  
     onCombineBlade: () -> Unit,  
     onChallengeRecord: () -> Unit,  
-    onScoreTable: () -> Unit,  
+    onQueryBlades: () -> Unit,
+	onScoreTable: () -> Unit,  
     onMyDetail: () -> Unit,  
     onModify: () -> Unit,  
     onReset: () -> Unit,  
@@ -555,7 +614,8 @@ private fun ManualActionButtonsCard(
                 ActionButton("报伤害", onClick = onReportHurt)  
                 ActionButton("合刀", onClick = onCombineBlade)  
                 ActionButton("出刀记录", onClick = onChallengeRecord)  
-                ActionButton("业绩表", onClick = onScoreTable)  
+                ActionButton("查刀", onClick = onQueryBlades)
+				ActionButton("业绩表", onClick = onScoreTable)  
                 ActionButton("我的详情", onClick = onMyDetail)  
                 ActionButton("修改boss", onClick = onModify)  
                 ActionButton("重置", onClick = onReset)  
