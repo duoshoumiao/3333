@@ -354,16 +354,28 @@ object ManualBattleEngine {
         // 更新boss血量  
         val newBosses = workingState.bosses.toMutableList()  
         if (defeat) {  
-            newBosses[bossIdx] = newBosses[bossIdx].copy(currentHp = 0)  
-        } else {  
-            newBosses[bossIdx] = newBosses[bossIdx].copy(currentHp = bossHealthRemain)  
-        }  
+			if (canChallengeNextBoss(workingState, actualBossNum)) {  
+				val nextCycle = workingState.bossCycle + 1  
+				val nextLevel = BossConfig.levelByCycle(nextCycle, workingState.gameServer)  
+				val nextFullHp = BossConfig.getFullHp(workingState.gameServer, nextLevel, bossIdx)  
+				newBosses[bossIdx] = newBosses[bossIdx].copy(  
+					currentHp = nextFullHp,  
+					maxHp = nextFullHp,  
+					cycle = nextCycle,  
+					isNext = true  
+				)  
+			} else {  
+				newBosses[bossIdx] = newBosses[bossIdx].copy(currentHp = 0, isNext = false)  
+			}  
+		} else {  
+			newBosses[bossIdx] = newBosses[bossIdx].copy(currentHp = bossHealthRemain)  
+		}  
   
         var newCycle = workingState.bossCycle  
   
         // 击败boss后检查是否全部击杀  
         if (defeat) {  
-            val allClear = newBosses.count { it.currentHp <= 0L }  
+            val allClear = newBosses.count { it.currentHp <= 0L || it.isNext }
             if (allClear == 5) {  
                 // 进入下一周目  
                 newCycle += 1  
