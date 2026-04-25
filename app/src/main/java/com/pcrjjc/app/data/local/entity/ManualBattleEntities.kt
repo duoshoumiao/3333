@@ -90,15 +90,17 @@ data class ManualBossState(
         put("max_hp", maxHp)  
         put("cycle", cycle)  
         put("is_next", isNext)  
-    }  
-  
+        put("next_cycle_hp", nextCycleHp)   // ← 新增  
+    }
+	
     companion object {  
         fun fromJson(obj: JSONObject) = ManualBossState(  
             bossNum = obj.optInt("boss_num", 0),  
             currentHp = obj.optLong("current_hp", 0),  
             maxHp = obj.optLong("max_hp", 0),  
             cycle = obj.optInt("cycle", 1),  
-            isNext = obj.optBoolean("is_next", false)  
+            isNext = obj.optBoolean("is_next", false),  
+            nextCycleHp = obj.optLong("next_cycle_hp", -1)  // ← 新增，-1=旧数据兼容   
         )  
     }  
 }  

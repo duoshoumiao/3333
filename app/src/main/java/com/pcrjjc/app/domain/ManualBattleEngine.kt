@@ -295,16 +295,28 @@ object ManualBattleEngine {
   
         // 确定实际血量（对应 realize.py 615-619）  
 		var realHp = boss.currentHp  
-		var isNextCycle = false  
-		if (boss.currentHp <= 0L && boss.nextCycleHp > 0L) {  
-			// 当前周目已死，下周目还有血 → 打下周目  
-			bossCycle += 1  
-			realHp = boss.nextCycleHp  
-			isNextCycle = true  
-		} else if (boss.currentHp <= 0L && boss.nextCycleHp <= 0L) {  
-			// 两个周目都没血了 → 等其他boss追上来  
-			return Result(state, "只能挑战2个周目内的同个boss")  
-		}  
+        var isNextCycle = false  
+        if (boss.currentHp <= 0L) {  
+            // 跨阶段检查  
+            val currentLevel = BossConfig.levelByCycle(workingState.bossCycle, workingState.gameServer)  
+            val nextLevelVal = BossConfig.levelByCycle(workingState.bossCycle + 1, workingState.gameServer)  
+            if (currentLevel != nextLevelVal) {  
+                return Result(state, "只能挑战2个周目内且不跨阶段的同个boss")  
+            }  
+            // 旧数据兼容：nextCycleHp == -1 时按 isNext 旧逻辑  
+            val effectiveNextHp = if (boss.nextCycleHp == -1L) {  
+                if (boss.isNext) boss.maxHp else 0L  
+            } else {  
+                boss.nextCycleHp  
+            }  
+            if (effectiveNextHp > 0L) {  
+                bossCycle += 1  
+                realHp = effectiveNextHp  
+                isNextCycle = true  
+            } else {  
+                return Result(state, "只能挑战2个周目内的同个boss")  
+            }  
+        }  
   
         // 获取补偿刀状态  
         val challengingMember = workingState.challengingMembers.firstOrNull { it.playerQq == realQq }  
@@ -472,22 +484,39 @@ object ManualBattleEngine {
             // 被撤销的一刀是切换周目的一刀，需要回退周目  
             newCycle = lastRecord.bossCycle  
             val level = BossConfig.levelByCycle(newCycle, state.gameServer)  
-            // 当前周目的boss血量全部设为0，被撤销的boss恢复伤害  
+            val nextLevel = BossConfig.levelByCycle(newCycle + 1, state.gameServer)  
             for (i in 0 until 5) {  
                 val fullHp = BossConfig.getFullHp(state.gameServer, level, i)  
+                val nextFullHp = BossConfig.getFullHp(state.gameServer, nextLevel, i)  
                 newBosses[i] = if (i == bossIdx) {  
                     ManualBossState(  
                         bossNum = i + 1,  
                         currentHp = lastRecord.challengeDamage,  
                         maxHp = fullHp,  
-                        cycle = newCycle  
+                        cycle = newCycle,  
+                        nextCycleHp = nextFullHp  
                     )  
                 } else {  
-                    ManualBossState(bossNum = i + 1, currentHp = 0, maxHp = fullHp, cycle = newCycle)  
+                    ManualBossState(  
+                        bossNum = i + 1,  
+                        currentHp = 0,  
+                        maxHp = fullHp,  
+                        cycle = newCycle,  
+                        nextCycleHp = nextFullHp  
+                    )  
                 }  
             }  
+        } else if (lastRecord.bossCycle > newCycle) {  
+            // 撤销的是下周目的刀 → 恢复 nextCycleHp  
+            val nextLevel = BossConfig.levelByCycle(lastRecord.bossCycle, state.gameServer)  
+            val nextFullHp = BossConfig.getFullHp(state.gameServer, nextLevel, bossIdx)  
+            val restoredNextHp = minOf(  
+                newBosses[bossIdx].nextCycleHp + lastRecord.challengeDamage,  
+                nextFullHp  
+            )  
+            newBosses[bossIdx] = newBosses[bossIdx].copy(nextCycleHp = restoredNextHp)  
         } else {  
-            // 同周目撤销  
+            // 同周目撤销 → 恢复 currentHp  
             val level = BossConfig.levelByCycle(lastRecord.bossCycle, state.gameServer)  
             val fullHp = BossConfig.getFullHp(state.gameServer, level, bossIdx)  
             val restoredHp = minOf(  
@@ -898,18 +927,21 @@ object ManualBattleEngine {
         if (cycle < 1) return Result(state, "周目数不能为负")  
   
         val level = BossConfig.levelByCycle(cycle, state.gameServer)  
+        val nextLevel = BossConfig.levelByCycle(cycle + 1, state.gameServer)  // ← 新增  
         val newBosses = state.bosses.toMutableList()  
   
         for ((bossNum, newHp) in bossData) {  
             if (bossNum < 1 || bossNum > 5) continue  
             val idx = bossNum - 1  
             val fullHp = BossConfig.getFullHp(state.gameServer, level, idx)  
+            val nextFullHp = BossConfig.getFullHp(state.gameServer, nextLevel, idx)  // ← 新增  
             newBosses[idx] = ManualBossState(  
                 bossNum = bossNum,  
                 currentHp = newHp,  
                 maxHp = fullHp,  
                 cycle = cycle,  
-                isNext = false  
+                isNext = false,  
+                nextCycleHp = nextFullHp  // ← 新增  
             )  
         }  
   
@@ -936,9 +968,17 @@ object ManualBattleEngine {
         }  
   
         val level = BossConfig.levelByCycle(1, state.gameServer)  
+        val nextLevel = BossConfig.levelByCycle(2, state.gameServer)  // ← 新增  
         val newBosses = (0 until 5).map { i ->  
             val hp = BossConfig.getFullHp(state.gameServer, level, i)  
-            ManualBossState(bossNum = i + 1, currentHp = hp, maxHp = hp, cycle = 1)  
+            val nextHp = BossConfig.getFullHp(state.gameServer, nextLevel, i)  // ← 新增  
+            ManualBossState(  
+                bossNum = i + 1,  
+                currentHp = hp,  
+                maxHp = hp,  
+                cycle = 1,  
+                nextCycleHp = nextHp  // ← 新增  
+            )  
         }  
   
         return Result(  
@@ -1027,12 +1067,42 @@ object ManualBattleEngine {
             val trees = state.getTreesForBoss(i + 1)  
             val subs = state.getSubscribesForBoss(i + 1)  
   
-            val hpStr = formatDamage(boss.currentHp)  
-            val maxHpStr = formatDamage(boss.maxHp)  
-            val pct = if (boss.maxHp > 0) (boss.currentHp * 100 / boss.maxHp) else 0  
-            val cycleStr = if (boss.isNext) "${boss.cycle}(下)" else "${boss.cycle}"  
+            // 确定显示的血量和周目  
+            val currentLevel = BossConfig.levelByCycle(state.bossCycle, state.gameServer)  
+            val nextLevelVal = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+            val canNext = currentLevel == nextLevelVal  
+            val effectiveNextHp = if (boss.nextCycleHp == -1L) {  
+                if (boss.isNext) boss.maxHp else 0L  
+            } else {  
+                boss.nextCycleHp  
+            }  
   
-            sb.appendLine("${i + 1}王 [${cycleStr}周目] ${hpStr}/${maxHpStr} (${pct}%)")  
+            val displayHp: Long  
+            val displayMaxHp: Long  
+            val displayCycle: Int  
+            if (boss.currentHp <= 0L && effectiveNextHp > 0L && canNext) {  
+                // 当前周目已死，显示下周目  
+                val nxtLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+                displayMaxHp = BossConfig.getFullHp(state.gameServer, nxtLevel, i)  
+                displayHp = effectiveNextHp  
+                displayCycle = state.bossCycle + 1  
+            } else if (boss.currentHp <= 0L && effectiveNextHp <= 0L && canNext) {  
+                // 两个周目都死了，显示下周目0血  
+                val nxtLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+                displayMaxHp = BossConfig.getFullHp(state.gameServer, nxtLevel, i)  
+                displayHp = 0  
+                displayCycle = state.bossCycle + 1  
+            } else {  
+                displayHp = boss.currentHp  
+                displayMaxHp = boss.maxHp  
+                displayCycle = state.bossCycle  
+            }  
+  
+            val hpStr = formatDamage(displayHp)  
+            val maxHpStr = formatDamage(displayMaxHp)  
+            val pct = if (displayMaxHp > 0) (displayHp * 100 / displayMaxHp) else 0  
+  
+            sb.appendLine("${i + 1}王 [${displayCycle}周目] ${hpStr}/${maxHpStr} (${pct}%)") 
   
             if (challengers.isNotEmpty()) {  
                 sb.append("  挑战中：")  
@@ -1214,10 +1284,39 @@ object ManualBattleEngine {
     private fun challengerInfoSmall(state: ManualBattleState, bossNum: Int): String {  
         val boss = state.bosses.getOrNull(bossNum - 1) ?: return ""  
         val challengers = state.getChallengersForBoss(bossNum)  
-        val hpStr = formatDamage(boss.currentHp)  
-        val maxHpStr = formatDamage(boss.maxHp)  
+  
+        val currentLevel = BossConfig.levelByCycle(state.bossCycle, state.gameServer)  
+        val nextLevelVal = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+        val canNext = currentLevel == nextLevelVal  
+        val effectiveNextHp = if (boss.nextCycleHp == -1L) {  
+            if (boss.isNext) boss.maxHp else 0L  
+        } else {  
+            boss.nextCycleHp  
+        }  
+  
+        val displayHp: Long  
+        val displayMaxHp: Long  
+        val displayCycle: Int  
+        if (boss.currentHp <= 0L && effectiveNextHp > 0L && canNext) {  
+            val nxtLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+            displayMaxHp = BossConfig.getFullHp(state.gameServer, nxtLevel, bossNum - 1)  
+            displayHp = effectiveNextHp  
+            displayCycle = state.bossCycle + 1  
+        } else if (boss.currentHp <= 0L && effectiveNextHp <= 0L && canNext) {  
+            val nxtLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+            displayMaxHp = BossConfig.getFullHp(state.gameServer, nxtLevel, bossNum - 1)  
+            displayHp = 0  
+            displayCycle = state.bossCycle + 1  
+        } else {  
+            displayHp = boss.currentHp  
+            displayMaxHp = boss.maxHp  
+            displayCycle = state.bossCycle  
+        }  
+  
+        val hpStr = formatDamage(displayHp)  
+        val maxHpStr = formatDamage(displayMaxHp)  
         val sb = StringBuilder()  
-        sb.append("${bossNum}王 [${boss.cycle}周目] ${hpStr}/${maxHpStr}")  
+        sb.append("${bossNum}王 [${displayCycle}周目] ${hpStr}/${maxHpStr}")  
         if (challengers.isNotEmpty()) {  
             sb.append(" | 挑战中：")  
             sb.append(challengers.joinToString("、") { c ->  
@@ -1238,12 +1337,17 @@ object ManualBattleEngine {
      * 规则：只能挑战2个周目内且不跨阶段的同个boss  
      */  
     private fun canChallengeNextBoss(state: ManualBattleState, bossNum: Int): Boolean {  
-		val boss = state.bosses[bossNum - 1]  
-		if (boss.currentHp <= 0L && boss.nextCycleHp <= 0L) return false  // 两周目都没了  
-		val currentLevel = BossConfig.levelByCycle(state.bossCycle, state.gameServer)  
-		val nextLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
-		return currentLevel == nextLevel  // 不跨阶段  
-	}  
+        val boss = state.bosses[bossNum - 1]  
+        val effectiveNextHp = if (boss.nextCycleHp == -1L) {  
+            if (boss.isNext) boss.maxHp else 0L  
+        } else {  
+            boss.nextCycleHp  
+        }  
+        if (boss.currentHp <= 0L && effectiveNextHp <= 0L) return false  
+        val currentLevel = BossConfig.levelByCycle(state.bossCycle, state.gameServer)  
+        val nextLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  
+        return currentLevel == nextLevel  
+    }  
   
     // ======================== 不打/不进 ========================  
   
@@ -1294,11 +1398,20 @@ object ManualBattleEngine {
     fun refreshBossMaxHp(state: ManualBattleState): Result {  
         if (!state.isCreated) return Result(state, "请先创建公会")  
         val level = BossConfig.levelByCycle(state.bossCycle, state.gameServer)  
+        val nextLevel = BossConfig.levelByCycle(state.bossCycle + 1, state.gameServer)  // ← 新增  
         val newBosses = state.bosses.mapIndexed { idx, boss ->  
             val newMaxHp = BossConfig.getFullHp(state.gameServer, level, idx)  
+            val newNextFullHp = BossConfig.getFullHp(state.gameServer, nextLevel, idx)  // ← 新增  
+            // nextCycleHp: 如果还是满血(未被打过)就更新，否则保留当前值  
+            val newNextCycleHp = if (boss.nextCycleHp == -1L || boss.nextCycleHp == boss.maxHp) {  
+                newNextFullHp  
+            } else {  
+                boss.nextCycleHp  
+            }  
             boss.copy(  
                 maxHp = newMaxHp,  
-                currentHp = minOf(boss.currentHp, newMaxHp)  
+                currentHp = minOf(boss.currentHp, newMaxHp),  
+                nextCycleHp = newNextCycleHp  
             )  
         }  
         return Result(  
