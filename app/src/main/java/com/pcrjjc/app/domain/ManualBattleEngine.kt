@@ -354,17 +354,19 @@ object ManualBattleEngine {
         // 更新boss血量  
         val newBosses = workingState.bosses.toMutableList()  
         if (defeat) {  
-			if (canChallengeNextBoss(workingState, actualBossNum)) {  
+			val wasNextCycle = boss.isNext  // boss 是函数开头获取的原始状态  
+			if (!wasNextCycle && canChallengeNextBoss(workingState, actualBossNum)) {  
+				// 击败当前周目boss，下一周目可用（不跨阶段）  
 				val nextCycle = workingState.bossCycle + 1  
 				val nextLevel = BossConfig.levelByCycle(nextCycle, workingState.gameServer)  
 				val nextFullHp = BossConfig.getFullHp(workingState.gameServer, nextLevel, bossIdx)  
 				newBosses[bossIdx] = newBosses[bossIdx].copy(  
-					currentHp = nextFullHp,  
+					currentHp = 0,  
 					maxHp = nextFullHp,  
-					cycle = nextCycle,  
 					isNext = true  
 				)  
 			} else {  
+				// 击败下一周目boss（两个周目都用完），或跨阶段不可挑战下周目  
 				newBosses[bossIdx] = newBosses[bossIdx].copy(currentHp = 0, isNext = false)  
 			}  
 		} else {  
@@ -372,26 +374,53 @@ object ManualBattleEngine {
 		}  
   
         var newCycle = workingState.bossCycle  
-  
-        // 击败boss后检查是否全部击杀  
+   
         if (defeat) {  
-            val allClear = newBosses.count { it.currentHp <= 0L || it.isNext }
-            if (allClear == 5) {  
-                // 进入下一周目  
-                newCycle += 1  
-                val nextLevel = BossConfig.levelByCycle(newCycle, workingState.gameServer)  
-                for (i in 0 until 5) {  
-                    val fullHp = BossConfig.getFullHp(workingState.gameServer, nextLevel, i)  
-                    newBosses[i] = ManualBossState(  
-                        bossNum = i + 1,  
-                        currentHp = fullHp,  
-                        maxHp = fullHp,  
-                        cycle = newCycle,  
-                        isNext = false  
-                    )  
-                }  
-            }  
-        }  
+			val allClear = newBosses.count { it.currentHp <= 0L }  
+			if (allClear == 5) {  
+				newCycle += 1  
+				val nextLevel = BossConfig.levelByCycle(newCycle, workingState.gameServer)  
+				for (i in 0 until 5) {  
+					val fullHp = BossConfig.getFullHp(workingState.gameServer, nextLevel, i)  
+					if (newBosses[i].isNext) {  
+						// 下周目boss还活着（isNext=true表示下周目有满血boss）  
+						// 搬移：下周目变当前周目  
+						newBosses[i] = ManualBossState(  
+							bossNum = i + 1,  
+							currentHp = newBosses[i].maxHp,  // 下周目的满血量  
+							maxHp = newBosses[i].maxHp,  
+							cycle = newCycle,  
+							isNext = false  
+						)  
+					} else {  
+						// 下周目boss也被打死了（isNext=false, currentHp=0）  
+						// 对应原版yobot: next_cycle_boss_health[boss_num] == 0 被搬到 now_cycle  
+						// 新的当前周目该boss血量为0，但可以挑战下下周目（如果不跨阶段）  
+						val canNext = BossConfig.levelByCycle(newCycle, workingState.gameServer) ==   
+									  BossConfig.levelByCycle(newCycle + 1, workingState.gameServer)  
+						if (canNext) {  
+							val nextNextLevel = BossConfig.levelByCycle(newCycle + 1, workingState.gameServer)  
+							val nextNextFullHp = BossConfig.getFullHp(workingState.gameServer, nextNextLevel, i)  
+							newBosses[i] = ManualBossState(  
+								bossNum = i + 1,  
+								currentHp = 0,  
+								maxHp = nextNextFullHp,  
+								cycle = newCycle,  
+								isNext = true  
+							)  
+						} else {  
+							newBosses[i] = ManualBossState(  
+								bossNum = i + 1,  
+								currentHp = 0,  
+								maxHp = fullHp,  
+								cycle = newCycle,  
+								isNext = false  
+							)  
+						}  
+					}  
+				}  
+			}  
+		} 
   
         // 取消申请出刀  
         var newChallengingMembers = workingState.challengingMembers  

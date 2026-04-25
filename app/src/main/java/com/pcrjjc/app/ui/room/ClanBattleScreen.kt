@@ -61,7 +61,7 @@ fun ClanBattleScreen(
             TopAppBar(  
                 title = {  
                     Column {  
-                        Text("Boss状态", maxLines = 1, overflow = TextOverflow.Ellipsis)  
+                        Text("自动报刀", maxLines = 1, overflow = TextOverflow.Ellipsis)  
                         Text(  
                             text = uiState.roomName.ifBlank { "房间" },  
                             style = MaterialTheme.typography.bodySmall,  
