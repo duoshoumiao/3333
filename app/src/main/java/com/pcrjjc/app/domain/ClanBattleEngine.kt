@@ -35,7 +35,7 @@ class ClanBattleEngine {
         private const val TAG = "ClanBattleEngine"  
         private const val MAX_ERROR_COUNT = 3  
 		private const val RELOGIN_COOLDOWN_MS = 5 * 60 * 1000L // 5分钟内只允许重登一次 
-        private const val COIN_CACHE_DURATION_MS = 300_000L // coin 缓存 60 秒  
+        private const val COIN_CACHE_DURATION_MS = 400_000L // coin 缓存 400 秒  
     }  
   
     // ---- 内部状态 ----  
