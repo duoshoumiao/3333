@@ -135,15 +135,15 @@ class SettingsDataStore(private val context: Context) {
 
   
     suspend fun getServerUrl(): String {  
-		return "http://43.139.251.52:8077"  
+		return "http://122.51.93.11:8077"  
 	}  
 	  
 	suspend fun getDailyServerUrl(): String {  
-		return "http://43.139.251.52:8040"  
+		return "http://122.51.93.11:8040"  
 	}  
 	  
 	suspend fun getRoomServerUrl(): String {  
-		return "http://43.139.251.52:8066"  
+		return "http://122.51.93.11:8066"  
 	}  
   
     // ==================== 清日常账号保存 ====================    
