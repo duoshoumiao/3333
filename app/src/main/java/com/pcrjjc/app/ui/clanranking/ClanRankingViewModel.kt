@@ -15,6 +15,9 @@ import okhttp3.Request
 import org.json.JSONObject  
 import java.util.concurrent.TimeUnit  
 import javax.inject.Inject  
+import android.content.Context  
+import dagger.hilt.android.qualifiers.ApplicationContext  
+import java.io.File
   
 // ==================== 数据模型 ====================  
   
@@ -52,7 +55,9 @@ data class ClanRankingUiState(
 // ==================== ViewModel ====================  
   
 @HiltViewModel  
-class ClanRankingViewModel @Inject constructor() : ViewModel() {  
+class ClanRankingViewModel @Inject constructor(  
+		@ApplicationContext private val context: Context  
+	) : ViewModel() {
   
     companion object {  
         private const val TAG = "ClanRankingVM"  
@@ -71,7 +76,20 @@ class ClanRankingViewModel @Inject constructor() : ViewModel() {
         .readTimeout(60, TimeUnit.SECONDS)  
         .build()  
   
-    // ==================== 输入 ====================  
+    init {  
+		viewModelScope.launch(Dispatchers.IO) {  
+			val localClans = loadFromLocal()  
+			if (localClans.isNotEmpty()) {  
+				_uiState.value = _uiState.value.copy(  
+					allClans = localClans,  
+					dataLoaded = true  
+				)  
+				Log.d(TAG, "从本地加载了 ${localClans.size} 个公会数据")  
+			}  
+		}  
+	}
+	
+	// ==================== 输入 ====================  
   
     fun updateSearchMode(mode: SearchMode) {  
         _uiState.value = _uiState.value.copy(searchMode = mode, errorMessage = null)  
@@ -140,7 +158,8 @@ class ClanRankingViewModel @Inject constructor() : ViewModel() {
                                 String(Base64.decode(blobContent, Base64.DEFAULT), Charsets.UTF_8)  
                             }  
                         }  
-  
+                        // 保存原始 JSON 到本地  
+                        saveToLocal(content)  
                         // 解析 JSON  
                         parseClanData(content)  
                     }  
@@ -184,7 +203,30 @@ class ClanRankingViewModel @Inject constructor() : ViewModel() {
         return result  
     }  
   
-    // ==================== 搜索 ====================  
+    private fun getLocalFile(): File = File(context.filesDir, LOCAL_FILE_NAME)  
+  
+	private fun saveToLocal(content: String) {  
+		try {  
+			getLocalFile().writeText(content, Charsets.UTF_8)  
+			Log.d(TAG, "公会数据已保存到本地")  
+		} catch (e: Exception) {  
+			Log.e(TAG, "保存本地文件失败: ${e.message}", e)  
+		}  
+	}  
+	  
+	private fun loadFromLocal(): Map<String, ClanInfo> {  
+		val file = getLocalFile()  
+		if (!file.exists()) return emptyMap()  
+		return try {  
+			val content = file.readText(Charsets.UTF_8)  
+			parseClanData(content)  
+		} catch (e: Exception) {  
+			Log.e(TAG, "读取本地文件失败: ${e.message}", e)  
+			emptyMap()  
+		}  
+	}
+	
+	// ==================== 搜索 ====================  
   
     fun search() {  
         val state = _uiState.value  
