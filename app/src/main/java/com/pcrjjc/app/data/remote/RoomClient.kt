@@ -33,9 +33,9 @@ class RoomClient @Inject constructor(
     /**  
      * 获取房间服务器基础URL  
      */  
-    private suspend fun getBaseUrl(): String {  
-        return settingsDataStore.getRoomServerUrl() ?: throw ApiException("请先在设置中配置房间服务器地址", -1)  
-    }  
+    private suspend fun getBaseUrl(): String {    
+        return settingsDataStore.getRoomServerUrl()    
+    }
   
     /**  
      * 获取房间列表  
