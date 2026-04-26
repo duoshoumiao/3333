@@ -157,14 +157,14 @@ fun PcrJjcNavHost() {
                 navArgument("roomName") { type = NavType.StringType },
                 navArgument("hostQq") { type = NavType.StringType }
             )  
-        )
-		// 公会排名路由  
-        composable(Screen.ClanRanking.route) {  
-            ClanRankingScreen(onNavigateBack = { navController.popBackStack() })  
-        } {  
+        ) {  
             ChatScreen(  
                 onNavigateBack = { navController.popBackStack() }  
             )  
+        }
+		// 公会排名路由  
+        composable(Screen.ClanRanking.route) {  
+            ClanRankingScreen(onNavigateBack = { navController.popBackStack() })  
         }  
     }      
 }

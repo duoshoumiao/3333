@@ -130,7 +130,7 @@ class ClanRankingViewModel @Inject constructor() : ViewModel() {
                                 .get()  
                                 .build()  
   
-                            httpClient.newCall(blobRequest).execute().use { blobResp ->  
+                            content = httpClient.newCall(blobRequest).execute().use { blobResp -> 
                                 val blobText = blobResp.body?.string() ?: ""  
                                 if (!blobResp.isSuccessful) {  
                                     throw Exception("下载文件失败: HTTP ${blobResp.code}")  
