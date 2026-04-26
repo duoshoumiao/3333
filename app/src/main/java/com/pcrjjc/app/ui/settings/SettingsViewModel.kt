@@ -39,15 +39,6 @@ data class SettingsUiState(
     val pollingInterval: Long = 1L,
     val pollingIntervalInput: String = "1",
     val intervalSaved: Boolean = false,
-    val serverIpInput: String = "",
-    val serverPortInput: String = "",
-    val serverSaved: Boolean = false,
-    val dailyServerIpInput: String = "",       // ← 新增
-    val dailyServerPortInput: String = "",     // ← 新增
-    val dailyServerSaved: Boolean = false,
-    val roomServerIpInput: String = "",        // 新增：房间服务器IP
-    val roomServerPortInput: String = "",      // 新增：房间服务器端口
-    val roomServerSaved: Boolean = false,      // 新增
     val isCheckingUpdate: Boolean = false,
     val isDownloading: Boolean = false,
     val downloadProgress: Float = 0f,
@@ -96,38 +87,6 @@ class SettingsViewModel @Inject constructor(
                 )    
             }    
         }    
-        viewModelScope.launch {    
-            settingsDataStore.serverIpFlow.collect { ip ->    
-                _uiState.value = _uiState.value.copy(serverIpInput = ip)    
-            }    
-        }    
-        viewModelScope.launch {    
-            settingsDataStore.serverPortFlow.collect { port ->    
-                _uiState.value = _uiState.value.copy(serverPortInput = port)    
-            }    
-        }    
-        // ← 新增：收集清日常服务器地址  
-        viewModelScope.launch {    
-            settingsDataStore.dailyServerIpFlow.collect { ip ->    
-                _uiState.value = _uiState.value.copy(dailyServerIpInput = ip)    
-            }    
-        }    
-viewModelScope.launch {
-            settingsDataStore.dailyServerPortFlow.collect { port ->
-                _uiState.value = _uiState.value.copy(dailyServerPortInput = port)
-            }
-        }
-        // 新增：收集房间服务器地址
-        viewModelScope.launch {
-            settingsDataStore.roomServerIpFlow.collect { ip ->
-                _uiState.value = _uiState.value.copy(roomServerIpInput = ip)
-            }
-        }
-        viewModelScope.launch {
-            settingsDataStore.roomServerPortFlow.collect { port ->
-                _uiState.value = _uiState.value.copy(roomServerPortInput = port)
-            }
-        }
     }
   
     fun onIntervalInputChanged(input: String) {    
@@ -135,74 +94,6 @@ viewModelScope.launch {
             pollingIntervalInput = input,    
             intervalSaved = false    
         )    
-    }    
-  
-    fun onServerIpInputChanged(input: String) {    
-        _uiState.value = _uiState.value.copy(serverIpInput = input, serverSaved = false)    
-    }    
-  
-    fun onServerPortInputChanged(input: String) {    
-        _uiState.value = _uiState.value.copy(serverPortInput = input, serverSaved = false)    
-    }    
-  
-    fun saveServerAddress() {    
-        val ip = _uiState.value.serverIpInput.trim()    
-        val port = _uiState.value.serverPortInput.trim()    
-        if (port.isNotEmpty()) {    
-            val portInt = port.toIntOrNull()    
-            if (portInt == null || portInt < 1 || portInt > 65535) return    
-        }    
-        viewModelScope.launch {    
-            settingsDataStore.setServerIp(ip)    
-            settingsDataStore.setServerPort(port)    
-            _uiState.value = _uiState.value.copy(serverSaved = true)    
-        }    
-    }    
-  
-    // ← 新增：清日常服务器地址  
-    fun onDailyServerIpInputChanged(input: String) {    
-        _uiState.value = _uiState.value.copy(dailyServerIpInput = input, dailyServerSaved = false)    
-    }    
-  
-    fun onDailyServerPortInputChanged(input: String) {    
-        _uiState.value = _uiState.value.copy(dailyServerPortInput = input, dailyServerSaved = false)    
-    }    
-  
-    fun saveDailyServerAddress() {
-        val ip = _uiState.value.dailyServerIpInput.trim()
-        val port = _uiState.value.dailyServerPortInput.trim()
-        if (port.isNotEmpty()) {
-            val portInt = port.toIntOrNull()
-            if (portInt == null || portInt < 1 || portInt > 65535) return
-        }
-        viewModelScope.launch {
-            settingsDataStore.setDailyServerIp(ip)
-            settingsDataStore.setDailyServerPort(port)
-            _uiState.value = _uiState.value.copy(dailyServerSaved = true)
-        }
-    }
-
-    // 新增：房间服务器地址
-    fun onRoomServerIpInputChanged(input: String) {
-        _uiState.value = _uiState.value.copy(roomServerIpInput = input, roomServerSaved = false)
-    }
-
-    fun onRoomServerPortInputChanged(input: String) {
-        _uiState.value = _uiState.value.copy(roomServerPortInput = input, roomServerSaved = false)
-    }
-
-    fun saveRoomServerAddress() {
-        val ip = _uiState.value.roomServerIpInput.trim()
-        val port = _uiState.value.roomServerPortInput.trim()
-        if (port.isNotEmpty()) {
-            val portInt = port.toIntOrNull()
-            if (portInt == null || portInt < 1 || portInt > 65535) return
-        }
-        viewModelScope.launch {
-            settingsDataStore.setRoomServerIp(ip)
-            settingsDataStore.setRoomServerPort(port)
-            _uiState.value = _uiState.value.copy(roomServerSaved = true)
-        }
     }    
   
     fun savePollingInterval() {    

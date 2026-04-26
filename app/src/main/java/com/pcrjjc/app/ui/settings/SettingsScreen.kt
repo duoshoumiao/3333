@@ -127,192 +127,33 @@ fun SettingsScreen(
                 }
             }
 
-            // ========== 服务器地址 Card（截图拆队用）==========    
-            Card(    
-                modifier = Modifier.fillMaxWidth(),    
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)    
-            ) {    
-                Column(modifier = Modifier.padding(16.dp)) {    
-                    Text("服务器地址（选填）", style = MaterialTheme.typography.titleMedium)    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Text(    
-                        text = "填写个人服务器地址，留空则使用默认接口",    
-                        style = MaterialTheme.typography.bodySmall,    
-                        color = MaterialTheme.colorScheme.onSurfaceVariant    
-                    )    
-                    Spacer(modifier = Modifier.height(12.dp))    
-                    Row(    
-                        modifier = Modifier.fillMaxWidth(),    
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),    
-                        verticalAlignment = Alignment.CenterVertically    
-                    ) {    
-                        OutlinedTextField(    
-                            value = uiState.serverIpInput,    
-                            onValueChange = { viewModel.onServerIpInputChanged(it) },    
-                            label = { Text("IP地址") },    
-                            placeholder = { Text("例: 114.514.1.1") },    
-                            singleLine = true,    
-                            modifier = Modifier.weight(2f)    
-                        )    
-                        OutlinedTextField(    
-                            value = uiState.serverPortInput,    
-                            onValueChange = { viewModel.onServerPortInputChanged(it) },    
-                            label = { Text("端口") },    
-                            placeholder = { Text("例: 8020") },    
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),    
-                            singleLine = true,    
-                            modifier = Modifier.weight(1f),    
-                            isError = uiState.serverPortInput.isNotEmpty() &&    
-                                uiState.serverPortInput.toIntOrNull()    
-                                    .let { it == null || it < 1 || it > 65535 }    
-                        )    
-                    }    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Button(    
-                        onClick = { viewModel.saveServerAddress() },    
-                        modifier = Modifier.fillMaxWidth(),    
-                        enabled = uiState.serverPortInput.isEmpty() ||    
-                            uiState.serverPortInput.toIntOrNull()    
-                                .let { it != null && it in 1..65535 }    
-                    ) {    
-                        Text("保存")    
-                    }    
-                    if (uiState.serverSaved) {    
-                        Spacer(modifier = Modifier.height(4.dp))    
-                        Text(    
-                            text = if (uiState.serverIpInput.isBlank()) "已清除，将使用默认接口" else "已保存",    
-                            style = MaterialTheme.typography.bodySmall,    
-                            color = MaterialTheme.colorScheme.primary    
-                        )    
-                    }    
-                }    
-            }    
-  
-            // ========== 清日常服务器地址 Card（新增）==========    
-            Card(    
-                modifier = Modifier.fillMaxWidth(),    
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)    
-            ) {    
-                Column(modifier = Modifier.padding(16.dp)) {    
-                    Text("清日常服务器地址", style = MaterialTheme.typography.titleMedium)    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Text(    
-                        text = "填写清日常服务器地址，用于清日常功能",    
-                        style = MaterialTheme.typography.bodySmall,    
-                        color = MaterialTheme.colorScheme.onSurfaceVariant    
-                    )    
-                    Spacer(modifier = Modifier.height(12.dp))    
-                    Row(    
-                        modifier = Modifier.fillMaxWidth(),    
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),    
-                        verticalAlignment = Alignment.CenterVertically    
-                    ) {    
-                        OutlinedTextField(    
-                            value = uiState.dailyServerIpInput,    
-                            onValueChange = { viewModel.onDailyServerIpInputChanged(it) },    
-                            label = { Text("IP地址") },    
-                            placeholder = { Text("例: 192.168.1.100") },    
-                            singleLine = true,    
-                            modifier = Modifier.weight(2f)    
-                        )    
-                        OutlinedTextField(    
-                            value = uiState.dailyServerPortInput,    
-                            onValueChange = { viewModel.onDailyServerPortInputChanged(it) },    
-                            label = { Text("端口") },    
-                            placeholder = { Text("例: 2280") },    
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),    
-                            singleLine = true,    
-                            modifier = Modifier.weight(1f),    
-                            isError = uiState.dailyServerPortInput.isNotEmpty() &&    
-                                uiState.dailyServerPortInput.toIntOrNull()    
-                                    .let { it == null || it < 1 || it > 65535 }    
-                        )    
-                    }    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Button(    
-                        onClick = { viewModel.saveDailyServerAddress() },    
-                        modifier = Modifier.fillMaxWidth(),    
-                        enabled = uiState.dailyServerIpInput.isNotBlank() && (    
-                            uiState.dailyServerPortInput.isEmpty() ||    
-                            uiState.dailyServerPortInput.toIntOrNull()    
-                                .let { it != null && it in 1..65535 }    
-                        )    
-                    ) {    
-                        Text("保存")    
-                    }    
-                    if (uiState.dailyServerSaved) {    
-                        Spacer(modifier = Modifier.height(4.dp))    
-                        Text(    
-                            text = "已保存",    
-                            style = MaterialTheme.typography.bodySmall,    
-                            color = MaterialTheme.colorScheme.primary    
-                        )    
-                    }    
-                }    
-            }    
-  
-            // ========== 房间服务器地址 Card（新增）==========    
-            Card(    
-                modifier = Modifier.fillMaxWidth(),    
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)    
-            ) {    
-                Column(modifier = Modifier.padding(16.dp)) {    
-                    Text("房间服务器地址", style = MaterialTheme.typography.titleMedium)    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Text(    
-                        text = "填写房间服务器地址，用于房间功能",    
-                        style = MaterialTheme.typography.bodySmall,    
-                        color = MaterialTheme.colorScheme.onSurfaceVariant    
-                    )    
-                    Spacer(modifier = Modifier.height(12.dp))    
-                    Row(    
-                        modifier = Modifier.fillMaxWidth(),    
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),    
-                        verticalAlignment = Alignment.CenterVertically    
-                    ) {    
-                        OutlinedTextField(    
-                            value = uiState.roomServerIpInput,    
-                            onValueChange = { viewModel.onRoomServerIpInputChanged(it) },    
-                            label = { Text("IP地址") },    
-                            placeholder = { Text("例: 192.168.1.100") },    
-                            singleLine = true,    
-                            modifier = Modifier.weight(2f)    
-                        )    
-                        OutlinedTextField(    
-                            value = uiState.roomServerPortInput,    
-                            onValueChange = { viewModel.onRoomServerPortInputChanged(it) },    
-                            label = { Text("端口") },    
-                            placeholder = { Text("例: 8080") },    
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),    
-                            singleLine = true,    
-                            modifier = Modifier.weight(1f),    
-                            isError = uiState.roomServerPortInput.isNotEmpty() &&    
-                                uiState.roomServerPortInput.toIntOrNull()    
-                                    .let { it == null || it < 1 || it > 65535 }    
-                        )    
-                    }    
-                    Spacer(modifier = Modifier.height(8.dp))    
-                    Button(    
-                        onClick = { viewModel.saveRoomServerAddress() },    
-                        modifier = Modifier.fillMaxWidth(),    
-                        enabled = uiState.roomServerIpInput.isNotBlank() && (    
-                            uiState.roomServerPortInput.isEmpty() ||    
-                            uiState.roomServerPortInput.toIntOrNull()    
-                                .let { it != null && it in 1..65535 }    
-                        )    
-                    ) {    
-                        Text("保存")    
-                    }    
-                    if (uiState.roomServerSaved) {    
-                        Spacer(modifier = Modifier.height(4.dp))    
-                        Text(    
-                            text = "已保存",    
-                            style = MaterialTheme.typography.bodySmall,    
-                            color = MaterialTheme.colorScheme.primary    
-                        )    
-                    }    
-                }    
-            }    
+            // ========== 服务器地址（已锁定）==========  
+            Card(  
+                modifier = Modifier.fillMaxWidth(),  
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+            ) {  
+                Column(modifier = Modifier.padding(16.dp)) {  
+                    Text("服务器地址（已锁定）", style = MaterialTheme.typography.titleMedium)  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Text(  
+                        text = "服务器: 119.91.249.245:8077",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text(  
+                        text = "清日常: 119.91.249.245:8040",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text(  
+                        text = "房间: 119.91.249.245:8066",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                }  
+            }  
   
             // ========== 头像缓存 Card ==========    
             Card(    

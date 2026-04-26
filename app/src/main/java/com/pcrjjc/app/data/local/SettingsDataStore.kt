@@ -134,39 +134,17 @@ class SettingsDataStore(private val context: Context) {
     }
 
   
-    /**    
-     * 获取用户自定义的服务器 URL。    
-     * 如果 IP 为空则返回 null，调用方应回退到默认 API。    
-     */    
-    suspend fun getServerUrl(): String? {    
-        val prefs = context.dataStore.data.first()    
-        val ip = (prefs[KEY_SERVER_IP] ?: "").trim()    
-        val port = (prefs[KEY_SERVER_PORT] ?: "").trim()    
-        if (ip.isBlank()) return null    
-        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"    
-    }    
-  
-    /**  
-     * 获取清日常服务器 URL。  
-     */  
-    suspend fun getDailyServerUrl(): String? {  
-        val prefs = context.dataStore.data.first()  
-        val ip = (prefs[KEY_DAILY_SERVER_IP] ?: "").trim()  
-        val port = (prefs[KEY_DAILY_SERVER_PORT] ?: "").trim()  
-        if (ip.isBlank()) return null  
-        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"  
-    }  
-  
-    /**  
-     * 获取房间服务器 URL。  
-     */  
-    suspend fun getRoomServerUrl(): String? {  
-        val prefs = context.dataStore.data.first()  
-        val ip = (prefs[KEY_ROOM_SERVER_IP] ?: "").trim()  
-        val port = (prefs[KEY_ROOM_SERVER_PORT] ?: "").trim()  
-        if (ip.isBlank()) return null  
-        return if (port.isBlank()) "http://$ip" else "http://$ip:$port"  
-    }  
+    suspend fun getServerUrl(): String {  
+		return "http://119.91.249.245:8077"  
+	}  
+	  
+	suspend fun getDailyServerUrl(): String {  
+		return "http://119.91.249.245:8040"  
+	}  
+	  
+	suspend fun getRoomServerUrl(): String {  
+		return "http://119.91.249.245:8066"  
+	}  
   
     // ==================== 清日常账号保存 ====================    
   
