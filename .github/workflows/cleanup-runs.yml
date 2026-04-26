@@ -3,6 +3,9 @@ name: Cleanup Workflow Runs
 on:  
   workflow_dispatch:  
   
+permissions:  
+  actions: write  
+  
 jobs:  
   cleanup:  
     runs-on: ubuntu-latest  
@@ -14,7 +17,6 @@ jobs:
           script: |  
             const owner = context.repo.owner;  
             const repo = context.repo.repo;  
-            let page = 1;  
             let deleted = 0;  
             while (true) {  
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({  
@@ -25,7 +27,6 @@ jobs:
               });  
               if (data.workflow_runs.length === 0) break;  
               for (const run of data.workflow_runs) {  
-                // 不删除当前正在执行的这个 run  
                 if (run.id === context.runId) continue;  
                 await github.rest.actions.deleteWorkflowRun({  
                   owner,  
