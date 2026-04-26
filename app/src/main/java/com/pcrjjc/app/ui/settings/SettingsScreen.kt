@@ -136,19 +136,19 @@ fun SettingsScreen(
                     Text("服务器地址（已锁定）", style = MaterialTheme.typography.titleMedium)  
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text(  
-                        text = "服务器: 119.91.249.245:8077",  
+                        text = "已锁定",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
                     Spacer(modifier = Modifier.height(4.dp))  
                     Text(  
-                        text = "清日常: 119.91.249.245:8040",  
+                        text = "已锁定",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
                     Spacer(modifier = Modifier.height(4.dp))  
                     Text(  
-                        text = "房间: 119.91.249.245:8066",  
+                        text = "已锁定",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
