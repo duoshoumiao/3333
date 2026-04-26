@@ -61,7 +61,8 @@ class ClanRankingViewModel @Inject constructor(
   
     companion object {  
         private const val TAG = "ClanRankingVM"  
-        private const val GITHUB_REPO = "duoshoumiao/chagonghui"  
+        private const val LOCAL_FILE_NAME = "clan_ranking_global.json"
+		private const val GITHUB_REPO = "duoshoumiao/chagonghui"  
         private const val GITHUB_FILE_PATH = "clan_scan/clan_ranking_global.json"  
         private const val GITHUB_API_BASE =  
             "https://api.github.com/repos/$GITHUB_REPO/contents/$GITHUB_FILE_PATH"  
@@ -161,7 +162,7 @@ class ClanRankingViewModel @Inject constructor(
                         // 保存原始 JSON 到本地  
                         saveToLocal(content)  
                         // 解析 JSON  
-                        parseClanData(content)  
+                        parseClanData(content)
                     }  
                 }  
   
