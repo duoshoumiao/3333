@@ -1,0 +1,39 @@
+name: Cleanup Workflow Runs  
+  
+on:  
+  workflow_dispatch:  
+  
+jobs:  
+  cleanup:  
+    runs-on: ubuntu-latest  
+    steps:  
+      - name: Delete all workflow runs  
+        uses: actions/github-script@v7  
+        with:  
+          github-token: ${{ secrets.GITHUB_TOKEN }}  
+          script: |  
+            const owner = context.repo.owner;  
+            const repo = context.repo.repo;  
+            let page = 1;  
+            let deleted = 0;  
+            while (true) {  
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({  
+                owner,  
+                repo,  
+                per_page: 100,  
+                page: 1,  
+              });  
+              if (data.workflow_runs.length === 0) break;  
+              for (const run of data.workflow_runs) {  
+                // 不删除当前正在执行的这个 run  
+                if (run.id === context.runId) continue;  
+                await github.rest.actions.deleteWorkflowRun({  
+                  owner,  
+                  repo,  
+                  run_id: run.id,  
+                });  
+                deleted++;  
+                console.log(`Deleted run ${run.id}`);  
+              }  
+            }  
+            console.log(`Total deleted: ${deleted}`);
