@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.MeetingRoom
+import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
@@ -81,7 +82,8 @@ fun HomeScreen(
     onNavigateToMaster: () -> Unit,
     onNavigateToFortnightly: () -> Unit,
     onNavigateToDaily: () -> Unit,
-    onNavigateToRoom: () -> Unit                      // ← 新增参数
+    onNavigateToRoom: () -> Unit,                     
+    onNavigateToClanRanking: () -> Unit               // ← 新增参数                     
 ) {
     val jjcBinds by viewModel.jjcBinds.collectAsState()
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()
@@ -124,7 +126,17 @@ fun HomeScreen(
                             leadingIcon = {  
                                 Icon(Icons.Default.MeetingRoom, contentDescription = null)  
                             }  
-                        )    
+                        )
+                        DropdownMenuItem(  
+                            text = { Text("公会排名") },  
+                            onClick = {  
+                                showMenu = false  
+                                onNavigateToClanRanking()  
+                            },  
+                            leadingIcon = {  
+                                Icon(Icons.Default.Leaderboard, contentDescription = null)  
+                            }  
+                        )						
                     }
                 },
 				actions = {

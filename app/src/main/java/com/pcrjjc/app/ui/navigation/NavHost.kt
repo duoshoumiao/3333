@@ -17,6 +17,7 @@ import com.pcrjjc.app.ui.master.MasterScreen
 import com.pcrjjc.app.ui.query.QueryScreen  
 import com.pcrjjc.app.ui.room.ChatScreen  
 import com.pcrjjc.app.ui.room.RoomScreen  
+import com.pcrjjc.app.ui.clanranking.ClanRankingScreen
 import com.pcrjjc.app.ui.settings.SettingsScreen  
   
 sealed class Screen(val route: String) {      
@@ -38,7 +39,8 @@ sealed class Screen(val route: String) {
     data object Fortnightly : Screen("fortnightly")  
     data object Daily : Screen("daily")  
     data object Room : Screen("room")  
-    data object Chat : Screen("chat/{roomId}/{playerQq}/{playerName}/{roomName}/{hostQq}") {
+    data object ClanRanking : Screen("clan_ranking")
+	data object Chat : Screen("chat/{roomId}/{playerQq}/{playerName}/{roomName}/{hostQq}") {
         fun createRoute(roomId: String, playerQq: String, playerName: String, roomName: String, hostQq: String) =
             "chat/$roomId/$playerQq/${java.net.URLEncoder.encode(playerName, "UTF-8")}/${java.net.URLEncoder.encode(roomName, "UTF-8")}/$hostQq"
     }  
@@ -65,7 +67,8 @@ fun PcrJjcNavHost() {
                 onNavigateToMaster = { navController.navigate(Screen.Master.route) },  
                 onNavigateToFortnightly = { navController.navigate(Screen.Fortnightly.route) },  
                 onNavigateToDaily = { navController.navigate(Screen.Daily.route) },  
-                onNavigateToRoom = { navController.navigate(Screen.Room.route) }  
+                onNavigateToRoom = { navController.navigate(Screen.Room.route) },  
+                onNavigateToClanRanking = { navController.navigate(Screen.ClanRanking.route) } 
             )  
         }  
   
@@ -154,7 +157,11 @@ fun PcrJjcNavHost() {
                 navArgument("roomName") { type = NavType.StringType },
                 navArgument("hostQq") { type = NavType.StringType }
             )  
-        ) {  
+        )
+		// 公会排名路由  
+        composable(Screen.ClanRanking.route) {  
+            ClanRankingScreen(onNavigateBack = { navController.popBackStack() })  
+        } {  
             ChatScreen(  
                 onNavigateBack = { navController.popBackStack() }  
             )  
