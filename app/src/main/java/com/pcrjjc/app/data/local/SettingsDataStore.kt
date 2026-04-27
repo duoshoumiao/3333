@@ -35,7 +35,7 @@ class SettingsDataStore(private val context: Context) {
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->    
-        prefs[KEY_POLLING_INTERVAL] ?: 1L    
+        prefs[KEY_POLLING_INTERVAL] ?: 30L    
     }    
   
     val isMonitoringEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->    

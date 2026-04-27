@@ -65,7 +65,7 @@ class RankMonitorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null  
   
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {  
-        val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 1) ?: 1  
+        val intervalSeconds = intent?.getLongExtra(EXTRA_INTERVAL_SECONDS, 30) ?: 30  
   
         // Check notification permission on Android 13+  
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
