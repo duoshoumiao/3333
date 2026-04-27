@@ -88,6 +88,8 @@ class ClanRankingViewModel @Inject constructor(
 				Log.d(TAG, "从本地加载了 ${localClans.size} 个公会数据")  
 			}  
 		}  
+		// 自动从 GitHub 更新最新数据  
+		downloadFromGitHub()  
 	}
 	
 	// ==================== 输入 ====================  
