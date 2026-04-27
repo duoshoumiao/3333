@@ -185,8 +185,18 @@ class QueryEngine {
                     else -> return null  
                 }  
                 val retryUserInfo = retryRes["user_info"] as? Map<String, Any?> ?: return null  
+                val retryViewerId = (retryUserInfo["viewer_id"] as? Number)?.toLong()  
+                if (retryViewerId != null && retryViewerId != bind.pcrid) {  
+                    Log.e(TAG, "viewer_id mismatch after relogin: requested ${bind.pcrid}, got $retryViewerId")  
+                    return null  
+                }  
                 QueryResult(bind, retryUserInfo, retryRes)  
             } else {  
+                val returnedViewerId = (userInfo["viewer_id"] as? Number)?.toLong()  
+                if (returnedViewerId != null && returnedViewerId != bind.pcrid) {  
+                    Log.e(TAG, "viewer_id mismatch: requested ${bind.pcrid}, got $returnedViewerId")  
+                    return null  
+                }  
                 QueryResult(bind, userInfo, res)  
             }  
         } catch (e: ApiException) {  
