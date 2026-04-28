@@ -464,68 +464,8 @@ private fun AnswerItem(
                             contentScale = ContentScale.FillWidth  
                         )  
                     }  
-                    if (bitmap != null) {  
-                        Image(  
-                            bitmap = bitmap.asImageBitmap(),  
-                            contentDescription = "全屏图片",  
-                            modifier = Modifier  
-                                .fillMaxWidth()  
-                                .padding(16.dp)  
-                                .graphicsLayer(  
-                                    scaleX = scale,  
-                                    scaleY = scale,  
-                                    translationX = offsetX,  
-                                    translationY = offsetY  
-                                )  
-                                .pointerInput(Unit) {  
-                                    detectTransformGestures { _, pan, zoom, _ ->  
-                                        scale = (scale * zoom).coerceIn(1f, 5f)  
-                                        if (scale > 1f) {  
-                                            offsetX += pan.x  
-                                            offsetY += pan.y  
-                                        } else {  
-                                            offsetX = 0f  
-                                            offsetY = 0f  
-                                        }  
-                                    }  
-                                },  
-                            contentScale = ContentScale.Fit  
-                        )  
-                    }  
-                } else {  
-                    val context = LocalContext.current  
-                    AsyncImage(  
-                        model = ImageRequest.Builder(context)  
-                            .data(imageUrl)  
-                            .crossfade(true)  
-                            .diskCachePolicy(CachePolicy.ENABLED)  
-                            .memoryCachePolicy(CachePolicy.ENABLED)  
-                            .build(),  
-                        contentDescription = "全屏图片",  
-                        modifier = Modifier  
-                            .fillMaxWidth()  
-                            .padding(16.dp)  
-                            .graphicsLayer(  
-                                scaleX = scale,  
-                                scaleY = scale,  
-                                translationX = offsetX,  
-                                translationY = offsetY  
-                            )  
-                            .pointerInput(Unit) {  
-                                detectTransformGestures { _, pan, zoom, _ ->  
-                                    scale = (scale * zoom).coerceIn(1f, 5f)  
-                                    if (scale > 1f) {  
-                                        offsetX += pan.x  
-                                        offsetY += pan.y  
-                                    } else {  
-                                        offsetX = 0f  
-                                        offsetY = 0f  
-                                    }  
-                                }  
-                            },  
-                        contentScale = ContentScale.Fit  
-                    )  
-                } 
+                    Spacer(modifier = Modifier.height(4.dp))  
+                }  
             }  
         }  
     }  
