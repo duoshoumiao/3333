@@ -65,10 +65,6 @@ object BigFunClient {
         return json  
     }  
   
-    /**  
-     * 获取全部出刀记录  
-     * 移植自 bigfun.py get_record()  
-     */  
     fun getRecord(cookie: Map<String, String>): List<JSONObject> {  
         val overview = request(OVERVIEW_API, cookie)  
         val dayList = overview.optJSONObject("data")?.optJSONArray("day_list")  
@@ -91,10 +87,6 @@ object BigFunClient {
         return allRecords  
     }  
   
-    /**  
-     * 获取Boss信息  
-     * 移植自 bigfun.py get_boss_info()  
-     */  
     fun getBossInfo(cookie: Map<String, String>): Map<String, Int> {  
         val data = request(BOSS_API, cookie)  
         val bossList = data.optJSONObject("data")?.optJSONArray("boss_list")  
