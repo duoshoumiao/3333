@@ -146,7 +146,7 @@ class SettingsDataStore(private val context: Context) {
 		return "http://119.91.249.245:8066"  
 	} 
     
-    suspend fun getRoomServerUrl(): String {  
+    suspend fun getEqaServerUrl(): String {  
 		return "http://119.91.249.245:8067"  
 	} 	
   
