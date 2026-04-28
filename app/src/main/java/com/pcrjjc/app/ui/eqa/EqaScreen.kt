@@ -238,30 +238,33 @@ private fun AnswerItem(answer: EqaAnswer) {
                 }  
                 "image" -> {  
                     if (segment.data.startsWith("base64://")) {  
-                        // base64 图片：解码后显示  
-                        val b64String = segment.data.removePrefix("base64://")  
-                        try {  
-                            val bytes = Base64.decode(b64String, Base64.DEFAULT)  
-                            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
-                            if (bitmap != null) {  
-                                Image(  
-                                    bitmap = bitmap.asImageBitmap(),  
-                                    contentDescription = "图片",  
-                                    modifier = Modifier  
-                                        .fillMaxWidth()  
-                                        .heightIn(max = 300.dp)  
-                                        .clip(RoundedCornerShape(8.dp)),  
-                                    contentScale = ContentScale.FillWidth  
-                                )  
-                            }  
-                        } catch (e: Exception) {  
-                            Text(  
-                                text = "[图片加载失败]",  
-                                style = MaterialTheme.typography.bodySmall,  
-                                color = MaterialTheme.colorScheme.error  
-                            )  
-                        }  
-                    } else {  
+						val b64String = segment.data.removePrefix("base64://")  
+						val bitmap = remember(b64String) {  
+							try {  
+								val bytes = Base64.decode(b64String, Base64.DEFAULT)  
+								BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+							} catch (e: Exception) {  
+								null  
+							}  
+						}  
+						if (bitmap != null) {  
+							Image(  
+								bitmap = bitmap.asImageBitmap(),  
+								contentDescription = "图片",  
+								modifier = Modifier  
+									.fillMaxWidth()  
+									.heightIn(max = 300.dp)  
+									.clip(RoundedCornerShape(8.dp)),  
+								contentScale = ContentScale.FillWidth  
+							)  
+						} else {  
+							Text(  
+								text = "[图片加载失败]",  
+								style = MaterialTheme.typography.bodySmall,  
+								color = MaterialTheme.colorScheme.error  
+							)  
+						}  
+					} else {  
                         // HTTP URL 图片：用 Coil 加载  
                         AsyncImage(  
                             model = ImageRequest.Builder(context)  
