@@ -15,7 +15,12 @@ import org.json.JSONObject
 import java.net.URLEncoder  
 import java.util.concurrent.TimeUnit  
 import javax.inject.Inject  
-  
+import android.content.Context  
+import android.util.Base64  
+import android.util.Log  
+import dagger.hilt.android.qualifiers.ApplicationContext  
+import com.pcrjjc.app.util.EqaImageCache    
+
 data class EqaQuestion(  
     val question: String,  
     val answerCount: Int  
@@ -44,8 +49,9 @@ data class EqaUiState(
   
 @HiltViewModel  
 class EqaViewModel @Inject constructor(  
-    private val settingsDataStore: SettingsDataStore  
-) : ViewModel() {  
+    private val settingsDataStore: SettingsDataStore,  
+    @ApplicationContext private val context: Context  
+) : ViewModel() {
   
     private val _uiState = MutableStateFlow(EqaUiState())  
     val uiState: StateFlow<EqaUiState> = _uiState  
@@ -130,20 +136,56 @@ class EqaViewModel @Inject constructor(
                 }  
                 val json = JSONObject(result)  
                 val arr = json.getJSONArray("answers")  
+  
+                // 同名问答覆盖：先清空旧缓存  
+                withContext(Dispatchers.IO) {  
+                    EqaImageCache.clearQuestion(context, question)  
+                }  
+  
                 val list = mutableListOf<EqaAnswer>()  
                 for (i in 0 until arr.length()) {  
                     val obj = arr.getJSONObject(i)  
-                    // 解析 segments 数组  
                     val segArr = obj.getJSONArray("segments")  
                     val segs = mutableListOf<ContentSegment>()  
                     for (j in 0 until segArr.length()) {  
                         val segObj = segArr.getJSONObject(j)  
                         val type = segObj.getString("type")  
                         var data = segObj.getString("data")  
-                        // 将相对路径图片转为完整 URL  
-                        if (type == "image" && data.startsWith("/")) {  
-                            data = "$baseUrl$data"  
+  
+                        if (type == "image") {  
+                            // 将相对路径转为完整 URL  
+                            if (data.startsWith("/")) {  
+                                data = "$baseUrl$data"  
+                            }  
+  
+                            // 下载图片并保存到本地  
+                            val localPath = withContext(Dispatchers.IO) {  
+                                try {  
+                                    if (data.startsWith("base64://")) {  
+                                        val b64 = data.removePrefix("base64://")  
+                                        val bytes = Base64.decode(b64, Base64.DEFAULT)  
+                                        EqaImageCache.saveImage(context, question, i, j, bytes)  
+                                    } else {  
+                                        val imgRequest = Request.Builder().url(data).build()  
+                                        httpClient.newCall(imgRequest).execute().use { resp ->  
+                                            val bytes = resp.body?.bytes()  
+                                            if (resp.isSuccessful && bytes != null && bytes.isNotEmpty()) {  
+                                                EqaImageCache.saveImage(context, question, i, j, bytes)  
+                                            } else null  
+                                        }  
+                                    }  
+                                } catch (e: Exception) {  
+                                    Log.w("EqaVM", "下载图片失败: ${e.message}")  
+                                    null  
+                                }  
+                            }  
+  
+                            // 下载成功用本地路径，否则保留原始 URL/base64  
+                            if (localPath != null) {  
+                                data = "file://$localPath"  
+                            }  
                         }  
+  
                         segs.add(ContentSegment(type = type, data = data))  
                     }  
                     list.add(  
