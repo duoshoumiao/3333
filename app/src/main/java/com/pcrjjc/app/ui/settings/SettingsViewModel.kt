@@ -102,7 +102,23 @@ class SettingsViewModel @Inject constructor(
         )    
     }    
   
-    fun savePollingInterval() {    
+    fun onIpInputChanged(input: String) {  
+        _uiState.value = _uiState.value.copy(  
+            serverIpInput = input,  
+            ipSaved = false  
+        )  
+    }  
+  
+    fun saveServerIp() {  
+        val ip = _uiState.value.serverIpInput.trim()  
+        if (ip.isBlank()) return  
+        viewModelScope.launch {  
+            settingsDataStore.setServerIp(ip)  
+            _uiState.value = _uiState.value.copy(ipSaved = true)  
+        }  
+    }
+	
+	fun savePollingInterval() {    
         val input = _uiState.value.pollingIntervalInput    
         val seconds = input.toLongOrNull()    
         if (seconds == null || seconds < 1) {    
