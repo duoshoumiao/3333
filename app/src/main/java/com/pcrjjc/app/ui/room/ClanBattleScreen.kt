@@ -278,8 +278,86 @@ fun ClanBattleScreen(
             }  
         )  
     }  
+    // ==================== 绑定团队战工具对话框 ====================  
+    if (showBindBigfunDialog) {  
+        AlertDialog(  
+            onDismissRequest = { showBindBigfunDialog = false },  
+            title = { Text("绑定团队战工具") },  
+            text = {  
+                Column(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                ) {  
+                    Text(  
+                        text = "步骤：\n" +  
+                            "1. 在浏览器中打开 bigfun.bilibili.com/tools\n" +  
+                            "2. 登录你的B站账号\n" +  
+                            "3. 按F12打开开发者工具，切换到Network标签\n" +  
+                            "4. 刷新页面，找到任意请求，复制Cookie值\n" +  
+                            "5. 在下方粘贴Cookie内容",  
+                        style = MaterialTheme.typography.bodySmall  
+                    )  
+                    OutlinedTextField(  
+                        value = bigfunCookieText,  
+                        onValueChange = { bigfunCookieText = it },  
+                        label = { Text("Cookie") },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        maxLines = 5  
+                    )  
+                }  
+            },  
+            confirmButton = {  
+                TextButton(onClick = {  
+                    viewModel.bindBigfunCookie(bigfunCookieText)  
+                    bigfunCookieText = ""  
+                    showBindBigfunDialog = false  
+                }) {  
+                    Text("绑定")  
+                }  
+            },  
+            dismissButton = {  
+                TextButton(onClick = { showBindBigfunDialog = false }) {  
+                    Text("取消")  
+                }  
+            }  
+        )  
+    }  
+  
+    // ==================== 回归性原理结果对话框 ====================  
+    if (showBigfunResultDialog && uiState.bigfunResult != null) {  
+        AlertDialog(  
+            onDismissRequest = {  
+                showBigfunResultDialog = false  
+                viewModel.clearBigfunResult()  
+            },  
+            title = { Text("回归性原理") },  
+            text = {  
+                Column(  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .heightIn(max = 400.dp)  
+                        .verticalScroll(rememberScrollState())  
+                ) {  
+                    Text(  
+                        text = uiState.bigfunResult,  
+                        style = MaterialTheme.typography.bodySmall  
+                    )  
+                }  
+            },  
+            confirmButton = {  
+                TextButton(onClick = {  
+                    showBigfunResultDialog = false  
+                    viewModel.clearBigfunResult()  
+                }) {  
+                    Text("关闭")  
+                }  
+            }  
+        )  
+    }
 }  
   
+
+
 // ==================== 状态信息卡片 ====================  
   
 @Composable  
