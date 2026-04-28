@@ -120,7 +120,10 @@ class ClanBattleViewModel @Inject constructor(
         // 进入房间时立即加载今日SL记录    
         loadTodaySLFromHistory()    
   
-        // 开始轮询房间消息中的会战状态            
+        // 加载已绑定的BigFun cookie  
+        loadBigfunCookie()
+		
+		// 开始轮询房间消息中的会战状态            
         startStatePolling()            
     }            
   
