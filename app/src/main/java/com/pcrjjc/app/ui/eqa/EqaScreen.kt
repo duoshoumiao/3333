@@ -300,8 +300,8 @@ private fun AnswerItem(answer: EqaAnswer) {
                             )  
                         }  
                     } else {  
-                        // HTTP URL 图片：用 SubcomposeAsyncImage 显示加载/错误状态  
-                        SubcomposeAsyncImage(  
+                        // HTTP URL 图片：用 AsyncImage 加载  
+                        AsyncImage(  
                             model = ImageRequest.Builder(context)  
                                 .data(segment.data)  
                                 .crossfade(true)  
@@ -311,25 +311,7 @@ private fun AnswerItem(answer: EqaAnswer) {
                                 .fillMaxWidth()  
                                 .heightIn(max = 300.dp)  
                                 .clip(RoundedCornerShape(8.dp)),  
-                            contentScale = ContentScale.FillWidth,  
-                            loading = {  
-                                Row(  
-                                    modifier = Modifier.fillMaxWidth().padding(8.dp),  
-                                    horizontalArrangement = Arrangement.Center  
-                                ) {  
-                                    CircularProgressIndicator(  
-                                        modifier = Modifier.height(24.dp).width(24.dp),  
-                                        strokeWidth = 2.dp  
-                                    )  
-                                }  
-                            },  
-                            error = {  
-                                Text(  
-                                    text = "[图片加载失败]",  
-                                    style = MaterialTheme.typography.bodySmall,  
-                                    color = MaterialTheme.colorScheme.error  
-                                )  
-                            }  
+                            contentScale = ContentScale.FillWidth  
                         )  
                     }  
                     Spacer(modifier = Modifier.height(4.dp))  
