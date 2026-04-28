@@ -79,6 +79,16 @@ fun EqaScreen(
     val uiState by viewModel.uiState.collectAsState()  
     val snackbarHostState = remember { SnackbarHostState() }  
   
+	LaunchedEffect(Unit) {  
+		viewModel.loadQuestions()  
+	}  
+	  
+	LaunchedEffect(uiState.errorMessage) {  
+		uiState.errorMessage?.let {  
+			snackbarHostState.showSnackbar(it)  
+		}  
+	}  
+  
     // 全屏查看图片的状态  
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }  
   
