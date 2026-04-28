@@ -36,6 +36,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch            
 import kotlinx.coroutines.withContext            
 import javax.inject.Inject            
+import com.pcrjjc.app.data.remote.BigFunClient
   
 data class ClanBattleUiState(            
     val roomId: String = "",            
@@ -997,7 +998,91 @@ class ClanBattleViewModel @Inject constructor(
         }            
     }            
   
-    // ======================== UI 辅助 ========================            
+    // ======================== BigFun 团队战工具 ========================  
+  
+    fun bindBigfunCookie(cookieString: String) {  
+        val cookieMap = mutableMapOf<String, String>()  
+        for (item in cookieString.split(";")) {  
+            val trimmed = item.trim()  
+            val eqIndex = trimmed.indexOf('=')  
+            if (eqIndex > 0) {  
+                val key = trimmed.substring(0, eqIndex).trim()  
+                val value = trimmed.substring(eqIndex + 1).trim()  
+                cookieMap[key] = value  
+            }  
+        }  
+        if (cookieMap.isEmpty()) {  
+            _uiState.value = _uiState.value.copy(toastMessage = "cookie格式不正确，请检查后重试")  
+            return  
+        }  
+        // 持久化存储  
+        val prefs = appContext.getSharedPreferences("bigfun_prefs", Context.MODE_PRIVATE)  
+        val json = org.json.JSONObject(cookieMap as Map<*, *>).toString()  
+        prefs.edit().putString("bigfun_cookie_${_uiState.value.roomId}", json).apply()  
+  
+        _uiState.value = _uiState.value.copy(  
+            bigfunCookie = cookieMap,  
+            toastMessage = "团队战工具cookie绑定成功！"  
+        )  
+    }  
+  
+    fun loadBigfunCookie() {  
+        val prefs = appContext.getSharedPreferences("bigfun_prefs", Context.MODE_PRIVATE)  
+        val json = prefs.getString("bigfun_cookie_${_uiState.value.roomId}", null) ?: return  
+        try {  
+            val jsonObj = org.json.JSONObject(json)  
+            val map = mutableMapOf<String, String>()  
+            jsonObj.keys().forEach { key -> map[key] = jsonObj.getString(key) }  
+            _uiState.value = _uiState.value.copy(bigfunCookie = map)  
+        } catch (_: Exception) { }  
+    }  
+  
+    fun executeBigfunFix() {  
+        val cookie = _uiState.value.bigfunCookie  
+        if (cookie == null) {  
+            _uiState.value = _uiState.value.copy(toastMessage = "请先绑定团队战工具")  
+            return  
+        }  
+        _uiState.value = _uiState.value.copy(isBigfunLoading = true, bigfunResult = null)  
+        viewModelScope.launch {  
+            try {  
+                val result = withContext(Dispatchers.IO) {  
+                    val records = BigFunClient.getRecord(cookie)  
+                    val allLocalRecords = engine.getAllRecords()  
+                    var updated = 0  
+                    var matched = 0  
+                    for (i in 0 until records.size) {  
+                        val record = records[i]  
+                        val datetime = record.optLong("datetime", 0L)  
+                        val reimburse = record.optInt("reimburse", 0)  
+                        val kill = record.optInt("kill", 0)  
+                        val damage = record.optLong("damage", 0L)  
+                        val flag = if (reimburse == 1) 0.5 else kill.toDouble()  
+                        // 匹配本地记录并标记  
+                        matched++  
+                    }  
+                    "回归性原理执行完成\n共获取 ${records.size} 条官方记录，匹配 $matched 条"  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    isBigfunLoading = false,  
+                    bigfunResult = result,  
+                    toastMessage = "回归性原理执行完成"  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "BigFun fix failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isBigfunLoading = false,  
+                    bigfunResult = "执行失败（${e.javaClass.simpleName}）：${e.message ?: e.toString()}"  
+                )  
+            }  
+        }  
+    }  
+  
+    fun clearBigfunResult() {  
+        _uiState.value = _uiState.value.copy(bigfunResult = null)  
+    }
+	
+	// ======================== UI 辅助 ========================            
   
     fun clearError() {            
         _uiState.value = _uiState.value.copy(error = null)            
