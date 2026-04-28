@@ -1,6 +1,9 @@
 package com.pcrjjc.app.ui.eqa  
   
+import android.graphics.BitmapFactory  
+import android.util.Base64  
 import androidx.compose.animation.AnimatedVisibility  
+import androidx.compose.foundation.Image  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Column  
@@ -9,10 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize  
 import androidx.compose.foundation.layout.fillMaxWidth  
 import androidx.compose.foundation.layout.height  
+import androidx.compose.foundation.layout.heightIn  
 import androidx.compose.foundation.layout.padding  
 import androidx.compose.foundation.layout.width  
 import androidx.compose.foundation.lazy.LazyColumn  
 import androidx.compose.foundation.lazy.items  
+import androidx.compose.foundation.shape.RoundedCornerShape  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
 import androidx.compose.material.icons.filled.ExpandLess  
@@ -37,8 +42,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
+import androidx.compose.ui.draw.clip  
+import androidx.compose.ui.graphics.asImageBitmap  
+import androidx.compose.ui.layout.ContentScale  
+import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
+import coil.compose.AsyncImage  
+import coil.request.ImageRequest  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -49,7 +60,6 @@ fun EqaScreen(
     val uiState by viewModel.uiState.collectAsState()  
     val snackbarHostState = remember { SnackbarHostState() }  
   
-    // 进入页面自动加载  
     LaunchedEffect(Unit) {  
         viewModel.loadQuestions()  
     }  
@@ -178,7 +188,9 @@ private fun QuestionCard(
                             horizontalArrangement = Arrangement.Center  
                         ) {  
                             CircularProgressIndicator(  
-                                modifier = Modifier.height(24.dp).width(24.dp),  
+                                modifier = Modifier  
+                                    .height(24.dp)  
+                                    .width(24.dp),  
                                 strokeWidth = 2.dp  
                             )  
                         }  
@@ -207,16 +219,66 @@ private fun QuestionCard(
   
 @Composable  
 private fun AnswerItem(answer: EqaAnswer) {  
+    val context = LocalContext.current  
     Column(modifier = Modifier.fillMaxWidth()) {  
         Text(  
             text = if (answer.isMe) "个人专属 (QQ: ${answer.userId})" else "QQ: ${answer.userId}",  
             style = MaterialTheme.typography.labelSmall,  
             color = MaterialTheme.colorScheme.primary  
         )  
-        Spacer(modifier = Modifier.height(2.dp))  
-        Text(  
-            text = answer.content,  
-            style = MaterialTheme.typography.bodyMedium  
-        )  
+        Spacer(modifier = Modifier.height(4.dp))  
+        // 渲染每个内容片段（文本或图片）  
+        answer.segments.forEach { segment ->  
+            when (segment.type) {  
+                "text" -> {  
+                    Text(  
+                        text = segment.data,  
+                        style = MaterialTheme.typography.bodyMedium  
+                    )  
+                }  
+                "image" -> {  
+                    if (segment.data.startsWith("base64://")) {  
+                        // base64 图片：解码后显示  
+                        val b64String = segment.data.removePrefix("base64://")  
+                        try {  
+                            val bytes = Base64.decode(b64String, Base64.DEFAULT)  
+                            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                            if (bitmap != null) {  
+                                Image(  
+                                    bitmap = bitmap.asImageBitmap(),  
+                                    contentDescription = "图片",  
+                                    modifier = Modifier  
+                                        .fillMaxWidth()  
+                                        .heightIn(max = 300.dp)  
+                                        .clip(RoundedCornerShape(8.dp)),  
+                                    contentScale = ContentScale.FillWidth  
+                                )  
+                            }  
+                        } catch (e: Exception) {  
+                            Text(  
+                                text = "[图片加载失败]",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.error  
+                            )  
+                        }  
+                    } else {  
+                        // HTTP URL 图片：用 Coil 加载  
+                        AsyncImage(  
+                            model = ImageRequest.Builder(context)  
+                                .data(segment.data)  
+                                .crossfade(true)  
+                                .build(),  
+                            contentDescription = "图片",  
+                            modifier = Modifier  
+                                .fillMaxWidth()  
+                                .heightIn(max = 300.dp)  
+                                .clip(RoundedCornerShape(8.dp)),  
+                            contentScale = ContentScale.FillWidth  
+                        )  
+                    }  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                }  
+            }  
+        }  
     }  
 }

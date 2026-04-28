@@ -21,10 +21,16 @@ data class EqaQuestion(
     val answerCount: Int  
 )  
   
+/** 回答中的一个内容片段：文本或图片 */  
+data class ContentSegment(  
+    val type: String,   // "text" 或 "image"  
+    val data: String    // 文本内容 或 图片URL  
+)  
+  
 data class EqaAnswer(  
     val userId: Long,  
     val isMe: Boolean,  
-    val content: String  
+    val segments: List<ContentSegment>  
 )  
   
 data class EqaUiState(  
@@ -49,12 +55,30 @@ class EqaViewModel @Inject constructor(
         .readTimeout(30, TimeUnit.SECONDS)  
         .build()  
   
-    /** 进入页面自动加载所有问题 */  
+    // 缓存 baseUrl 避免每次都读 DataStore  
+    private var cachedBaseUrl: String? = null  
+  
+    private suspend fun getBaseUrl(): String {  
+        return cachedBaseUrl ?: settingsDataStore.getEqaServerUrl().also { cachedBaseUrl = it }  
+    }  
+  
+    /** 将相对路径的图片 URL 转为完整 URL */  
+    private suspend fun resolveImageUrl(data: String): String {  
+        return if (data.startsWith("/")) {  
+            "${getBaseUrl()}$data"  
+        } else {  
+            data  
+        }  
+    }  
+  
     fun loadQuestions() {  
         viewModelScope.launch {  
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, selectedQuestion = null, answers = emptyList())  
+            _uiState.value = _uiState.value.copy(  
+                isLoading = true, errorMessage = null,  
+                selectedQuestion = null, answers = emptyList()  
+            )  
             try {  
-                val baseUrl = settingsDataStore.getEqaServerUrl()  
+                val baseUrl = getBaseUrl()  
                 val result = withContext(Dispatchers.IO) {  
                     val request = Request.Builder()  
                         .url("$baseUrl/eqa/api/questions")  
@@ -78,17 +102,20 @@ class EqaViewModel @Inject constructor(
                 }  
                 _uiState.value = _uiState.value.copy(isLoading = false, questions = list)  
             } catch (e: Exception) {  
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "加载失败: ${e.message}")  
+                _uiState.value = _uiState.value.copy(  
+                    isLoading = false, errorMessage = "加载失败: ${e.message}"  
+                )  
             }  
         }  
     }  
   
-    /** 加载某问题的回答 */  
     fun loadAnswer(question: String) {  
         viewModelScope.launch {  
-            _uiState.value = _uiState.value.copy(isLoadingAnswer = true, selectedQuestion = question, answers = emptyList())  
+            _uiState.value = _uiState.value.copy(  
+                isLoadingAnswer = true, selectedQuestion = question, answers = emptyList()  
+            )  
             try {  
-                val baseUrl = settingsDataStore.getEqaServerUrl()  
+                val baseUrl = getBaseUrl()  
                 val encodedQ = withContext(Dispatchers.IO) {  
                     URLEncoder.encode(question, "UTF-8")  
                 }  
@@ -106,17 +133,32 @@ class EqaViewModel @Inject constructor(
                 val list = mutableListOf<EqaAnswer>()  
                 for (i in 0 until arr.length()) {  
                     val obj = arr.getJSONObject(i)  
+                    // 解析 segments 数组  
+                    val segArr = obj.getJSONArray("segments")  
+                    val segs = mutableListOf<ContentSegment>()  
+                    for (j in 0 until segArr.length()) {  
+                        val segObj = segArr.getJSONObject(j)  
+                        val type = segObj.getString("type")  
+                        var data = segObj.getString("data")  
+                        // 将相对路径图片转为完整 URL  
+                        if (type == "image" && data.startsWith("/")) {  
+                            data = "$baseUrl$data"  
+                        }  
+                        segs.add(ContentSegment(type = type, data = data))  
+                    }  
                     list.add(  
                         EqaAnswer(  
                             userId = obj.getLong("user_id"),  
                             isMe = obj.getBoolean("is_me"),  
-                            content = obj.getString("content")  
+                            segments = segs  
                         )  
                     )  
                 }  
                 _uiState.value = _uiState.value.copy(isLoadingAnswer = false, answers = list)  
             } catch (e: Exception) {  
-                _uiState.value = _uiState.value.copy(isLoadingAnswer = false, errorMessage = "获取回答失败: ${e.message}")  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingAnswer = false, errorMessage = "获取回答失败: ${e.message}"  
+                )  
             }  
         }  
     }  
