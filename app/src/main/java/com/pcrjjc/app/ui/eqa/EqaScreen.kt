@@ -436,7 +436,6 @@ private fun AnswerItem(
                                 .crossfade(true)  
                                 .diskCachePolicy(CachePolicy.ENABLED)  
                                 .memoryCachePolicy(CachePolicy.ENABLED)  
-                                .size(Size(1080, 1080))  
                                 .build(),  
                             contentDescription = "图片",  
                             modifier = Modifier  
