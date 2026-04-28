@@ -700,7 +700,7 @@ private fun ActionButtonsCard(
                     Text("正在执行回归性原理...", style = MaterialTheme.typography.bodySmall)  
                 }  
             }// 加载已绑定的BigFun cookie  
-        loadBigfunCookie()
+            loadBigfunCookie()
 		}  
     }  
 }  
