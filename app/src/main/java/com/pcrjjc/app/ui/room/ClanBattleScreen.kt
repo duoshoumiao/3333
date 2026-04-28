@@ -158,7 +158,12 @@ fun ClanBattleScreen(
                 onTodayReport = { viewModel.fetchTodayReport() },  
                 onYesterdayReport = { viewModel.fetchYesterdayReport() },  
                 onSL = { viewModel.recordSL() },  
-                onCheckSL = { showSLDialog = true }  
+                onCheckSL = { showSLDialog = true },  
+                onBindBigfun = { showBindBigfunDialog = true },  
+                onBigfunFix = { viewModel.executeBigfunFix() },  
+                isBigfunLoading = uiState.isBigfunLoading,  
+                hasBigfunCookie = uiState.bigfunCookie != null  
+            )  
             )  
   
             Spacer(modifier = Modifier.height(16.dp))  
