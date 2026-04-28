@@ -56,7 +56,12 @@ data class ClanBattleUiState(
     val reportText: String = "",            
     val isLoadingReport: Boolean = false,            
   
-    // 通用            
+    // BigFun 团队战工具  
+    val bigfunCookie: Map<String, String>? = null,  
+    val isBigfunLoading: Boolean = false,  
+    val bigfunResult: String? = null,
+	
+	// 通用            
     val isInitializing: Boolean = false,            
     val error: String? = null,            
     val toastMessage: String? = null            
