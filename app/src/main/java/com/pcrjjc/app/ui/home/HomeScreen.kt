@@ -141,7 +141,7 @@ fun HomeScreen(
                         )						
                         DropdownMenuItem(  
                             text = { Text("问答") },  
-                            onClick = {  
+                            onClick = { 
                                 showMenu = false  
                                 onNavigateToEqa()  
                             },  
