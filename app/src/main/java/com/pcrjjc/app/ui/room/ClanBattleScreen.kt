@@ -576,7 +576,11 @@ private fun ActionButtonsCard(
     onTodayReport: () -> Unit,  
     onYesterdayReport: () -> Unit,  
     onSL: () -> Unit,  
-    onCheckSL: () -> Unit  
+    onCheckSL: () -> Unit,  
+    onBindBigfun: () -> Unit,  
+    onBigfunFix: () -> Unit,  
+    isBigfunLoading: Boolean,  
+    hasBigfunCookie: Boolean    
 ) {  
     Card(  
         modifier = Modifier.fillMaxWidth(),  
@@ -654,7 +658,19 @@ private fun ActionButtonsCard(
                 OutlinedButton(onClick = onCheckSL) {  
                     Text("查SL")  
                 }  
-            }  
+                // 绑定团队战工具  
+                OutlinedButton(onClick = onBindBigfun) {  
+                    Text("绑定团队战工具")  
+                }  
+  
+                // 回归性原理  
+                OutlinedButton(  
+                    onClick = onBigfunFix,  
+                    enabled = !isBigfunLoading && hasBigfunCookie  
+                ) {  
+                    Text("回归性原理")  
+                }
+			}  
   
             // 加载指示器  
             if (isLoadingReport) {  
@@ -671,7 +687,21 @@ private fun ActionButtonsCard(
                     Text("正在获取战报...", style = MaterialTheme.typography.bodySmall)  
                 }  
             }  
-        }  
+            if (isBigfunLoading) {  
+                Row(  
+                    modifier = Modifier.fillMaxWidth(),  
+                    horizontalArrangement = Arrangement.Center,  
+                    verticalAlignment = Alignment.CenterVertically  
+                ) {  
+                    CircularProgressIndicator(  
+                        modifier = Modifier.size(16.dp),  
+                        strokeWidth = 2.dp  
+                    )  
+                    Spacer(modifier = Modifier.width(8.dp))  
+                    Text("正在执行回归性原理...", style = MaterialTheme.typography.bodySmall)  
+                }  
+            }
+		}  
     }  
 }  
   
