@@ -1,4 +1,4 @@
-## 覆盖清日常文件
+[__init__.py](https://github.com/user-attachments/files/27157922/__init__.py)## 覆盖清日常文件
 
 [httpserver.py](https://github.com/user-attachments/files/26810006/httpserver.py)
 
@@ -11,6 +11,13 @@
 ## 打包准备
 在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
 [__init__.py](https://github.com/user-attachments/files/26810816/__init__.py)
+
+## EQA
+
+[__init__.py](https://github.com/user-attachments/files/27157989/__init__.py)
+
+
+[web_api.py](https://github.com/user-attachments/files/27157994/web_api.py)
 
 
 # 个人库，不建议商用，有问题不要找我。没有自己的bot下载也用不了，高度搭配使用的
