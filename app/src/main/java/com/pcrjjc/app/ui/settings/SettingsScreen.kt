@@ -127,31 +127,48 @@ fun SettingsScreen(
                 }
             }
 
-            // ========== 服务器地址（已锁定）==========  
+            /// ========== 服务器 IP 设置 ==========  
             Card(  
                 modifier = Modifier.fillMaxWidth(),  
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
             ) {  
                 Column(modifier = Modifier.padding(16.dp)) {  
-                    Text("服务器地址（已锁定）", style = MaterialTheme.typography.titleMedium)  
-                    Spacer(modifier = Modifier.height(8.dp))  
-                    Text(  
-                        text = "已锁定",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )  
+                    Text("服务器地址", style = MaterialTheme.typography.titleMedium)  
                     Spacer(modifier = Modifier.height(4.dp))  
                     Text(  
-                        text = "已锁定",  
+                        text = "端口已内置（8077/8040/8066/8067），只需填写 IP",  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
-                    Spacer(modifier = Modifier.height(4.dp))  
-                    Text(  
-                        text = "已锁定",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )  
+                    Spacer(modifier = Modifier.height(12.dp))  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        verticalAlignment = Alignment.CenterVertically,  
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)  
+                    ) {  
+                        OutlinedTextField(  
+                            value = uiState.serverIpInput,  
+                            onValueChange = { viewModel.onIpInputChanged(it) },  
+                            label = { Text("服务器 IP") },  
+                            placeholder = { Text("114.514.1.1") },  
+                            singleLine = true,  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                        Button(  
+                            onClick = { viewModel.saveServerIp() },  
+                            enabled = uiState.serverIpInput.isNotBlank()  
+                        ) {  
+                            Text("保存")  
+                        }  
+                    }  
+                    if (uiState.ipSaved) {  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text(  
+                            text = "IP 已保存",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.primary  
+                        )  
+                    }  
                 }  
             }  
   

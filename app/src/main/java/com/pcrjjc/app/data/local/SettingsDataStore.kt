@@ -133,22 +133,27 @@ class SettingsDataStore(private val context: Context) {
         return context.dataStore.data.first()[KEY_USER_NAME] ?: ""
     }
 
+    // 获取用户保存的 IP，默认 114.514.1.1
+    suspend fun getServerIp(): String {  
+        return context.dataStore.data.first()[KEY_SERVER_IP]?.ifBlank { null }  
+            ?: "114.514.1.1"  
+    }  
   
     suspend fun getServerUrl(): String {  
-		return "http://119.91.249.245:8077"  
-	}  
-	  
-	suspend fun getDailyServerUrl(): String {  
-		return "http://119.91.249.245:8040"  
-	}  
-	  
-	suspend fun getRoomServerUrl(): String {  
-		return "http://119.91.249.245:8066"  
-	} 
-    
+        return "http://${getServerIp()}:8077"  
+    }  
+  
+    suspend fun getDailyServerUrl(): String {  
+        return "http://${getServerIp()}:8040"  
+    }  
+  
+    suspend fun getRoomServerUrl(): String {  
+        return "http://${getServerIp()}:8066"  
+    }  
+  
     suspend fun getEqaServerUrl(): String {  
-		return "http://119.91.249.245:8067"  
-	} 	
+        return "http://${getServerIp()}:8067"  
+    }	
   
     // ==================== 清日常账号保存 ====================    
   

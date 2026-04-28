@@ -50,7 +50,9 @@ data class SettingsUiState(
     val updateInfo: UpdateInfo? = null,
     val isDownloadingAvatars: Boolean = false,
     val avatarDownloadProgress: Float = 0f,
-    val avatarDownloadMessage: String? = null
+    val avatarDownloadMessage: String? = null,  
+    val serverIpInput: String = "114.514.1.1",   // ← 新增  
+    val ipSaved: Boolean = false                      // ← 新增  
 )    
   
 @HiltViewModel    
@@ -87,7 +89,11 @@ class SettingsViewModel @Inject constructor(
                 )    
             }    
         }    
-    }
+        viewModelScope.launch {  
+            val ip = settingsDataStore.getServerIp()  
+            _uiState.value = _uiState.value.copy(serverIpInput = ip)  
+        }
+	}
   
     fun onIntervalInputChanged(input: String) {    
         _uiState.value = _uiState.value.copy(    
