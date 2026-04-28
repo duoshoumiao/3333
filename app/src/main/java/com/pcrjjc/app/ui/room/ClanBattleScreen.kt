@@ -338,7 +338,7 @@ fun ClanBattleScreen(
                         .verticalScroll(rememberScrollState())  
                 ) {  
                     Text(  
-                        text = uiState.bigfunResult,  
+                        text = uiState.bigfunResult ?: "",  
                         style = MaterialTheme.typography.bodySmall  
                     )  
                 }  
