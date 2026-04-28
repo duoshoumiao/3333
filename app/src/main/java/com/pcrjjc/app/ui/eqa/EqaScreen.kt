@@ -1,12 +1,17 @@
 package com.pcrjjc.app.ui.eqa  
   
+import android.content.ClipData  
+import android.content.ClipboardManager  
+import android.content.Context  
 import android.graphics.BitmapFactory  
-import android.util.Base64 
-import androidx.compose.foundation.text.selection.SelectionContainer 
+import android.util.Base64  
+import android.widget.Toast  
 import androidx.compose.animation.AnimatedVisibility  
 import androidx.compose.foundation.Image  
+import androidx.compose.foundation.background  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.layout.Arrangement  
+import androidx.compose.foundation.layout.Box  
 import androidx.compose.foundation.layout.Column  
 import androidx.compose.foundation.layout.Row  
 import androidx.compose.foundation.layout.Spacer  
@@ -21,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
+import androidx.compose.material.icons.filled.ContentCopy  
 import androidx.compose.material.icons.filled.ExpandLess  
 import androidx.compose.material.icons.filled.ExpandMore  
 import androidx.compose.material3.Card  
@@ -40,22 +46,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
+import androidx.compose.runtime.mutableStateOf  
 import androidx.compose.runtime.remember  
+import androidx.compose.runtime.setValue  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
 import androidx.compose.ui.draw.clip  
+import androidx.compose.ui.graphics.Color  
 import androidx.compose.ui.graphics.asImageBitmap  
 import androidx.compose.ui.layout.ContentScale  
 import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.unit.dp  
+import androidx.compose.ui.window.Dialog  
+import androidx.compose.ui.window.DialogProperties  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import coil.compose.AsyncImage  
+import coil.request.CachePolicy  
 import coil.request.ImageRequest  
-import android.content.ClipData  
-import android.content.ClipboardManager  
-import android.content.Context  
-import android.widget.Toast  
-import androidx.compose.material.icons.filled.ContentCopy
+import coil.size.Size  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -66,6 +74,9 @@ fun EqaScreen(
     val uiState by viewModel.uiState.collectAsState()  
     val snackbarHostState = remember { SnackbarHostState() }  
   
+    // 全屏查看图片的状态  
+    var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }  
+  
     LaunchedEffect(Unit) {  
         viewModel.loadQuestions()  
     }  
@@ -73,6 +84,59 @@ fun EqaScreen(
     LaunchedEffect(uiState.errorMessage) {  
         uiState.errorMessage?.let {  
             snackbarHostState.showSnackbar(it)  
+        }  
+    }  
+  
+    // 全屏图片查看 Dialog  
+    fullScreenImageUrl?.let { imageUrl ->  
+        Dialog(  
+            onDismissRequest = { fullScreenImageUrl = null },  
+            properties = DialogProperties(usePlatformDefaultWidth = false)  
+        ) {  
+            Box(  
+                modifier = Modifier  
+                    .fillMaxSize()  
+                    .background(Color.Black.copy(alpha = 0.9f))  
+                    .clickable { fullScreenImageUrl = null },  
+                contentAlignment = Alignment.Center  
+            ) {  
+                if (imageUrl.startsWith("base64://")) {  
+                    val b64String = imageUrl.removePrefix("base64://")  
+                    val bitmap = remember(b64String) {  
+                        try {  
+                            val bytes = Base64.decode(b64String, Base64.DEFAULT)  
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                        } catch (e: Exception) {  
+                            null  
+                        }  
+                    }  
+                    if (bitmap != null) {  
+                        Image(  
+                            bitmap = bitmap.asImageBitmap(),  
+                            contentDescription = "全屏图片",  
+                            modifier = Modifier  
+                                .fillMaxWidth()  
+                                .padding(16.dp),  
+                            contentScale = ContentScale.Fit  
+                        )  
+                    }  
+                } else {  
+                    val context = LocalContext.current  
+                    AsyncImage(  
+                        model = ImageRequest.Builder(context)  
+                            .data(imageUrl)  
+                            .crossfade(true)  
+                            .diskCachePolicy(CachePolicy.ENABLED)  
+                            .memoryCachePolicy(CachePolicy.ENABLED)  
+                            .build(),  
+                        contentDescription = "全屏图片",  
+                        modifier = Modifier  
+                            .fillMaxWidth()  
+                            .padding(16.dp),  
+                        contentScale = ContentScale.Fit  
+                    )  
+                }  
+            }  
         }  
     }  
   
@@ -135,7 +199,8 @@ fun EqaScreen(
                                 } else {  
                                     viewModel.loadAnswer(question.question)  
                                 }  
-                            }  
+                            },  
+                            onImageClick = { url -> fullScreenImageUrl = url }  
                         )  
                     }  
                     item { Spacer(modifier = Modifier.height(16.dp)) }  
@@ -151,7 +216,8 @@ private fun QuestionCard(
     isSelected: Boolean,  
     answers: List<EqaAnswer>,  
     isLoadingAnswer: Boolean,  
-    onClick: () -> Unit  
+    onClick: () -> Unit,  
+    onImageClick: (String) -> Unit  
 ) {  
     Card(  
         modifier = Modifier  
@@ -214,7 +280,10 @@ private fun QuestionCard(
                                     color = MaterialTheme.colorScheme.outlineVariant  
                                 )  
                             }  
-                            AnswerItem(answer = answer)  
+                            AnswerItem(  
+                                answer = answer,  
+                                onImageClick = onImageClick  
+                            )  
                         }  
                     }  
                 }  
@@ -224,7 +293,10 @@ private fun QuestionCard(
 }  
   
 @Composable  
-private fun AnswerItem(answer: EqaAnswer) {  
+private fun AnswerItem(  
+    answer: EqaAnswer,  
+    onImageClick: (String) -> Unit  
+) {  
     val context = LocalContext.current  
     Column(modifier = Modifier.fillMaxWidth()) {  
         // 标题行：QQ号 + 复制按钮  
@@ -247,8 +319,6 @@ private fun AnswerItem(answer: EqaAnswer) {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager  
                         clipboard.setPrimaryClip(ClipData.newPlainText("问答内容", allText))  
                         Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()  
-                    } else {  
-                        Toast.makeText(context, "无文本可复制", Toast.LENGTH_SHORT).show()  
                     }  
                 },  
                 modifier = Modifier.height(24.dp).width(24.dp)  
@@ -289,7 +359,8 @@ private fun AnswerItem(answer: EqaAnswer) {
                                 modifier = Modifier  
                                     .fillMaxWidth()  
                                     .heightIn(max = 300.dp)  
-                                    .clip(RoundedCornerShape(8.dp)),  
+                                    .clip(RoundedCornerShape(8.dp))  
+                                    .clickable { onImageClick(segment.data) },  
                                 contentScale = ContentScale.FillWidth  
                             )  
                         } else {  
@@ -300,17 +371,21 @@ private fun AnswerItem(answer: EqaAnswer) {
                             )  
                         }  
                     } else {  
-                        // HTTP URL 图片：用 AsyncImage 加载  
+                        // HTTP URL 图片：用 Coil 加载，启用缓存 + 限制解码尺寸  
                         AsyncImage(  
                             model = ImageRequest.Builder(context)  
                                 .data(segment.data)  
                                 .crossfade(true)  
+                                .diskCachePolicy(CachePolicy.ENABLED)  
+                                .memoryCachePolicy(CachePolicy.ENABLED)  
+                                .size(Size(1080, 1080))  
                                 .build(),  
                             contentDescription = "图片",  
                             modifier = Modifier  
                                 .fillMaxWidth()  
                                 .heightIn(max = 300.dp)  
-                                .clip(RoundedCornerShape(8.dp)),  
+                                .clip(RoundedCornerShape(8.dp))  
+                                .clickable { onImageClick(segment.data) },  
                             contentScale = ContentScale.FillWidth  
                         )  
                     }  
