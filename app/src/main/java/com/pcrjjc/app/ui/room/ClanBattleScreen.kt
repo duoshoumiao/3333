@@ -35,8 +35,11 @@ fun ClanBattleScreen(
     var myReportName by remember { mutableStateOf("") }  
     var showReportDialog by remember { mutableStateOf(false) }  
     var showSLDialog by remember { mutableStateOf(false) }  
-  
-    // 错误/Toast 提示  
+    var showBindBigfunDialog by remember { mutableStateOf(false) }  
+    var bigfunCookieText by remember { mutableStateOf("") }  
+    var showBigfunResultDialog by remember { mutableStateOf(false) }
+    
+	// 错误/Toast 提示  
     LaunchedEffect(uiState.error) {  
         uiState.error?.let {  
             snackbarHostState.showSnackbar(it)  
@@ -56,7 +59,14 @@ fun ClanBattleScreen(
         }  
     }  
   
-    Scaffold(  
+    // BigFun结果弹窗  
+    LaunchedEffect(uiState.bigfunResult) {  
+        if (uiState.bigfunResult != null) {  
+            showBigfunResultDialog = true  
+        }  
+    }
+	
+	Scaffold(  
         topBar = {  
             TopAppBar(  
                 title = {  
