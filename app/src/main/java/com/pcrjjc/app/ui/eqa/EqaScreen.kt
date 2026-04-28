@@ -1,7 +1,8 @@
 package com.pcrjjc.app.ui.eqa  
   
 import android.graphics.BitmapFactory  
-import android.util.Base64  
+import android.util.Base64 
+import androidx.compose.foundation.text.selection.SelectionContainer 
 import androidx.compose.animation.AnimatedVisibility  
 import androidx.compose.foundation.Image  
 import androidx.compose.foundation.clickable  
@@ -50,6 +51,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel  
 import coil.compose.AsyncImage  
 import coil.request.ImageRequest  
+import android.content.ClipData  
+import android.content.ClipboardManager  
+import android.content.Context  
+import android.widget.Toast  
+import androidx.compose.material.icons.filled.ContentCopy
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -221,11 +227,40 @@ private fun QuestionCard(
 private fun AnswerItem(answer: EqaAnswer) {  
     val context = LocalContext.current  
     Column(modifier = Modifier.fillMaxWidth()) {  
-        Text(  
-            text = if (answer.isMe) "个人专属 (QQ: ${answer.userId})" else "QQ: ${answer.userId}",  
-            style = MaterialTheme.typography.labelSmall,  
-            color = MaterialTheme.colorScheme.primary  
-        )  
+        // 标题行：QQ号 + 复制按钮  
+        Row(  
+            modifier = Modifier.fillMaxWidth(),  
+            horizontalArrangement = Arrangement.SpaceBetween,  
+            verticalAlignment = Alignment.CenterVertically  
+        ) {  
+            Text(  
+                text = if (answer.isMe) "个人专属 (QQ: ${answer.userId})" else "QQ: ${answer.userId}",  
+                style = MaterialTheme.typography.labelSmall,  
+                color = MaterialTheme.colorScheme.primary  
+            )  
+            IconButton(  
+                onClick = {  
+                    val allText = answer.segments  
+                        .filter { it.type == "text" }  
+                        .joinToString("") { it.data }  
+                    if (allText.isNotBlank()) {  
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager  
+                        clipboard.setPrimaryClip(ClipData.newPlainText("问答内容", allText))  
+                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()  
+                    } else {  
+                        Toast.makeText(context, "无文本可复制", Toast.LENGTH_SHORT).show()  
+                    }  
+                },  
+                modifier = Modifier.height(24.dp).width(24.dp)  
+            ) {  
+                Icon(  
+                    Icons.Default.ContentCopy,  
+                    contentDescription = "复制",  
+                    modifier = Modifier.height(16.dp).width(16.dp),  
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+            }  
+        }  
         Spacer(modifier = Modifier.height(4.dp))  
         // 渲染每个内容片段（文本或图片）  
         answer.segments.forEach { segment ->  
@@ -238,35 +273,35 @@ private fun AnswerItem(answer: EqaAnswer) {
                 }  
                 "image" -> {  
                     if (segment.data.startsWith("base64://")) {  
-						val b64String = segment.data.removePrefix("base64://")  
-						val bitmap = remember(b64String) {  
-							try {  
-								val bytes = Base64.decode(b64String, Base64.DEFAULT)  
-								BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
-							} catch (e: Exception) {  
-								null  
-							}  
-						}  
-						if (bitmap != null) {  
-							Image(  
-								bitmap = bitmap.asImageBitmap(),  
-								contentDescription = "图片",  
-								modifier = Modifier  
-									.fillMaxWidth()  
-									.heightIn(max = 300.dp)  
-									.clip(RoundedCornerShape(8.dp)),  
-								contentScale = ContentScale.FillWidth  
-							)  
-						} else {  
-							Text(  
-								text = "[图片加载失败]",  
-								style = MaterialTheme.typography.bodySmall,  
-								color = MaterialTheme.colorScheme.error  
-							)  
-						}  
-					} else {  
-                        // HTTP URL 图片：用 Coil 加载  
-                        AsyncImage(  
+                        val b64String = segment.data.removePrefix("base64://")  
+                        val bitmap = remember(b64String) {  
+                            try {  
+                                val bytes = Base64.decode(b64String, Base64.DEFAULT)  
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                            } catch (e: Exception) {  
+                                null  
+                            }  
+                        }  
+                        if (bitmap != null) {  
+                            Image(  
+                                bitmap = bitmap.asImageBitmap(),  
+                                contentDescription = "图片",  
+                                modifier = Modifier  
+                                    .fillMaxWidth()  
+                                    .heightIn(max = 300.dp)  
+                                    .clip(RoundedCornerShape(8.dp)),  
+                                contentScale = ContentScale.FillWidth  
+                            )  
+                        } else {  
+                            Text(  
+                                text = "[图片加载失败]",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.error  
+                            )  
+                        }  
+                    } else {  
+                        // HTTP URL 图片：用 SubcomposeAsyncImage 显示加载/错误状态  
+                        SubcomposeAsyncImage(  
                             model = ImageRequest.Builder(context)  
                                 .data(segment.data)  
                                 .crossfade(true)  
@@ -276,7 +311,25 @@ private fun AnswerItem(answer: EqaAnswer) {
                                 .fillMaxWidth()  
                                 .heightIn(max = 300.dp)  
                                 .clip(RoundedCornerShape(8.dp)),  
-                            contentScale = ContentScale.FillWidth  
+                            contentScale = ContentScale.FillWidth,  
+                            loading = {  
+                                Row(  
+                                    modifier = Modifier.fillMaxWidth().padding(8.dp),  
+                                    horizontalArrangement = Arrangement.Center  
+                                ) {  
+                                    CircularProgressIndicator(  
+                                        modifier = Modifier.height(24.dp).width(24.dp),  
+                                        strokeWidth = 2.dp  
+                                    )  
+                                }  
+                            },  
+                            error = {  
+                                Text(  
+                                    text = "[图片加载失败]",  
+                                    style = MaterialTheme.typography.bodySmall,  
+                                    color = MaterialTheme.colorScheme.error  
+                                )  
+                            }  
                         )  
                     }  
                     Spacer(modifier = Modifier.height(4.dp))  
