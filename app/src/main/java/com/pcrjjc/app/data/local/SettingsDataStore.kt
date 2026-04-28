@@ -144,7 +144,11 @@ class SettingsDataStore(private val context: Context) {
 	  
 	suspend fun getRoomServerUrl(): String {  
 		return "http://119.91.249.245:8066"  
-	}  
+	} 
+    
+    suspend fun getRoomServerUrl(): String {  
+		return "http://119.91.249.245:8067"  
+	} 	
   
     // ==================== 清日常账号保存 ====================    
   

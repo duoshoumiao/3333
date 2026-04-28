@@ -1,7 +1,8 @@
 package com.pcrjjc.app.ui.home    
 
 import androidx.compose.material.icons.filled.Edit  // ← 新增  
-import android.content.Context    
+import android.content.Context 
+import androidx.compose.material.icons.filled.QuestionAnswer   
 import android.content.Intent    
 import android.net.Uri    
 import android.provider.Settings    
@@ -83,7 +84,8 @@ fun HomeScreen(
     onNavigateToFortnightly: () -> Unit,
     onNavigateToDaily: () -> Unit,
     onNavigateToRoom: () -> Unit,                     
-    onNavigateToClanRanking: () -> Unit               // ← 新增参数                     
+    onNavigateToClanRanking: () -> Unit,              // ← 加逗号  
+    onNavigateToEqa: () -> Unit                       
 ) {
     val jjcBinds by viewModel.jjcBinds.collectAsState()
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()
@@ -137,7 +139,17 @@ fun HomeScreen(
                                 Icon(Icons.Default.Leaderboard, contentDescription = null)  
                             }  
                         )						
-                    }
+                        DropdownMenuItem(  
+                            text = { Text("问答") },  
+                            onClick = {  
+                                showMenu = false  
+                                onNavigateToEqa()  
+                            },  
+                            leadingIcon = {  
+                                Icon(Icons.Default.QuestionAnswer, contentDescription = null)  
+                            }  
+                        )
+					}
                 },
 				actions = {
 					IconButton(onClick = onNavigateToDaily) {  
