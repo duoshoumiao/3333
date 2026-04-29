@@ -18,21 +18,17 @@ fun StrokedIcon(
     contentDescription: String?,  
     modifier: Modifier = Modifier,  
     fillColor: Color = Color.Black,  
-    strokeColor: Color = GoldColor,  
-    strokeWidth: Float = 3f  
+    strokeColor: Color = Color(0xFFFFD700), // 金色  
 ) {  
     Box(modifier = modifier, contentAlignment = Alignment.Center) {  
-        // 底层：金色描边  
+        // 底层：金色，放大 1.25 倍，露出的边缘就是"描边"  
         Icon(  
             imageVector = imageVector,  
             contentDescription = null,  
             tint = strokeColor,  
-            modifier = Modifier.drawWithContent {  
-                drawContent()  
-                // 用 Stroke 样式重绘一遍，产生描边效果  
-            }  
+            modifier = Modifier.graphicsLayer(scaleX = 1.25f, scaleY = 1.25f)  
         )  
-        // 上层：黑色填充（略小，视觉上形成描边）  
+        // 上层：黑色，正常大小  
         Icon(  
             imageVector = imageVector,  
             contentDescription = contentDescription,  
