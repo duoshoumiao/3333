@@ -15,6 +15,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers    
 import kotlinx.coroutines.launch    
 import javax.inject.Inject    
+import android.Manifest  
+import android.content.pm.PackageManager  
+import androidx.core.content.ContextCompat
   
 @HiltAndroidApp    
 class PcrJjcApp : Application(), Configuration.Provider {    
@@ -41,6 +44,15 @@ class PcrJjcApp : Application(), Configuration.Provider {
         CoroutineScope(Dispatchers.IO).launch {  
             val enabled = settingsDataStore.isMonitoringEnabledSync()  
             if (enabled) {  
+                // Android 13+ 需要先检查通知权限，否则前台服务会崩溃  
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(  
+                            this@PcrJjcApp, android.Manifest.permission.POST_NOTIFICATIONS  
+                        ) != android.content.pm.PackageManager.PERMISSION_GRANTED  
+                    ) {  
+                        return@launch  
+                    }  
+                }  
                 val interval = settingsDataStore.getPollingIntervalSync()  
                 val intent = Intent(this@PcrJjcApp, RankMonitorService::class.java)  
                 intent.putExtra(RankMonitorService.EXTRA_INTERVAL_SECONDS, interval)  

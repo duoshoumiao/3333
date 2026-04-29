@@ -50,14 +50,18 @@ android {
     }
 	
 	buildTypes {  
+        debug {  
+            signingConfig = signingConfigs.getByName("release")  
+        }  
         release {  
+            signingConfig = signingConfigs.getByName("release")  
             isMinifyEnabled = false  
             proguardFiles(  
                 getDefaultProguardFile("proguard-android-optimize.txt"),  
                 "proguard-rules.pro"  
             )  
         }  
-    }  
+    }
     compileOptions {  
         sourceCompatibility = JavaVersion.VERSION_17  
         targetCompatibility = JavaVersion.VERSION_17  
@@ -116,7 +120,6 @@ dependencies {
     // OkHttp  
     implementation("com.squareup.okhttp3:okhttp:4.12.0")  
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") 
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")  
   
     // Coil (图片加载)  
     implementation("io.coil-kt:coil-compose:2.6.0") 

@@ -74,7 +74,14 @@ class RankMonitorService : Service() {
                 ) != PackageManager.PERMISSION_GRANTED  
             ) {  
                 Log.w(TAG, "通知权限未授予，停止前台服务")  
-                stopSelf()  
+                // 必须先调用 startForeground() 再 stopSelf()，否则会崩溃  
+                val placeholder = NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
+                    .setSmallIcon(R.drawable.ic_notification)  
+                    .setContentTitle("竞技场监控")  
+                    .setContentText("通知权限未授予")  
+                    .build()  
+                startForeground(NOTIFICATION_ID, placeholder)
+				stopSelf()  
                 return START_NOT_STICKY  
             }  
         }  
