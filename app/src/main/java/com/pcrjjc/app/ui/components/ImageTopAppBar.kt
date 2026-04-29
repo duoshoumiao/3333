@@ -32,9 +32,9 @@ fun ImageTopAppBar(
             actions = actions,  
             colors = TopAppBarDefaults.topAppBarColors(  
                 containerColor = Color.Transparent,  
-                titleContentColor = Color.White,  
-                navigationIconContentColor = Color.White,  
-                actionIconContentColor = Color.White  
+                titleContentColor = Color.Black,  
+				navigationIconContentColor = Color.Black, 
+                actionIconContentColor = Color.Unspecified
             )  
         )  
     }  
