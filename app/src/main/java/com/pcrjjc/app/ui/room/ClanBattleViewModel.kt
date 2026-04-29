@@ -835,7 +835,28 @@ class ClanBattleViewModel @Inject constructor(
                             val mergedSL = remoteTodaySL + localTodaySL.filter { it.playerQq !in remoteQqs }    
                             // 保留非今日的远程 SL + 合并后的今日 SL    
                             val finalSL = cbState.slRecords.filter { it.date != todayPcrDate } + mergedSL    
-                            _uiState.value = _uiState.value.copy(    
+                            // 检查当前用户的预约是否因boss击败被清除，发送系统通知  
+                            val myQq = _uiState.value.playerQq  
+                            val oldSubs = _uiState.value.battleState.subscribes.filter { it.playerQq == myQq }  
+                            val mergedState = cbState.copy(slRecords = finalSL)  
+                            val newSubs = mergedState.subscribes.filter { it.playerQq == myQq }  
+                            val clearedSubs = oldSubs.filter { old ->  
+                                newSubs.none { it.bossOrder == old.bossOrder }  
+                            }  
+                            if (clearedSubs.isNotEmpty()) {  
+                                val bossNums = clearedSubs.joinToString("、") { "${it.bossOrder}王" }  
+                                val notifMsg = "你预约的${bossNums}已出现，快来出刀！"  
+                                val notification = NotificationCompat.Builder(appContext, PcrJjcApp.CLAN_BATTLE_CHANNEL_ID)  
+                                    .setSmallIcon(R.drawable.ic_notification)  
+                                    .setContentTitle("会战预约提醒")  
+                                    .setContentText(notifMsg)  
+                                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)  
+                                    .setAutoCancel(true)  
+                                    .build()  
+                                val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
+                                nm.notify(System.currentTimeMillis().toInt(), notification)  
+                            }
+							_uiState.value = _uiState.value.copy(    
                                 battleState = cbState.copy(slRecords = finalSL)    
                             )    
                             continue    

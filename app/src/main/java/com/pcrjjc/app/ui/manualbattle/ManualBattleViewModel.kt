@@ -1,5 +1,10 @@
 package com.pcrjjc.app.ui.manualbattle  
-  
+
+import android.app.NotificationManager  
+import android.content.Context  
+import androidx.core.app.NotificationCompat  
+import com.pcrjjc.app.PcrJjcApp  
+import com.pcrjjc.app.R  
 import android.util.Log  
 import androidx.lifecycle.SavedStateHandle  
 import androidx.lifecycle.ViewModel  
@@ -7,7 +12,8 @@ import androidx.lifecycle.viewModelScope
 import com.pcrjjc.app.data.local.entity.ManualBattleState  
 import com.pcrjjc.app.data.remote.RoomClient  
 import com.pcrjjc.app.domain.ManualBattleEngine  
-import dagger.hilt.android.lifecycle.HiltViewModel  
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext  
 import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.Job  
 import kotlinx.coroutines.delay  
@@ -47,7 +53,8 @@ data class ManualBattleUiState(
 @HiltViewModel  
 class ManualBattleViewModel @Inject constructor(  
     private val roomClient: RoomClient,  
-    savedStateHandle: SavedStateHandle  
+    savedStateHandle: SavedStateHandle,  
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {  
   
     companion object {  
@@ -406,7 +413,27 @@ class ManualBattleViewModel @Inject constructor(
                 syncStateToRoom()  
                 sendChatMessage("[手动报刀] ${_uiState.value.playerName}: ${result.message}")  
             }  
-        }  
+        // 检查当前用户的预约是否因boss击败被清除，如果是则发送系统通知  
+            val myQq = _uiState.value.playerQq  
+            val oldMySubs = oldState.subscribes.filter { it.playerQq == myQq }  
+            val newMySubs = newState.subscribes.filter { it.playerQq == myQq }  
+            val clearedSubs = oldMySubs.filter { old ->  
+                newMySubs.none { it.bossNum == old.bossNum }  
+            }  
+            if (clearedSubs.isNotEmpty()) {  
+                val bossNums = clearedSubs.joinToString("、") { "${it.bossNum}王" }  
+                val msg = "你预约的${bossNums}已出现，快来出刀！"  
+                val notification = NotificationCompat.Builder(appContext, PcrJjcApp.CLAN_BATTLE_CHANNEL_ID)  
+                    .setSmallIcon(R.drawable.ic_notification)  
+                    .setContentTitle("会战预约提醒")  
+                    .setContentText(msg)  
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)  
+                    .setAutoCancel(true)  
+                    .build()  
+                val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
+                nm.notify(System.currentTimeMillis().toInt(), notification)  
+            }
+		}  
     }  
   
     // ======================== 房间消息通信 ========================  
@@ -496,7 +523,27 @@ class ManualBattleViewModel @Inject constructor(
                         if (mbState != null) {  
                             // 接受更新时间更晚的状态  
                             if (mbState.lastUpdateTime > _uiState.value.battleState.lastUpdateTime) {  
-                                _uiState.value = _uiState.value.copy(battleState = mbState)  
+                                // 检查当前用户的预约是否因boss击败被清除  
+                                val myQq = _uiState.value.playerQq  
+                                val oldSubs = _uiState.value.battleState.subscribes.filter { it.playerQq == myQq }  
+                                val newSubs = mbState.subscribes.filter { it.playerQq == myQq }  
+                                val clearedSubs = oldSubs.filter { old ->  
+                                    newSubs.none { it.bossNum == old.bossNum }  
+                                }  
+                                if (clearedSubs.isNotEmpty()) {  
+                                    val bossNums = clearedSubs.joinToString("、") { "${it.bossNum}王" }  
+                                    val notifMsg = "你预约的${bossNums}已出现，快来出刀！"  
+                                    val notification = NotificationCompat.Builder(appContext, PcrJjcApp.CLAN_BATTLE_CHANNEL_ID)  
+                                        .setSmallIcon(R.drawable.ic_notification)  
+                                        .setContentTitle("会战预约提醒")  
+                                        .setContentText(notifMsg)  
+                                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)  
+                                        .setAutoCancel(true)  
+                                        .build()  
+                                    val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
+                                    nm.notify(System.currentTimeMillis().toInt(), notification)  
+                                }
+								_uiState.value = _uiState.value.copy(battleState = mbState)  
                                 Log.d(TAG, "Received updated manual battle state from room")  
                             }  
                         }  
