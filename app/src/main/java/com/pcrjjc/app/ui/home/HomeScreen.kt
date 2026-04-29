@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.home    
 
+import com.pcrjjc.app.ui.components.StrokedIcon  
+import com.pcrjjc.app.ui.components.GoldColor
 import androidx.compose.material.icons.filled.Edit  // ← 新增  
 import android.content.Context 
 import androidx.compose.material.icons.filled.QuestionAnswer   
@@ -151,24 +153,24 @@ fun HomeScreen(
                         )
 					}
                 },
-				actions = {
+				actions = {  
 					IconButton(onClick = onNavigateToDaily) {  
-						Icon(Icons.Default.CleaningServices, contentDescription = "清日常")  
+						StrokedIcon(Icons.Default.CleaningServices, contentDescription = "清日常")  
 					}  
 					IconButton(onClick = onNavigateToFortnightly) {  
-						Icon(Icons.Default.DateRange, contentDescription = "半月刊")  
+						StrokedIcon(Icons.Default.DateRange, contentDescription = "半月刊")  
 					}  
 					IconButton(onClick = { launchArenaBreaker(context) }) {  
-						Icon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
+						StrokedIcon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
 					}  
 					IconButton(onClick = onNavigateToMaster) {  
-						Icon(Icons.Default.Visibility, contentDescription = "账号")  
+						StrokedIcon(Icons.Default.Visibility, contentDescription = "账号")  
 					}  
 					IconButton(onClick = onNavigateToAccount) {  
-						Icon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
+						StrokedIcon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
 					}  
 					IconButton(onClick = onNavigateToSettings) {  
-						Icon(Icons.Default.Settings, contentDescription = "设置")  
+						StrokedIcon(Icons.Default.Settings, contentDescription = "设置")  
 					}  
 				}  
 			)    
