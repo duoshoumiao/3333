@@ -2271,7 +2271,25 @@ private fun DailyConfigItemView(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 if (config.candidates.isNotEmpty()) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (config.candidates.size > MAX_VISIBLE_CANDIDATES) {  
+                        OutlinedTextField(  
+                            value = searchQuery,  
+                            onValueChange = { searchQuery = it },  
+                            modifier = Modifier.fillMaxWidth(),  
+                            singleLine = true,  
+                            placeholder = { Text("搜索...") },  
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },  
+                            trailingIcon = {  
+                                if (searchQuery.isNotEmpty()) {  
+                                    IconButton(onClick = { searchQuery = "" }) {  
+                                        Icon(Icons.Default.Clear, contentDescription = "清除")  
+                                    }  
+                                }  
+                            }  
+                        )  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                    }
+					FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         visibleCandidates.forEach { cand ->
                             val currentVal = config.currentValue?.toString()
                             val candVal = cand.value?.toString()
