@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer  
 import androidx.compose.ui.graphics.vector.ImageVector  
   
-val GoldColor = Color(0xFFFFD700)  
+val GoldColor = Color(0xFFFFFFFF)  
   
 @Composable  
 fun StrokedIcon(  
