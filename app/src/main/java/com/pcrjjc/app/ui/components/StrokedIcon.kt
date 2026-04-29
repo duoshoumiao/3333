@@ -5,9 +5,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
-import androidx.compose.ui.draw.drawWithContent  
 import androidx.compose.ui.graphics.Color  
-import androidx.compose.ui.graphics.drawscope.Stroke  
+import androidx.compose.ui.graphics.graphicsLayer  
 import androidx.compose.ui.graphics.vector.ImageVector  
   
 val GoldColor = Color(0xFFFFD700)  
@@ -18,17 +17,18 @@ fun StrokedIcon(
     contentDescription: String?,  
     modifier: Modifier = Modifier,  
     fillColor: Color = Color.Black,  
-    strokeColor: Color = Color(0xFFFFD700), // 金色  
+    strokeColor: Color = GoldColor,  
+    outlineScale: Float = 1.25f  // 控制描边粗细，越大描边越粗  
 ) {  
     Box(modifier = modifier, contentAlignment = Alignment.Center) {  
-        // 底层：金色，放大 1.25 倍，露出的边缘就是"描边"  
+        // 底层：金色图标，放大显示，露出的边缘形成描边效果  
         Icon(  
             imageVector = imageVector,  
             contentDescription = null,  
             tint = strokeColor,  
-            modifier = Modifier.graphicsLayer(scaleX = 1.25f, scaleY = 1.25f)  
+            modifier = Modifier.graphicsLayer(scaleX = outlineScale, scaleY = outlineScale)  
         )  
-        // 上层：黑色，正常大小  
+        // 上层：黑色图标，正常大小，覆盖在金色图标上方  
         Icon(  
             imageVector = imageVector,  
             contentDescription = contentDescription,  
