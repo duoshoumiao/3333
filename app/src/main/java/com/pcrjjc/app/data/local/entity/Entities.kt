@@ -56,3 +56,17 @@ data class RankCache(
     val grandArenaRank: Int,  
     val lastLoginTime: Int  
 )
+
+@Entity(  
+    tableName = "arena_ranking_cache",  
+    primaryKeys = ["platform", "arenaType", "viewerId"]  
+)  
+data class ArenaRankingCache(  
+    val platform: Int,  
+    val arenaType: Int,       // 1=JJC, 2=PJJC  
+    val viewerId: Long,  
+    val rank: Int,  
+    val userName: String,  
+    val teamLevel: Int,  
+    val queryTime: Long       // 查询时间戳  
+)
