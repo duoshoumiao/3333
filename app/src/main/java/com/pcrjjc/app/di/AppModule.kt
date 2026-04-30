@@ -12,7 +12,8 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.UpdateChecker  
 import com.pcrjjc.app.data.local.dao.BindDao    
 import com.pcrjjc.app.data.local.dao.HistoryDao    
-import com.pcrjjc.app.data.local.dao.RankCacheDao    
+import com.pcrjjc.app.data.local.dao.RankCacheDao  
+import com.pcrjjc.app.data.local.dao.ArenaRankingCacheDao  
 import dagger.Module    
 import dagger.Provides    
 import dagger.hilt.InstallIn    
@@ -33,7 +34,24 @@ object AppModule {
         }    
     }    
   
-    @Provides    
+    private val MIGRATION_3_4 = object : Migration(3, 4) {  
+        override fun migrate(db: SupportSQLiteDatabase) {  
+            db.execSQL("""  
+                CREATE TABLE IF NOT EXISTS arena_ranking_cache (  
+                    platform INTEGER NOT NULL,  
+                    arenaType INTEGER NOT NULL,  
+                    viewerId INTEGER NOT NULL,  
+                    rank INTEGER NOT NULL,  
+                    userName TEXT NOT NULL,  
+                    teamLevel INTEGER NOT NULL,  
+                    queryTime INTEGER NOT NULL,  
+                    PRIMARY KEY (platform, arenaType, viewerId)  
+                )  
+            """.trimIndent())  
+        }  
+    }
+	
+	@Provides    
     @Singleton    
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {    
         return Room.databaseBuilder(    
@@ -41,7 +59,7 @@ object AppModule {
             AppDatabase::class.java,    
             "pcrjjc.db"    
         )    
-        .addMigrations(MIGRATION_2_3)    
+        .addMigrations(MIGRATION_2_3, MIGRATION_3_4)    
         .build()    
     }     
   
@@ -57,7 +75,10 @@ object AppModule {
     @Provides    
     fun provideRankCacheDao(database: AppDatabase): RankCacheDao = database.rankCacheDao()    
   
-    @Provides    
+    @Provides  
+    fun provideArenaRankingCacheDao(database: AppDatabase): ArenaRankingCacheDao = database.arenaRankingCacheDao()
+	
+	@Provides    
     @Singleton    
     fun provideOkHttpClient(): OkHttpClient {    
         return OkHttpClient.Builder()    
