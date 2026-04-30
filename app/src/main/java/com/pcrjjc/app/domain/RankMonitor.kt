@@ -13,14 +13,20 @@ import com.pcrjjc.app.data.local.entity.JjcHistory
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.data.local.entity.RankCache  
 import com.pcrjjc.app.util.NoticeType  
+import com.pcrjjc.app.data.local.SettingsDataStore  
+import com.pcrjjc.app.util.EmailSender  
+import kotlinx.coroutines.CoroutineScope  
+import kotlinx.coroutines.Dispatchers  
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap  
   
 class RankMonitor(  
     private val context: Context,  
     private val historyDao: HistoryDao,  
     private val bindDao: BindDao,  
-    private val rankCacheDao: RankCacheDao  
-) {  
+    private val rankCacheDao: RankCacheDao,  
+    private val settingsDataStore: SettingsDataStore  
+) { 
     companion object {  
         private const val TAG = "RankMonitor"  
         private var notificationId = 1000  
@@ -225,6 +231,21 @@ suspend fun flushHistories() {
             .build()  
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
         nm.notify(notificationId++, notification)  
+  
+        // 邮箱推送（异步，不阻塞）  
+        CoroutineScope(Dispatchers.IO).launch {  
+            try {  
+                if (settingsDataStore.isEmailPushEnabled()) {  
+                    val email = settingsDataStore.getEmailAddress()  
+                    val authCode = settingsDataStore.getEmailAuthCode()  
+                    if (email.isNotBlank() && authCode.isNotBlank()) {  
+                        EmailSender.sendEmail(email, authCode, title, message)  
+                    }  
+                }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Email push failed: ${e.message}", e)  
+            }  
+        }  
     }  
   
     fun getCachedRank(pcrid: Long, platform: Int): IntArray? {  

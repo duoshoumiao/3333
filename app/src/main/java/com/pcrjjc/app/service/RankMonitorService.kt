@@ -57,7 +57,8 @@ class RankMonitorService : Service() {
     @Inject lateinit var historyDao: HistoryDao  
     @Inject lateinit var rankCacheDao: RankCacheDao  
     @Inject lateinit var clientManager: ClientManager  
-    @Inject lateinit var captchaManager: CaptchaManager  
+    @Inject lateinit var captchaManager: CaptchaManager
+	@Inject lateinit var settingsDataStore: com.pcrjjc.app.data.local.SettingsDataStore	
   
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)  
     private var pollingJob: Job? = null  
@@ -74,14 +75,7 @@ class RankMonitorService : Service() {
                 ) != PackageManager.PERMISSION_GRANTED  
             ) {  
                 Log.w(TAG, "通知权限未授予，停止前台服务")  
-                // 必须先调用 startForeground() 再 stopSelf()，否则会崩溃  
-                val placeholder = NotificationCompat.Builder(this, PcrJjcApp.SERVICE_CHANNEL_ID)  
-                    .setSmallIcon(R.drawable.ic_notification)  
-                    .setContentTitle("竞技场监控")  
-                    .setContentText("通知权限未授予")  
-                    .build()  
-                startForeground(NOTIFICATION_ID, placeholder)
-				stopSelf()  
+                stopSelf()  
                 return START_NOT_STICKY  
             }  
         }  
@@ -110,7 +104,7 @@ class RankMonitorService : Service() {
   
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
+            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao, settingsDataStore)  
   
             rankMonitor.initCacheFromDb()  
   
