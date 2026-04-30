@@ -4,7 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
 import com.pcrjjc.app.data.local.dao.AccountDao  
-import com.pcrjjc.app.data.local.dao.BindDao  
+import com.pcrjjc.app.data.local.dao.BindDao
+import com.pcrjjc.app.data.local.dao.ArenaRankingCacheDao  
+import com.pcrjjc.app.data.local.entity.ArenaRankingCache  
 import com.pcrjjc.app.data.local.entity.Account  
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.domain.ClientManager  
@@ -51,8 +53,9 @@ data class MasterUiState(
 class MasterViewModel @Inject constructor(  
     private val accountDao: AccountDao,  
     private val bindDao: BindDao,  
-    private val clientManager: ClientManager  
-) : ViewModel() {  
+    private val clientManager: ClientManager,  
+    private val arenaRankingCacheDao: ArenaRankingCacheDao  
+) : ViewModel() {
   
     companion object {  
         private const val TAG = "MasterViewModel"  
@@ -68,7 +71,8 @@ class MasterViewModel @Inject constructor(
   
     init {  
         loadBoundIds()  
-    }  
+        loadCachedRanking()  
+    } 
   
     private fun loadBoundIds() {  
 		viewModelScope.launch {  
@@ -79,7 +83,23 @@ class MasterViewModel @Inject constructor(
 		}  
 	}  
   
-    // ==================== 账号管理 ====================  
+    private fun loadCachedRanking() {  
+        viewModelScope.launch {  
+            val platform = _uiState.value.selectedPlatform.id  
+            val jjcCached = arenaRankingCacheDao.getByPlatformAndType(platform, 1)  
+            val pjjcCached = arenaRankingCacheDao.getByPlatformAndType(platform, 2)  
+            _uiState.value = _uiState.value.copy(  
+                jjcPlayers = jjcCached.map {  
+                    QueryEngine.ArenaRankingPlayer(it.viewerId, it.rank, it.userName, it.teamLevel)  
+                },  
+                pjjcPlayers = pjjcCached.map {  
+                    QueryEngine.ArenaRankingPlayer(it.viewerId, it.rank, it.userName, it.teamLevel)  
+                }  
+            )  
+        }  
+    }
+	
+	// ==================== 账号管理 ====================  
   
     fun updateAddAccount(value: String) {  
         _uiState.value = _uiState.value.copy(addAccount = value, addError = null)  
@@ -141,11 +161,10 @@ class MasterViewModel @Inject constructor(
     fun updatePlatform(platform: Platform) {  
         _uiState.value = _uiState.value.copy(  
             selectedPlatform = platform,  
-            errorMessage = null,  
-            jjcPlayers = emptyList(),  
-            pjjcPlayers = emptyList()  
+            errorMessage = null  
         )  
-    }  
+        loadCachedRanking()  
+    }
   
     fun queryRanking() {  
         val state = _uiState.value  
@@ -185,7 +204,26 @@ class MasterViewModel @Inject constructor(
 						boundJjcPcrIds = jjcIds,  
 						boundPjjcPcrIds = pjjcIds  
 					)  
-				} 
+				}
+		    // 写入缓存  
+                val arenaTypeInt = when (state.selectedType) {  
+                    ArenaType.JJC -> 1  
+                    ArenaType.PJJC -> 2  
+                }  
+                withContext(Dispatchers.IO) {  
+                    arenaRankingCacheDao.deleteByPlatformAndType(state.selectedPlatform.id, arenaTypeInt)  
+                    arenaRankingCacheDao.upsertAll(players.map {  
+                        ArenaRankingCache(  
+                            platform = state.selectedPlatform.id,  
+                            arenaType = arenaTypeInt,  
+                            viewerId = it.viewerId,  
+                            rank = it.rank,  
+                            userName = it.userName,  
+                            teamLevel = it.teamLevel,  
+                            queryTime = System.currentTimeMillis()  
+                        )  
+                    })  
+                }		
             } catch (e: Exception) {  
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
