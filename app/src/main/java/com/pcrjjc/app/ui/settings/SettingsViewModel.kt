@@ -14,7 +14,8 @@ import com.pcrjjc.app.data.local.entity.PcrBind
 import com.pcrjjc.app.domain.UpdateChecker    
 import com.pcrjjc.app.domain.UpdateInfo    
 import com.pcrjjc.app.service.RankMonitorService    
-import com.pcrjjc.app.util.CharaRoster    
+import com.pcrjjc.app.util.CharaRoster   
+import com.pcrjjc.app.util.EmailSender 
 import com.pcrjjc.app.util.IconStorage    
 import dagger.hilt.android.lifecycle.HiltViewModel    
 import dagger.hilt.android.qualifiers.ApplicationContext    
@@ -52,7 +53,13 @@ data class SettingsUiState(
     val avatarDownloadProgress: Float = 0f,
     val avatarDownloadMessage: String? = null,  
     val serverIpInput: String = "114.514.1.1",   // ← 新增  
-    val ipSaved: Boolean = false                      // ← 新增  
+    val ipSaved: Boolean = false,                      // ← 新增  
+	val emailAddress: String = "",                     // 邮箱地址  
+    val emailAuthCode: String = "",                    // 邮箱授权码  
+    val emailPushEnabled: Boolean = false,             // 邮箱推送开关  
+    val emailSaved: Boolean = false,                   // 邮箱配置已保存  
+    val isTestingEmail: Boolean = false,               // 正在测试邮件  
+    val emailTestMessage: String? = null               // 测试结果消息
 )    
   
 @HiltViewModel    
@@ -93,6 +100,16 @@ class SettingsViewModel @Inject constructor(
             val ip = settingsDataStore.getServerIp()  
             _uiState.value = _uiState.value.copy(serverIpInput = ip)  
         }
+	    viewModelScope.launch {  
+            val email = settingsDataStore.getEmailAddress()  
+            val authCode = settingsDataStore.getEmailAuthCode()  
+            val enabled = settingsDataStore.isEmailPushEnabled()  
+            _uiState.value = _uiState.value.copy(  
+                emailAddress = email,  
+                emailAuthCode = authCode,  
+                emailPushEnabled = enabled  
+            )  
+        }
 	}
   
     fun onIntervalInputChanged(input: String) {    
@@ -115,6 +132,52 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {  
             settingsDataStore.setServerIp(ip)  
             _uiState.value = _uiState.value.copy(ipSaved = true)  
+        }  
+    }
+	
+	fun onEmailAddressChanged(input: String) {  
+        _uiState.value = _uiState.value.copy(emailAddress = input, emailSaved = false)  
+    }  
+  
+    fun onEmailAuthCodeChanged(input: String) {  
+        _uiState.value = _uiState.value.copy(emailAuthCode = input, emailSaved = false)  
+    }  
+  
+    fun onEmailPushEnabledChanged(enabled: Boolean) {  
+        viewModelScope.launch {  
+            settingsDataStore.setEmailPushEnabled(enabled)  
+            _uiState.value = _uiState.value.copy(emailPushEnabled = enabled)  
+        }  
+    }  
+  
+    fun saveEmailSettings() {  
+        val email = _uiState.value.emailAddress.trim()  
+        val authCode = _uiState.value.emailAuthCode.trim()  
+        if (email.isBlank() || authCode.isBlank()) return  
+        viewModelScope.launch {  
+            settingsDataStore.setEmailAddress(email)  
+            settingsDataStore.setEmailAuthCode(authCode)  
+            _uiState.value = _uiState.value.copy(emailSaved = true)  
+        }  
+    }  
+  
+    fun testEmailPush() {  
+        val email = _uiState.value.emailAddress.trim()  
+        val authCode = _uiState.value.emailAuthCode.trim()  
+        if (email.isBlank() || authCode.isBlank()) return  
+        _uiState.value = _uiState.value.copy(isTestingEmail = true, emailTestMessage = null)  
+        viewModelScope.launch {  
+            val result = EmailSender.sendEmail(  
+                email = email,  
+                authCode = authCode,  
+                subject = "竞技场推送测试",  
+                body = "这是一封测试邮件，说明邮箱推送配置正确。"  
+            )  
+            _uiState.value = if (result.isSuccess) {  
+                _uiState.value.copy(isTestingEmail = false, emailTestMessage = "测试邮件发送成功！")  
+            } else {  
+                _uiState.value.copy(isTestingEmail = false, emailTestMessage = "发送失败: ${result.exceptionOrNull()?.message}")  
+            }  
         }  
     }
 	
