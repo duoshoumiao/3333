@@ -1238,15 +1238,17 @@ private fun CommandsContent(
                     enter = expandVertically(),  
                     exit = shrinkVertically()  
                 ) {  
-                    DailySettingsSection(  
-                        modules = dailyModules,  
-                        isLoading = isLoadingDaily,  
-                        expandedModuleKey = expandedModuleKey,  
-                        onToggleModule = onToggleDailyModule,  
-                        onExpandModule = onExpandDailyModule,  
-                        onUpdateConfig = onUpdateDailyConfig,  
-                        onUpdateConfigList = onUpdateDailyConfigList  
-                    )  
+                    ExecutableSettingsSection(  
+						modules = dailyModules,  
+						isLoading = isLoadingDaily,  
+						expandedModuleKey = expandedModuleKey,  
+						executingModuleKey = executingModuleKey,  
+						onToggleModule = onToggleDailyModule,  
+						onExpandModule = onExpandDailyModule,  
+						onExecuteModule = onExecuteModule,  
+						onUpdateConfig = onUpdateDailyConfig,  
+						onUpdateConfigList = onUpdateDailyConfigList  
+					)  
                 }  
             }  
   
@@ -2047,153 +2049,6 @@ private fun DailySectionHeader(
     }  
 }  
   
-// ==================== 日常模块设置内容 ====================  
-  
-@Composable  
-private fun DailySettingsSection(  
-    modules: List<DailyModuleItem>,  
-    isLoading: Boolean,  
-    expandedModuleKey: String?,  
-    onToggleModule: (String, Boolean) -> Unit,  
-    onExpandModule: (String?) -> Unit,  
-    onUpdateConfig: (String, Any) -> Unit,  
-    onUpdateConfigList: (String, List<Any?>) -> Unit  
-) {  
-    Column(  
-        modifier = Modifier  
-            .fillMaxWidth()  
-            .padding(top = 8.dp),  
-        verticalArrangement = Arrangement.spacedBy(6.dp)  
-    ) {  
-        if (isLoading && modules.isEmpty()) {  
-            Box(  
-                modifier = Modifier  
-                    .fillMaxWidth()  
-                    .padding(vertical = 24.dp),  
-                contentAlignment = Alignment.Center  
-            ) {  
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {  
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)  
-                    Spacer(modifier = Modifier.height(8.dp))  
-                    Text(  
-                        text = "加载日常配置...",  
-                        style = MaterialTheme.typography.bodySmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant  
-                    )  
-                }  
-            }  
-        } else if (modules.isEmpty()) {  
-            Text(  
-                text = "暂无日常模块配置",  
-                style = MaterialTheme.typography.bodyMedium,  
-                color = MaterialTheme.colorScheme.onSurfaceVariant,  
-                modifier = Modifier  
-                    .fillMaxWidth()  
-                    .padding(vertical = 16.dp),  
-                textAlign = TextAlign.Center  
-            )  
-        } else {  
-            modules.forEach { module ->  
-                DailyModuleCard(  
-                    module = module,  
-                    isExpanded = expandedModuleKey == module.key,  
-                    onToggle = { enabled -> onToggleModule(module.key, enabled) },  
-                    onExpand = { onExpandModule(module.key) },  
-                    onUpdateConfig = onUpdateConfig,  
-                    onUpdateConfigList = onUpdateConfigList  
-                )  
-            }  
-        }  
-    }  
-}  
-  
-// ==================== 单个日常模块卡片 ====================  
-  
-@OptIn(ExperimentalLayoutApi::class)  
-@Composable  
-private fun DailyModuleCard(  
-    module: DailyModuleItem,  
-    isExpanded: Boolean,  
-    onToggle: (Boolean) -> Unit,  
-    onExpand: () -> Unit,  
-    onUpdateConfig: (String, Any) -> Unit,  
-    onUpdateConfigList: (String, List<Any?>) -> Unit  
-) {  
-    Card(  
-        modifier = Modifier.fillMaxWidth(),  
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),  
-        colors = CardDefaults.cardColors(  
-            containerColor = if (module.enabled)  
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)  
-            else  
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)  
-        )  
-    ) {  
-        Column(modifier = Modifier.padding(12.dp)) {  
-            // 主行：开关 + 名称 + 展开按钮  
-            Row(  
-                modifier = Modifier.fillMaxWidth(),  
-                verticalAlignment = Alignment.CenterVertically  
-            ) {  
-                Switch(  
-                    checked = module.enabled,  
-                    onCheckedChange = onToggle,  
-                    modifier = Modifier.size(width = 46.dp, height = 24.dp)  
-                )  
-                Spacer(modifier = Modifier.width(10.dp))  
-                Column(modifier = Modifier.weight(1f)) {  
-                    Text(  
-                        text = module.name,  
-                        style = MaterialTheme.typography.bodyMedium,  
-                        fontWeight = FontWeight.Bold,  
-                        maxLines = 1,  
-                        overflow = TextOverflow.Ellipsis  
-                    )  
-                    if (module.description.isNotBlank()) {  
-                        Text(  
-                            text = module.description,  
-                            style = MaterialTheme.typography.bodySmall,  
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,  
-                            maxLines = 1,  
-                            overflow = TextOverflow.Ellipsis  
-                        )  
-                    }  
-                }  
-                if (module.configs.isNotEmpty()) {  
-                    IconButton(  
-                        onClick = onExpand,  
-                        modifier = Modifier.size(32.dp)  
-                    ) {  
-                        Icon(  
-                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,  
-                            contentDescription = if (isExpanded) "收起" else "展开配置",  
-                            modifier = Modifier.size(18.dp)  
-                        )  
-                    }  
-                }  
-            }  
-  
-            // 展开的子配置  
-            AnimatedVisibility(  
-                visible = isExpanded && module.configs.isNotEmpty(),  
-                enter = expandVertically(),  
-                exit = shrinkVertically()  
-            ) {  
-                Column(modifier = Modifier.padding(top = 8.dp)) {  
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))  
-                    module.configs.forEach { cfg ->  
-                        DailyConfigItemView(  
-                            config = cfg,  
-                            onUpdateConfig = onUpdateConfig,  
-                            onUpdateConfigList = onUpdateConfigList  
-                        )  
-                        Spacer(modifier = Modifier.height(6.dp))  
-                    }  
-                }  
-            }  
-        }  
-    }  
-}  
   
 // ==================== 单个配置项渲染 ====================
 
