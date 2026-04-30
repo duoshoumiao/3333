@@ -12,6 +12,7 @@ import com.pcrjjc.app.data.local.dao.RankCacheDao
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
+import com.pcrjjc.app.data.local.SettingsDataStore
 import dagger.assisted.Assisted  
 import dagger.assisted.AssistedInject  
   
@@ -23,7 +24,8 @@ class RankCheckWorker @AssistedInject constructor(
     private val bindDao: BindDao,  
     private val historyDao: HistoryDao,  
     private val rankCacheDao: RankCacheDao,  
-    private val clientManager: ClientManager  
+    private val clientManager: ClientManager,  
+    private val settingsDataStore: SettingsDataStore
 ) : CoroutineWorker(appContext, workerParams) {  
   
     companion object {  
@@ -42,7 +44,7 @@ class RankCheckWorker @AssistedInject constructor(
             }  
   
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao)  
+            val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao, settingsDataStore)  
   
             // ★ 修复：从数据库初始化缓存，避免 Worker 每次运行都丢失比较基准  
             rankMonitor.initCacheFromDb()  
