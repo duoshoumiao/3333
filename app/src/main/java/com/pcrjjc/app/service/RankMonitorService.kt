@@ -57,7 +57,8 @@ class RankMonitorService : Service() {
     @Inject lateinit var historyDao: HistoryDao  
     @Inject lateinit var rankCacheDao: RankCacheDao  
     @Inject lateinit var clientManager: ClientManager  
-    @Inject lateinit var captchaManager: CaptchaManager  
+    @Inject lateinit var captchaManager: CaptchaManager
+	@Inject lateinit var settingsDataStore: com.pcrjjc.app.data.local.SettingsDataStore	
   
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)  
     private var pollingJob: Job? = null  
@@ -103,7 +104,7 @@ class RankMonitorService : Service() {
   
             Log.i(TAG, "开始轮询，间隔 ${intervalSeconds} 秒")  
             val queryEngine = QueryEngine()  
-            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao)  
+            val rankMonitor = RankMonitor(this@RankMonitorService, historyDao, bindDao, rankCacheDao, settingsDataStore)  
   
             rankMonitor.initCacheFromDb()  
   

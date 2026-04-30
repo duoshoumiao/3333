@@ -310,7 +310,89 @@ fun SettingsScreen(
                 }    
             }    
   
-            // ========== 通知设置 ==========    
+            // ========== 邮箱推送设置 ==========  
+            Card(  
+                modifier = Modifier.fillMaxWidth(),  
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+            ) {  
+                Column(modifier = Modifier.padding(16.dp)) {  
+                    Text("邮箱推送", style = MaterialTheme.typography.titleMedium)  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text(  
+                        text = "开启后，排名变动时会同时发送邮件通知",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(12.dp))  
+  
+                    NoticeCheckbox(  
+                        label = "启用邮箱推送",  
+                        checked = uiState.emailPushEnabled,  
+                        onCheckedChange = { viewModel.onEmailPushEnabledChanged(it) }  
+                    )  
+  
+                    Spacer(modifier = Modifier.height(8.dp))  
+  
+                    OutlinedTextField(  
+                        value = uiState.emailAddress,  
+                        onValueChange = { viewModel.onEmailAddressChanged(it) },  
+                        label = { Text("邮箱地址") },  
+                        placeholder = { Text("example@qq.com") },  
+                        singleLine = true,  
+                        modifier = Modifier.fillMaxWidth(),  
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)  
+                    )  
+  
+                    Spacer(modifier = Modifier.height(8.dp))  
+  
+                    OutlinedTextField(  
+                        value = uiState.emailAuthCode,  
+                        onValueChange = { viewModel.onEmailAuthCodeChanged(it) },  
+                        label = { Text("邮箱授权码") },  
+                        placeholder = { Text("SMTP授权码/应用密码") },  
+                        singleLine = true,  
+                        modifier = Modifier.fillMaxWidth(),  
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)  
+                    )  
+  
+                    Spacer(modifier = Modifier.height(12.dp))  
+  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)  
+                    ) {  
+                        Button(  
+                            onClick = { viewModel.saveEmailSettings() },  
+                            enabled = uiState.emailAddress.isNotBlank() && uiState.emailAuthCode.isNotBlank(),  
+                            modifier = Modifier.weight(1f)  
+                        ) {  
+                            Text("保存")  
+                        }  
+                        OutlinedButton(  
+                            onClick = { viewModel.testEmailPush() },  
+                            enabled = uiState.emailAddress.isNotBlank() && uiState.emailAuthCode.isNotBlank() && !uiState.isTestingEmail,  
+                            modifier = Modifier.weight(1f)  
+                        ) {  
+                            if (uiState.isTestingEmail) {  
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)  
+                                Spacer(modifier = Modifier.width(8.dp))  
+                            }  
+                            Text("测试")  
+                        }  
+                    }  
+  
+                    if (uiState.emailSaved) {  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text("邮箱配置已保存", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)  
+                    }  
+                    uiState.emailTestMessage?.let { msg ->  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                    }  
+                }  
+            }
+			
+			// ========== 通知设置 ==========    
             if (uiState.binds.isNotEmpty()) {    
                 Text("通知设置", style = MaterialTheme.typography.titleMedium)    
                 uiState.binds.forEach { bind ->    
