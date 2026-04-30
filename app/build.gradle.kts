@@ -50,18 +50,14 @@ android {
     }
 	
 	buildTypes {  
-        debug {  
-            signingConfig = signingConfigs.getByName("release")  
-        }  
         release {  
-            signingConfig = signingConfigs.getByName("release")  
             isMinifyEnabled = false  
             proguardFiles(  
                 getDefaultProguardFile("proguard-android-optimize.txt"),  
                 "proguard-rules.pro"  
             )  
         }  
-    }
+    }  
     compileOptions {  
         sourceCompatibility = JavaVersion.VERSION_17  
         targetCompatibility = JavaVersion.VERSION_17  
@@ -80,6 +76,8 @@ android {
     packaging {  
         resources {  
             excludes += "/META-INF/{AL2.0,LGPL2.1}"  
+            excludes += "/META-INF/NOTICE.md"  
+            excludes += "/META-INF/LICENSE.md" 
         }  
     }  
 }  
@@ -133,7 +131,11 @@ dependencies {
     // Kotlin Coroutines  
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")  
   
-    // Core KTX  
+    // JavaMail for Android (邮箱推送)  
+    implementation("com.sun.mail:android-mail:1.6.7")  
+    implementation("com.sun.mail:android-activation:1.6.7")
+	
+	// Core KTX  
     implementation("androidx.core:core-ktx:1.12.0")  
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")  
   
