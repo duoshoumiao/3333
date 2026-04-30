@@ -32,6 +32,9 @@ class SettingsDataStore(private val context: Context) {
         private val KEY_NOTIFIED_VERSION = stringPreferencesKey("notified_version")  
         private val KEY_USER_QQ = stringPreferencesKey("user_qq")  // 用户QQ号
         private val KEY_USER_NAME = stringPreferencesKey("user_name")  // 用户昵称
+		private val KEY_EMAIL_ADDRESS = stringPreferencesKey("email_address")       // 邮箱地址  
+        private val KEY_EMAIL_AUTH_CODE = stringPreferencesKey("email_auth_code")    // 邮箱授权码  
+        private val KEY_EMAIL_PUSH_ENABLED = booleanPreferencesKey("email_push_enabled") // 邮箱推送开关
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->    
@@ -73,7 +76,10 @@ class SettingsDataStore(private val context: Context) {
     val userNameFlow: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_USER_NAME] ?: ""
     }
-
+    
+	val emailPushEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->  
+        prefs[KEY_EMAIL_PUSH_ENABLED] ?: false  
+    }
   
     suspend fun setPollingInterval(seconds: Long) {    
         context.dataStore.edit { prefs ->    
@@ -116,8 +122,17 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.edit { it[KEY_USER_NAME] = name }
     }
 
-  
-    suspend fun getPollingIntervalSync(): Long {    
+    suspend fun setEmailAddress(email: String) {  
+        context.dataStore.edit { it[KEY_EMAIL_ADDRESS] = email }  
+    }  
+    suspend fun setEmailAuthCode(code: String) {  
+        context.dataStore.edit { it[KEY_EMAIL_AUTH_CODE] = code }  
+    }  
+    suspend fun setEmailPushEnabled(enabled: Boolean) {  
+        context.dataStore.edit { it[KEY_EMAIL_PUSH_ENABLED] = enabled }  
+    }
+    
+	suspend fun getPollingIntervalSync(): Long {    
         return context.dataStore.data.first()[KEY_POLLING_INTERVAL] ?: 1L    
     }    
   
@@ -133,7 +148,17 @@ class SettingsDataStore(private val context: Context) {
         return context.dataStore.data.first()[KEY_USER_NAME] ?: ""
     }
 
-    // 获取用户保存的 IP，默认 114.514.1.1
+    suspend fun getEmailAddress(): String {  
+        return context.dataStore.data.first()[KEY_EMAIL_ADDRESS] ?: ""  
+    }  
+    suspend fun getEmailAuthCode(): String {  
+        return context.dataStore.data.first()[KEY_EMAIL_AUTH_CODE] ?: ""  
+    }  
+    suspend fun isEmailPushEnabled(): Boolean {  
+        return context.dataStore.data.first()[KEY_EMAIL_PUSH_ENABLED] ?: false  
+    }
+	
+	// 获取用户保存的 IP，默认 114.514.1.1
     suspend fun getServerIp(): String {  
         return context.dataStore.data.first()[KEY_SERVER_IP]?.ifBlank { null }  
             ?: "114.514.1.1"  
