@@ -2,6 +2,7 @@ package com.pcrjjc.app.service
   
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import android.annotation.SuppressLint  
+import android.app.AlertDialog  
 import android.app.Service  
 import android.content.Context  
 import android.content.Intent  
@@ -21,6 +22,7 @@ import android.view.MotionEvent
 import android.view.View  
 import android.view.ViewGroup  
 import android.view.WindowManager  
+import android.widget.EditText  
 import android.widget.FrameLayout  
 import android.widget.HorizontalScrollView  
 import android.widget.ImageView  
@@ -163,26 +165,119 @@ class FloatingWindowService : Service() {
         floatButton = null  
     }  
   
-    // ======================== 截图 + 框选 + 发送服务器 ========================  
+    // ======================== 模式选择 ========================  
   
     private fun onFloatButtonClick() {  
+        showModeSelectionDialog()  
+    }  
+  
+    private fun showModeSelectionDialog() {  
         floatButton?.visibility = View.INVISIBLE  
         removeResultPanel()  
   
-        handler.postDelayed({  
-            scope.launch {  
-                try {  
-                    doScreenshotAndShowCrop()  
-                } catch (e: Exception) {  
-                    Log.e(TAG, "怎么拆流程出错", e)  
-                    withContext(Dispatchers.Main) {  
-                        Toast.makeText(this@FloatingWindowService, "出错: ${e.message}", Toast.LENGTH_SHORT).show()  
+        val options = arrayOf("截图模式", "文本输入模式")  
+        AlertDialog.Builder(this)  
+            .setTitle("选择查询模式")  
+            .setItems(options) { _, which ->  
+                when (which) {  
+                    0 -> scope.launch { doScreenshotAndShowCrop() }  
+                    1 -> showTextInputMode()  
+                }  
+            }  
+            .setOnCancelListener {  
+                floatButton?.visibility = View.VISIBLE  
+            }  
+            .show()  
+    }  
+  
+    // ======================== 文本输入模式 ========================  
+  
+    private fun showTextInputMode() {  
+        val input = EditText(this).apply {  
+            hint = "请输入防守阵容信息，如：黑猫+TP+姐姐+熊锤"  
+            setTextColor(Color.WHITE)  
+            setHintTextColor(Color.LTGRAY)  
+            setBackgroundColor(0xFF333333.toInt())  
+            setPadding(dp(16), dp(12), dp(16), dp(12))  
+        }  
+  
+        AlertDialog.Builder(this)  
+            .setTitle("文本输入模式")  
+            .setView(input)  
+            .setPositiveButton("查询") { _, _ ->  
+                val text = input.text.toString().trim()  
+                if (text.isNotEmpty()) {  
+                    onTextInputConfirmed(text)  
+                } else {  
+                    Toast.makeText(this, "请输入阵容信息", Toast.LENGTH_SHORT).show()  
+                    floatButton?.visibility = View.VISIBLE  
+                }  
+            }  
+            .setNegativeButton("取消") { _, _ ->  
+                floatButton?.visibility = View.VISIBLE  
+            }  
+            .setOnCancelListener {  
+                floatButton?.visibility = View.VISIBLE  
+            }  
+            .show()  
+    }  
+  
+    private fun onTextInputConfirmed(text: String) {  
+        scope.launch {  
+            try {  
+                withContext(Dispatchers.Main) { showLoadingPanel() }  
+  
+                Log.i(TAG, "发送文本到服务器: $text")  
+  
+                val serverResponse = withContext(Dispatchers.IO) {  
+                    arenaClient.queryByText(text, region = 2)  
+                }  
+  
+                withContext(Dispatchers.Main) {  
+                    removeResultPanel()  
+  
+                    if (serverResponse.code != 0) {  
+                        Toast.makeText(  
+                            this@FloatingWindowService,  
+                            serverResponse.message.ifEmpty { "查询失败" },  
+                            Toast.LENGTH_SHORT  
+                        ).show()  
+                        floatButton?.visibility = View.VISIBLE  
+                        return@withContext  
+                    }  
+  
+                    if (!serverResponse.image.isNullOrEmpty()) {  
+                        showImageResultPanel(  
+                            serverResponse.image,  
+                            serverResponse.message,  
+                            serverResponse.highlightImage,  
+                            serverResponse.compareImage  
+                        )  
+                    } else if (serverResponse.results.isNotEmpty()) {  
+                        val firstResult = serverResponse.results.firstOrNull { it.attacks.isNotEmpty() }  
+                        if (firstResult != null) {  
+                            showResultPanel(firstResult.defenseIds, firstResult.attacks)  
+                        } else {  
+                            Toast.makeText(this@FloatingWindowService, "未找到进攻阵容推荐", Toast.LENGTH_SHORT).show()  
+                            floatButton?.visibility = View.VISIBLE  
+                        }  
+                    } else {  
+                        Toast.makeText(this@FloatingWindowService, serverResponse.message.ifEmpty { "未找到结果" }, Toast.LENGTH_SHORT).show()  
                         floatButton?.visibility = View.VISIBLE  
                     }  
                 }  
+            } catch (e: Exception) {  
+                Log.e(TAG, "文本查询流程出错", e)  
+                withContext(Dispatchers.Main) {  
+                    removeResultPanel()  
+                    Toast.makeText(this@FloatingWindowService, "出错: ${e.message}", Toast.LENGTH_SHORT).show()  
+                    floatButton?.visibility = View.VISIBLE  
+                }  
             }  
-        }, 300)  
+        }  
     }  
+  
+    // ======================== 截图 + 框选 + 发送服务器 ========================  
   
     /**  
      * 截图后显示框选覆盖层，让用户手动选择头像区域。  
@@ -223,12 +318,10 @@ class FloatingWindowService : Service() {
             context = this,  
             screenshot = screenshot,  
             onConfirm = { cropRect ->  
-                // 用户确认框选  
                 removeCropOverlay()  
                 onCropConfirmed(screenshot, cropRect)  
             },  
             onCancel = {  
-                // 用户取消  
                 removeCropOverlay()  
                 screenshot.recycle()  
                 floatButton?.visibility = View.VISIBLE  
@@ -265,7 +358,6 @@ class FloatingWindowService : Service() {
             try {  
                 withContext(Dispatchers.Main) { showLoadingPanel() }  
   
-                // 裁剪框选区域  
                 val w = cropRect.width().coerceAtMost(screenshot.width - cropRect.left)  
                 val h = cropRect.height().coerceAtMost(screenshot.height - cropRect.top)  
                 if (w <= 0 || h <= 0) {  
@@ -281,7 +373,6 @@ class FloatingWindowService : Service() {
                 val croppedBitmap = Bitmap.createBitmap(screenshot, cropRect.left, cropRect.top, w, h)  
                 Log.i(TAG, "框选区域: ${cropRect}, 裁剪: ${w}x${h}")  
   
-                // 将裁剪区域转为字节数组发送到服务器  
                 val baos = java.io.ByteArrayOutputStream()  
                 croppedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)  
                 val imageBytes = baos.toByteArray()  
@@ -303,27 +394,28 @@ class FloatingWindowService : Service() {
                             serverResponse.message.ifEmpty { "查询失败" },  
                             Toast.LENGTH_SHORT  
                         ).show()  
+                        floatButton?.visibility = View.VISIBLE  
                         return@withContext  
                     }  
   
-                    // 优先展示服务器渲染的图片（PJJC 无冲配队图 / JJC 结果图）  
                     if (!serverResponse.image.isNullOrEmpty()) {  
 						showImageResultPanel(  
 							serverResponse.image,  
 							serverResponse.message,  
-							serverResponse.highlightImage,   // ★ 新增  
-							serverResponse.compareImage      // ★ 新增  
+							serverResponse.highlightImage,  
+							serverResponse.compareImage  
 						)  
 					} else if (serverResponse.results.isNotEmpty()) {  
-                        // fallback: 用结构化数据展示  
                         val firstResult = serverResponse.results.firstOrNull { it.attacks.isNotEmpty() }  
                         if (firstResult != null) {  
                             showResultPanel(firstResult.defenseIds, firstResult.attacks)  
                         } else {  
                             Toast.makeText(this@FloatingWindowService, "未找到进攻阵容推荐", Toast.LENGTH_SHORT).show()  
+                            floatButton?.visibility = View.VISIBLE  
                         }  
                     } else {  
                         Toast.makeText(this@FloatingWindowService, serverResponse.message.ifEmpty { "未找到结果" }, Toast.LENGTH_SHORT).show()  
+                        floatButton?.visibility = View.VISIBLE  
                     }  
                 }  
             } catch (e: Exception) {  
@@ -383,9 +475,9 @@ class FloatingWindowService : Service() {
 		message: String,  
 		highlightBase64: String? = null,  
 		compareBase64: String? = null  
-	) {
+	) {  
         val ctx: Context = this  
-        val panelWidth = dp(185)    // ★ 加这一行 
+        val panelWidth = dp(185)    
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
@@ -393,7 +485,6 @@ class FloatingWindowService : Service() {
             setPadding(dp(8), dp(8), dp(8), dp(8))  
         }  
   
-        // 标题栏（可拖动）  
         val titleRow = LinearLayout(ctx).apply {  
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER_VERTICAL  
@@ -416,93 +507,88 @@ class FloatingWindowService : Service() {
         titleRow.addView(closeBtn)  
         root.addView(titleRow)  
   
-        // ScrollView 包裹所有图片内容  
-		val screenHeight = resources.displayMetrics.heightPixels  
-		val maxScrollHeight = (screenHeight * 0.55).toInt()  
-	  
-		val scrollView = ScrollView(ctx).apply {  
-			layoutParams = LinearLayout.LayoutParams(  
-				ViewGroup.LayoutParams.MATCH_PARENT,  
-				maxScrollHeight  
-			)  
-		}  
-		val contentLayout = LinearLayout(ctx).apply {  
-			orientation = LinearLayout.VERTICAL  
-		}  
-	  
-		// ★ 识别高亮图  
-		if (!highlightBase64.isNullOrEmpty()) {  
-			try {  
-				val bytes = Base64.decode(highlightBase64, Base64.DEFAULT)  
-				val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
-				if (bmp != null) {  
-					val label = TextView(ctx).apply {  
-						text = "识别高亮图"  
-						setTextColor(0xFFFFCC00.toInt())  
-						textSize = 11f  
-						setPadding(0, dp(4), 0, dp(2))  
-					}  
-					contentLayout.addView(label)  
-					val scale = panelWidth.toFloat() / bmp.width.toFloat()  
-					val scaledH = (bmp.height * scale).toInt()  
-					val iv = ImageView(ctx).apply {  
-						setImageBitmap(bmp)  
-						scaleType = ImageView.ScaleType.FIT_XY  
-						layoutParams = LinearLayout.LayoutParams(panelWidth, scaledH)  
-					}  
-					contentLayout.addView(iv)  
-				}  
-			} catch (e: Exception) {  
-				Log.w(TAG, "识别高亮图解码失败", e)  
-			}  
-		}  
-	  
-		// ★ 对比图  
-		if (!compareBase64.isNullOrEmpty()) {  
-			try {  
-				val bytes = Base64.decode(compareBase64, Base64.DEFAULT)  
-				val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
-				if (bmp != null) {  
-					val label = TextView(ctx).apply {  
-						text = "对比图 (上:截图 下:标准)"  
-						setTextColor(0xFFFFCC00.toInt())  
-						textSize = 11f  
-						setPadding(0, dp(4), 0, dp(2))  
-					}  
-					contentLayout.addView(label)  
-					val scale = panelWidth.toFloat() / bmp.width.toFloat()  
-					val scaledH = (bmp.height * scale).toInt()  
-					val iv = ImageView(ctx).apply {  
-						setImageBitmap(bmp)  
-						scaleType = ImageView.ScaleType.FIT_XY  
-						layoutParams = LinearLayout.LayoutParams(panelWidth, scaledH)  
-					}  
-					contentLayout.addView(iv)  
-				}  
-			} catch (e: Exception) {  
-				Log.w(TAG, "对比图解码失败", e)  
-			}  
-		}  
-	  
-		// ★ 分隔线  
-		if (!highlightBase64.isNullOrEmpty() || !compareBase64.isNullOrEmpty()) {  
-			val divider = View(ctx).apply {  
-				setBackgroundColor(Color.GRAY)  
-				layoutParams = LinearLayout.LayoutParams(  
-					ViewGroup.LayoutParams.MATCH_PARENT, 1  
-				).apply { setMargins(0, dp(4), 0, dp(4)) }  
-			}  
-			contentLayout.addView(divider)  
-			val resultLabel = TextView(ctx).apply {  
-				text = "推荐进攻阵容"  
-				setTextColor(0xFF90CAF9.toInt())  
-				textSize = 11f  
-				setPadding(0, 0, 0, dp(2))  
-			}  
-			contentLayout.addView(resultLabel)  
-		}  
-		
-		// 解码结果图并加入 contentLayout  
+        val screenHeight = resources.displayMetrics.heightPixels  
+        val maxScrollHeight = (screenHeight * 0.55).toInt()  
+  
+        val scrollView = ScrollView(ctx).apply {  
+            layoutParams = LinearLayout.LayoutParams(  
+                ViewGroup.LayoutParams.MATCH_PARENT,  
+                maxScrollHeight  
+            )  
+        }  
+        val contentLayout = LinearLayout(ctx).apply {  
+            orientation = LinearLayout.VERTICAL  
+        }  
+  
+        if (!highlightBase64.isNullOrEmpty()) {  
+            try {  
+                val bytes = Base64.decode(highlightBase64, Base64.DEFAULT)  
+                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                if (bmp != null) {  
+                    val label = TextView(ctx).apply {  
+                        text = "识别高亮图"  
+                        setTextColor(0xFFFFCC00.toInt())  
+                        textSize = 11f  
+                        setPadding(0, dp(4), 0, dp(2))  
+                    }  
+                    contentLayout.addView(label)  
+                    val scale = panelWidth.toFloat() / bmp.width.toFloat()  
+                    val scaledH = (bmp.height * scale).toInt()  
+                    val iv = ImageView(ctx).apply {  
+                        setImageBitmap(bmp)  
+                        scaleType = ImageView.ScaleType.FIT_XY  
+                        layoutParams = LinearLayout.LayoutParams(panelWidth, scaledH)  
+                    }  
+                    contentLayout.addView(iv)  
+                }  
+            } catch (e: Exception) {  
+                Log.w(TAG, "识别高亮图解码失败", e)  
+            }  
+        }  
+  
+        if (!compareBase64.isNullOrEmpty()) {  
+            try {  
+                val bytes = Base64.decode(compareBase64, Base64.DEFAULT)  
+                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                if (bmp != null) {  
+                    val label = TextView(ctx).apply {  
+                        text = "对比图 (上:截图 下:标准)"  
+                        setTextColor(0xFFFFCC00.toInt())  
+                        textSize = 11f  
+                        setPadding(0, dp(4), 0, dp(2))  
+                    }  
+                    contentLayout.addView(label)  
+                    val scale = panelWidth.toFloat() / bmp.width.toFloat()  
+                    val scaledH = (bmp.height * scale).toInt()  
+                    val iv = ImageView(ctx).apply {  
+                        setImageBitmap(bmp)  
+                        scaleType = ImageView.ScaleType.FIT_XY  
+                        layoutParams = LinearLayout.LayoutParams(panelWidth, scaledH)  
+                    }  
+                    contentLayout.addView(iv)  
+                }  
+            } catch (e: Exception) {  
+                Log.w(TAG, "对比图解码失败", e)  
+            }  
+        }  
+  
+        if (!highlightBase64.isNullOrEmpty() || !compareBase64.isNullOrEmpty()) {  
+            val divider = View(ctx).apply {  
+                setBackgroundColor(Color.GRAY)  
+                layoutParams = LinearLayout.LayoutParams(  
+                    ViewGroup.LayoutParams.MATCH_PARENT, 1  
+                ).apply { setMargins(0, dp(4), 0, dp(4)) }  
+            }  
+            contentLayout.addView(divider)  
+            val resultLabel = TextView(ctx).apply {  
+                text = "推荐进攻阵容"  
+                setTextColor(0xFF90CAF9.toInt())  
+                textSize = 11f  
+                setPadding(0, 0, 0, dp(2))  
+            }  
+            contentLayout.addView(resultLabel)  
+        }  
+		  
         try {  
             val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
             val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
@@ -536,11 +622,9 @@ class FloatingWindowService : Service() {
             contentLayout.addView(errorText)  
         }  
   
-        // ★ 关键：把 contentLayout 加到 scrollView，再加到 root  
         scrollView.addView(contentLayout)  
         root.addView(scrollView) 
   
-        // 底部按钮  
         val bottomRow = LinearLayout(ctx).apply {  
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER  
@@ -553,7 +637,7 @@ class FloatingWindowService : Service() {
             setPadding(dp(16), dp(6), dp(16), dp(6))  
             setOnClickListener {  
                 removeResultPanel()  
-                onFloatButtonClick()  
+                showModeSelectionDialog()  
             }  
         }  
         val closeBtn2 = TextView(ctx).apply {  
@@ -581,7 +665,6 @@ class FloatingWindowService : Service() {
         windowManager.addView(root, params)  
         resultPanel = root  
   
-        // 标题栏可拖动  
         makePanelDraggable(titleRow, root, params)  
     }  
 	
@@ -590,19 +673,22 @@ class FloatingWindowService : Service() {
     @SuppressLint("ClickableViewAccessibility")  
     private fun showResultPanel(defenseIds: List<Int>, results: List<ArenaQueryClient.ArenaResult>) {  
         val ctx: Context = this  
+        val iconSize = dp(52)  
+        val panelWidth = dp(185)  
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
             setBackgroundColor(0xF0222222.toInt())  
-            setPadding(dp(12), dp(8), dp(12), dp(8))  
+            setPadding(dp(8), dp(8), dp(8), dp(8))  
         }  
   
         val titleRow = LinearLayout(ctx).apply {  
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER_VERTICAL  
+            setPadding(dp(4), dp(4), dp(4), dp(4))  
         }  
         val titleText = TextView(ctx).apply {  
-            text = "⠿ 防守阵容 → 推荐进攻"  
+            text = "⠿ 推荐进攻阵容"  
             setTextColor(Color.WHITE)  
             textSize = 13f  
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)  
@@ -618,61 +704,72 @@ class FloatingWindowService : Service() {
         titleRow.addView(closeBtn)  
         root.addView(titleRow)  
   
-        val defRow = createIconRow(ctx, defenseIds)  
-        root.addView(defRow)  
-  
-        val divider = View(ctx).apply {  
-            setBackgroundColor(Color.GRAY)  
-            layoutParams = LinearLayout.LayoutParams(  
-                ViewGroup.LayoutParams.MATCH_PARENT, 1  
-            ).apply { setMargins(0, dp(6), 0, dp(6)) }  
+        val hsv = HorizontalScrollView(ctx)  
+        hsv.layoutParams = LinearLayout.LayoutParams(  
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT  
+        )  
+        val teamRow = LinearLayout(ctx).apply {  
+            orientation = LinearLayout.HORIZONTAL  
         }  
-        root.addView(divider)  
-  
-        val scrollView = ScrollView(ctx).apply {  
-            layoutParams = LinearLayout.LayoutParams(  
-                ViewGroup.LayoutParams.MATCH_PARENT,  
-                dp(280)  
-            )  
+        for (defId in defenseIds) {  
+            val icon = IconStorage.getIcon(ctx, defId)  
+            val iv = ImageView(ctx).apply {  
+                setImageBitmap(icon)  
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {  
+                    setMargins(dp(2), 0, dp(2), 0)  
+                }  
+            }  
+            teamRow.addView(iv)  
         }  
-        val listLayout = LinearLayout(ctx).apply {  
-            orientation = LinearLayout.VERTICAL  
-        }  
+        hsv.addView(teamRow)  
+        root.addView(hsv)  
   
-        val maxResults = minOf(results.size, 10)  
-        for (i in 0 until maxResults) {  
-            val r = results[i]  
-            val itemLayout = LinearLayout(ctx).apply {  
-                orientation = LinearLayout.VERTICAL  
+        for ((idx, atk) in results.withIndex()) {  
+            val atkRow = LinearLayout(ctx).apply {  
+                orientation = LinearLayout.HORIZONTAL  
+                gravity = Gravity.CENTER_VERTICAL  
                 setPadding(0, dp(4), 0, dp(4))  
             }  
-  
-            val atkRow = createIconRow(ctx, r.atkUnits)  
-            itemLayout.addView(atkRow)  
-  
-            val infoText = TextView(ctx).apply {  
-                text = "\uD83D\uDC4D${r.upVote}  \uD83D\uDC4E${r.downVote}  评分:${"%.1f".format(r.score)}"  
-                setTextColor(Color.LTGRAY)  
+            val numBg = TextView(ctx).apply {  
+                text = "${idx + 1}"  
+                setTextColor(Color.WHITE)  
                 textSize = 11f  
-                setPadding(0, dp(2), 0, 0)  
-            }  
-            itemLayout.addView(infoText)  
-  
-            if (i < maxResults - 1) {  
-                val itemDivider = View(ctx).apply {  
-                    setBackgroundColor(0xFF444444.toInt())  
-                    layoutParams = LinearLayout.LayoutParams(  
-                        ViewGroup.LayoutParams.MATCH_PARENT, 1  
-                    ).apply { setMargins(0, dp(4), 0, 0) }  
+                gravity = Gravity.CENTER  
+                setBackgroundColor(0xFF555555.toInt())  
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {  
+                    setMargins(0, 0, dp(4), 0)  
                 }  
-                itemLayout.addView(itemDivider)  
             }  
+            atkRow.addView(numBg)  
   
-            listLayout.addView(itemLayout)  
+            val atkHsv = HorizontalScrollView(ctx)  
+            atkHsv.layoutParams = LinearLayout.LayoutParams(0, iconSize, 1f)  
+            val atkTeamRow = LinearLayout(ctx).apply {  
+                orientation = LinearLayout.HORIZONTAL  
+                gravity = Gravity.CENTER_VERTICAL  
+            }  
+            for (unitId in atk.atkUnits) {  
+                val icon = IconStorage.getIcon(ctx, unitId)  
+                val iv = ImageView(ctx).apply {  
+                    setImageBitmap(icon)  
+                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {  
+                        setMargins(dp(1), 0, dp(1), 0)  
+                    }  
+                }  
+                atkTeamRow.addView(iv)  
+            }  
+            atkHsv.addView(atkTeamRow)  
+            atkRow.addView(atkHsv)  
+  
+            val votes = TextView(ctx).apply {  
+                text = "△${atk.upVote} ▽${atk.downVote}"  
+                setTextColor(0xFFaaaaaa.toInt())  
+                textSize = 10f  
+                setPadding(dp(4), 0, 0, 0)  
+            }  
+            atkRow.addView(votes)  
+            root.addView(atkRow)  
         }  
-  
-        scrollView.addView(listLayout)  
-        root.addView(scrollView)  
   
         val bottomRow = LinearLayout(ctx).apply {  
             orientation = LinearLayout.HORIZONTAL  
@@ -686,7 +783,7 @@ class FloatingWindowService : Service() {
             setPadding(dp(16), dp(6), dp(16), dp(6))  
             setOnClickListener {  
                 removeResultPanel()  
-                onFloatButtonClick()  
+                showModeSelectionDialog()  
             }  
         }  
         val closeBtn2 = TextView(ctx).apply {  
@@ -701,7 +798,7 @@ class FloatingWindowService : Service() {
         root.addView(bottomRow)  
   
         val params = WindowManager.LayoutParams(  
-            dp(192), WindowManager.LayoutParams.WRAP_CONTENT,  
+            dp(204), WindowManager.LayoutParams.WRAP_CONTENT,  
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
             PixelFormat.TRANSLUCENT  
@@ -714,53 +811,7 @@ class FloatingWindowService : Service() {
         windowManager.addView(root, params)  
         resultPanel = root  
   
-        // 标题栏可拖动  
         makePanelDraggable(titleRow, root, params)  
-    }  
-  
-    // ======================== 图标行 ========================  
-  
-    private fun createIconRow(ctx: Context, baseIds: List<Int>): HorizontalScrollView {  
-        val hsv = HorizontalScrollView(ctx)  
-        val row = LinearLayout(ctx).apply {  
-            orientation = LinearLayout.HORIZONTAL  
-            gravity = Gravity.CENTER_VERTICAL  
-            setPadding(0, dp(4), 0, dp(4))  
-        }  
-  
-        for (id in baseIds) {  
-            val iv = ImageView(ctx).apply {  
-                layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).apply {  
-                    setMargins(dp(2), 0, dp(2), 0)  
-                }  
-                scaleType = ImageView.ScaleType.CENTER_CROP  
-                setBackgroundColor(0xFF333333.toInt())  
-            }  
-  
-            val iconPath = IconStorage.getIconPath(ctx, id, 6)  
-                ?: IconStorage.getIconPath(ctx, id, 3)  
-            if (iconPath != null) {  
-                val bmp = BitmapFactory.decodeFile(iconPath)  
-                if (bmp != null) {  
-                    iv.setImageBitmap(Bitmap.createScaledBitmap(bmp, dp(48), dp(48), true))  
-                } else {  
-                    setPlaceholderText(iv, id)  
-                }  
-            } else {  
-                setPlaceholderText(iv, id)  
-            }  
-  
-            row.addView(iv)  
-        }  
-  
-        hsv.addView(row)  
-        return hsv  
-    }  
-  
-    private fun setPlaceholderText(iv: ImageView, baseId: Int) {  
-        iv.setImageDrawable(null)  
-        iv.setBackgroundColor(0xFF555555.toInt())  
-        iv.contentDescription = baseId.toString()  
     }  
   
     private fun removeResultPanel() {  
@@ -770,16 +821,13 @@ class FloatingWindowService : Service() {
         resultPanel = null  
     }  
   
-    // ======================== 工具 ========================  
-  
-    @SuppressLint("ClickableViewAccessibility")  
-    private fun makePanelDraggable(dragHandle: View, panel: View, params: WindowManager.LayoutParams) {  
+    private fun makePanelDraggable(handle: View, panel: View, params: WindowManager.LayoutParams) {  
         var initialX = 0  
         var initialY = 0  
         var initialTouchX = 0f  
         var initialTouchY = 0f  
   
-        dragHandle.setOnTouchListener { _, event ->  
+        handle.setOnTouchListener { _, event ->  
             when (event.action) {  
                 MotionEvent.ACTION_DOWN -> {  
                     initialX = params.x  
@@ -791,9 +839,7 @@ class FloatingWindowService : Service() {
                 MotionEvent.ACTION_MOVE -> {  
                     params.x = initialX + (event.rawX - initialTouchX).toInt()  
                     params.y = initialY + (event.rawY - initialTouchY).toInt()  
-                    try {  
-                        windowManager.updateViewLayout(panel, params)  
-                    } catch (_: Exception) {}  
+                    windowManager.updateViewLayout(panel, params)  
                     true  
                 }  
                 else -> false  
@@ -801,10 +847,7 @@ class FloatingWindowService : Service() {
         }  
     }  
   
-    private fun dp(value: Int): Int {  
-        return TypedValue.applyDimension(  
-            TypedValue.COMPLEX_UNIT_DIP, value.toFloat(),  
-            resources.displayMetrics  
-        ).toInt()  
-    }  
+    private fun dp(value: Int): Int = TypedValue.applyDimension(  
+        TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics  
+    ).toInt()  
 }

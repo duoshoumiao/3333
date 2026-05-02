@@ -12,6 +12,7 @@ import java.io.File
 object IconStorage {  
   
     private const val ICON_DIR = "icons/unit"  
+    private const val DEFAULT_STAR = 6  
   
     private fun getIconDir(context: Context): File {  
         val dir = File(context.filesDir, ICON_DIR)  
@@ -30,6 +31,10 @@ object IconStorage {
     fun getIconPath(context: Context, baseId: Int, star: Int): String? {  
         val file = getIconFile(context, baseId, star)  
         return if (file.exists()) file.absolutePath else null  
+    }  
+  
+    fun getIcon(context: Context, baseId: Int, star: Int = DEFAULT_STAR): Bitmap? {  
+        return loadBitmap(context, baseId, star)  
     }  
   
     fun saveBitmap(context: Context, baseId: Int, star: Int, bitmap: Bitmap) {  

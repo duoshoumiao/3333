@@ -36,8 +36,8 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         val defenseTeams: List<TeamResult>,  
         val results: List<TeamResult>,  
         val image: String?,  
-		val highlightImage: String? = null,   // ★ 新增  
-		val compareImage: String? = null      // ★ 新增 
+        val highlightImage: String? = null,  
+        val compareImage: String? = null  
     )  
   
     private val client = OkHttpClient.Builder()  
@@ -108,14 +108,72 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         }  
     }  
   
+    fun queryByText(text: String, region: Int = 2): ServerArenaResponse {  
+        val url = serverUrl  
+        if (url.isNullOrBlank()) {  
+            return ServerArenaResponse(  
+                code = -1,  
+                message = "未配置服务器地址，请在设置中填写",  
+                teamCount = 0,  
+                defenseTeams = emptyList(),  
+                results = emptyList(),  
+                image = null  
+            )  
+        }  
+  
+        try {  
+            val jsonBody = JSONObject().apply {  
+                put("text", text)  
+                put("region", region)  
+            }  
+  
+            val request = Request.Builder()  
+                .url("$url/api/arena/query_text")  
+                .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))  
+                .build()  
+  
+            Log.i(TAG, "发送文本到服务器: $url, text=$text, region=$region")  
+  
+            val response = client.newCall(request).execute()  
+            response.use { resp ->  
+                if (!resp.isSuccessful) {  
+                    Log.e(TAG, "服务器请求失败: ${resp.code}")  
+                    return ServerArenaResponse(  
+                        code = resp.code,  
+                        message = "服务器请求失败: ${resp.code}",  
+                        teamCount = 0,  
+                        defenseTeams = emptyList(),  
+                        results = emptyList(),  
+                        image = null  
+                    )  
+                }  
+                val responseBody = resp.body?.string() ?: return ServerArenaResponse(  
+                    code = -1, message = "空响应", teamCount = 0,  
+                    defenseTeams = emptyList(), results = emptyList(), image = null  
+                )  
+                return parseServerResponse(responseBody)  
+            }  
+        } catch (e: Exception) {  
+            Log.e(TAG, "文本查询失败", e)  
+            return ServerArenaResponse(  
+                code = -1,  
+                message = "请求异常: ${e.message}",  
+                teamCount = 0,  
+                defenseTeams = emptyList(),  
+                results = emptyList(),  
+                image = null  
+            )  
+        }  
+    }  
+  
     private fun parseServerResponse(responseBody: String): ServerArenaResponse {  
         val json = JSONObject(responseBody)  
         val code = json.optInt("code", -1)  
         val message = json.optString("message", "")  
         val image = json.optString("image", null)  
         val highlightImage = if (json.isNull("highlight_image")) null else json.optString("highlight_image", null)  
-		val compareImage = if (json.isNull("compare_image")) null else json.optString("compare_image", null)
-		val teamCount = json.optInt("team_count", 0)  
+        val compareImage = if (json.isNull("compare_image")) null else json.optString("compare_image", null)  
+        val teamCount = json.optInt("team_count", 0)  
   
         val defenseTeams = mutableListOf<TeamResult>()  
         val defenseArray = json.optJSONArray("defense")  
@@ -176,14 +234,14 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         }  
   
         return ServerArenaResponse(  
-			code = code,  
-			message = message,  
-			teamCount = teamCount,  
-			defenseTeams = defenseTeams,  
-			results = results,  
-			image = image,  
-			highlightImage = highlightImage,   // ★ 新增  
-			compareImage = compareImage        // ★ 新增  
-		)  
+            code = code,  
+            message = message,  
+            teamCount = teamCount,  
+            defenseTeams = defenseTeams,  
+            results = results,  
+            image = image,  
+            highlightImage = highlightImage,  
+            compareImage = compareImage  
+        )  
     }  
 }
