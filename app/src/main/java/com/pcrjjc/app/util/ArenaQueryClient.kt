@@ -108,7 +108,38 @@ class ArenaQueryClient(private val serverUrl: String? = null) {
         }  
     }  
   
-    private fun parseServerResponse(responseBody: String): ServerArenaResponse {  
+    // ArenaQueryClient.kt 新增，紧接 queryByImage() 之后  
+	fun queryByText(names: List<String>, region: Int = 2): ServerArenaResponse {  
+		val url = serverUrl ?: return ServerArenaResponse(  
+			code = -1, message = "未配置服务器地址",  
+			teamCount = 0, defenseTeams = emptyList(), results = emptyList(), image = null  
+		)  
+		return try {  
+			val jsonBody = org.json.JSONObject()  
+				.put("names", org.json.JSONArray(names))  
+				.put("region", region)  
+				.toString()  
+				.toRequestBody("application/json".toMediaType())  
+	  
+			val request = Request.Builder()  
+				.url("$url/api/arena/query_text")  
+				.post(jsonBody)  
+				.build()  
+	  
+			client.newCall(request).execute().use { resp ->  
+				val body = resp.body?.string() ?: return ServerArenaResponse(  
+					code = -1, message = "空响应",  
+					teamCount = 0, defenseTeams = emptyList(), results = emptyList(), image = null  
+				)  
+				parseServerResponse(body)  
+			}  
+		} catch (e: Exception) {  
+			ServerArenaResponse(code = -1, message = "请求异常: ${e.message}",  
+				teamCount = 0, defenseTeams = emptyList(), results = emptyList(), image = null)  
+		}  
+	}
+	
+	private fun parseServerResponse(responseBody: String): ServerArenaResponse {  
         val json = JSONObject(responseBody)  
         val code = json.optInt("code", -1)  
         val message = json.optString("message", "")  

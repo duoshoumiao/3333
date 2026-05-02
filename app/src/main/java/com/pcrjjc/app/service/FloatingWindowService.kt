@@ -163,26 +163,127 @@ class FloatingWindowService : Service() {
         floatButton = null  
     }  
   
-    // ======================== 截图 + 框选 + 发送服务器 ========================  
+    @SuppressLint("ClickableViewAccessibility")  
+	private fun showTextInputPanel() {  
+		val ctx: Context = this  
+		val root = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.VERTICAL  
+			setBackgroundColor(0xF0222222.toInt())  
+			setPadding(dp(12), dp(10), dp(12), dp(10))  
+		}  
+	  
+		val titleText = TextView(ctx).apply {  
+			text = "输入角色名（逗号/空格分隔）"  
+			setTextColor(Color.WHITE); textSize = 13f  
+		}  
+		val editText = android.widget.EditText(ctx).apply {  
+			hint = "例：佩可莉姆,凯露,真琴"  
+			setTextColor(Color.WHITE)  
+			setHintTextColor(Color.GRAY)  
+			setBackgroundColor(0xFF444444.toInt())  
+			setPadding(dp(8), dp(6), dp(8), dp(6))  
+			textSize = 13f  
+			layoutParams = LinearLayout.LayoutParams(  
+				ViewGroup.LayoutParams.MATCH_PARENT,  
+				ViewGroup.LayoutParams.WRAP_CONTENT  
+			).apply { setMargins(0, dp(6), 0, dp(6)) }  
+		}  
+		val confirmBtn = TextView(ctx).apply {  
+			text = "查询"  
+			setTextColor(0xFF90CAF9.toInt()); textSize = 14f  
+			gravity = Gravity.CENTER  
+			setPadding(dp(16), dp(8), dp(16), dp(8))  
+		}  
+		val cancelBtn = TextView(ctx).apply {  
+			text = "取消"  
+			setTextColor(Color.LTGRAY); textSize = 13f  
+			gravity = Gravity.CENTER  
+			setPadding(dp(16), dp(8), dp(16), dp(8))  
+		}  
+		val btnRow = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER  
+		}  
+		btnRow.addView(confirmBtn); btnRow.addView(cancelBtn)  
+		root.addView(titleText); root.addView(editText); root.addView(btnRow)  
+	  
+		// ★ 去掉 FLAG_NOT_FOCUSABLE，让 EditText 可以获取焦点弹键盘  
+		val params = WindowManager.LayoutParams(  
+			dp(260), WindowManager.LayoutParams.WRAP_CONTENT,  
+			WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
+			0,  // 无 FLAG_NOT_FOCUSABLE  
+			PixelFormat.TRANSLUCENT  
+		).apply { gravity = Gravity.CENTER }  
+	  
+		windowManager.addView(root, params)  
+		resultPanel = root  
+	  
+		confirmBtn.setOnClickListener {  
+			val input = editText.text.toString().trim()  
+			if (input.isEmpty()) {  
+				Toast.makeText(ctx, "请输入角色名", Toast.LENGTH_SHORT).show()  
+				return@setOnClickListener  
+			}  
+			val names = input.split(Regex("[,，\\s]+")).filter { it.isNotEmpty() }  
+			removeResultPanel()  
+			onTextQueryConfirmed(names)  
+		}  
+		cancelBtn.setOnClickListener { removeResultPanel() }  
+	}
+	
+	// ======================== 截图 + 框选 + 发送服务器 ========================  
   
-    private fun onFloatButtonClick() {  
-        floatButton?.visibility = View.INVISIBLE  
-        removeResultPanel()  
-  
-        handler.postDelayed({  
-            scope.launch {  
-                try {  
-                    doScreenshotAndShowCrop()  
-                } catch (e: Exception) {  
-                    Log.e(TAG, "怎么拆流程出错", e)  
-                    withContext(Dispatchers.Main) {  
-                        Toast.makeText(this@FloatingWindowService, "出错: ${e.message}", Toast.LENGTH_SHORT).show()  
-                        floatButton?.visibility = View.VISIBLE  
-                    }  
-                }  
-            }  
-        }, 300)  
-    }  
+	private fun onFloatButtonClick() {  
+		removeResultPanel()  
+		showModeMenu()  
+	}  
+	  
+	private fun showModeMenu() {  
+		// 一个竖排小浮窗，两个选项  
+		val menu = LinearLayout(this).apply {  
+			orientation = LinearLayout.VERTICAL  
+			setBackgroundColor(0xEE333333.toInt())  
+			setPadding(dp(8), dp(8), dp(8), dp(8))  
+		}  
+		val screenshotBtn = TextView(this).apply {  
+			text = "📷 截图识别"  
+			setTextColor(Color.WHITE); textSize = 14f  
+			setPadding(dp(12), dp(8), dp(12), dp(8))  
+		}  
+		val textBtn = TextView(this).apply {  
+			text = "✏️ 文本输入"  
+			setTextColor(Color.WHITE); textSize = 14f  
+			setPadding(dp(12), dp(8), dp(12), dp(8))  
+		}  
+		val cancelBtn = TextView(this).apply {  
+			text = "取消"  
+			setTextColor(Color.LTGRAY); textSize = 13f  
+			setPadding(dp(12), dp(6), dp(12), dp(6))  
+		}  
+		menu.addView(screenshotBtn); menu.addView(textBtn); menu.addView(cancelBtn)  
+	  
+		val params = WindowManager.LayoutParams(  
+			dp(160), WindowManager.LayoutParams.WRAP_CONTENT,  
+			WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
+			WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
+			PixelFormat.TRANSLUCENT  
+		).apply { gravity = Gravity.TOP or Gravity.START; x = dp(60); y = dp(188) }  
+	  
+		windowManager.addView(menu, params)  
+		resultPanel = menu  // 借用 resultPanel 槽位，关闭时统一 removeResultPanel()  
+	  
+		screenshotBtn.setOnClickListener {  
+			removeResultPanel()  
+			floatButton?.visibility = View.INVISIBLE  
+			handler.postDelayed({  
+				scope.launch { doScreenshotAndShowCrop() }  
+			}, 300)  
+		}  
+		textBtn.setOnClickListener {  
+			removeResultPanel()  
+			showTextInputPanel()  
+		}  
+		cancelBtn.setOnClickListener { removeResultPanel() }  
+	}
   
     /**  
      * 截图后显示框选覆盖层，让用户手动选择头像区域。  
@@ -341,7 +442,30 @@ class FloatingWindowService : Service() {
         }  
     }  
   
-    // ======================== 加载面板 ========================  
+    private fun onTextQueryConfirmed(names: List<String>) {  
+		scope.launch {  
+			withContext(Dispatchers.Main) { showLoadingPanel() }  
+			val response = withContext(Dispatchers.IO) {  
+				arenaClient.queryByText(names, region = 2)  
+			}  
+			withContext(Dispatchers.Main) {  
+				removeResultPanel()  
+				if (response.code != 0) {  
+					Toast.makeText(this@FloatingWindowService,  
+						response.message.ifEmpty { "查询失败" }, Toast.LENGTH_SHORT).show()  
+					return@withContext  
+				}  
+				if (!response.image.isNullOrEmpty()) {  
+					showImageResultPanel(response.image, response.message)  
+				} else {  
+					Toast.makeText(this@FloatingWindowService,  
+						response.message.ifEmpty { "未找到结果" }, Toast.LENGTH_SHORT).show()  
+				}  
+			}  
+		}  
+	}
+	
+	// ======================== 加载面板 ========================  
   
     private fun showLoadingPanel() {  
         val panel = LinearLayout(this).apply {  
