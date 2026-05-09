@@ -446,7 +446,7 @@ private fun BindCard(
                       
                     Row(  
                         modifier = Modifier.fillMaxWidth(),  
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)  
+                        horizontalArrangement = Arrangement.SpaceEvenly // 均匀分布  
                     ) {  
                         NoticeCheckbox(  
                             label = "JJC",  
@@ -464,14 +464,8 @@ private fun BindCard(
                             },  
                             modifier = Modifier.weight(1f)  
                         )  
-                    }  
-                      
-                    Row(  
-                        modifier = Modifier.fillMaxWidth(),  
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)  
-                    ) {  
                         NoticeCheckbox(  
-                            label = "上升通知",  
+                            label = "上升提醒",  
                             checked = bind.upNotice,  
                             onCheckedChange = {   
                                 viewModel.updateBindNotice(bind, upNotice = it)  
@@ -479,7 +473,7 @@ private fun BindCard(
                             modifier = Modifier.weight(1f)  
                         )  
                         NoticeCheckbox(  
-                            label = "上线提醒",  
+                            label = "上线通知",  
                             checked = bind.onlineNotice != 0,  
                             onCheckedChange = { checked ->  
                                 viewModel.updateBindNotice(  
@@ -536,10 +530,18 @@ private fun NoticeCheckbox(
 ) {  
     Row(  
         modifier = modifier,  
-        horizontalArrangement = Arrangement.SpaceBetween,  
+        horizontalArrangement = Arrangement.Start, // 改为左对齐  
         verticalAlignment = Alignment.CenterVertically  
     ) {  
-        Text(text = label, style = MaterialTheme.typography.bodySmall)  
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)  
+        Text(  
+            text = label,   
+            style = MaterialTheme.typography.bodySmall, // 使用更小字体  
+            modifier = Modifier.padding(end = 4.dp) // 减少间距  
+        )  
+        Checkbox(  
+            checked = checked,   
+            onCheckedChange = onCheckedChange,  
+            modifier = Modifier.scale(0.8f) // 缩小复选框  
+        )  
     }  
 }
