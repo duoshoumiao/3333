@@ -446,45 +446,45 @@ private fun BindCard(
                     Spacer(modifier = Modifier.height(8.dp))  
                       
                     Row(  
-                        modifier = Modifier.fillMaxWidth(),  
-                        horizontalArrangement = Arrangement.SpaceEvenly // 均匀分布  
-                    ) {  
-                        NoticeCheckbox(  
-                            label = "JJC",  
-                            checked = bind.jjcNotice,  
-                            onCheckedChange = {   
-                                viewModel.updateBindNotice(bind, jjcNotice = it)  
-                            },  
-                            modifier = Modifier.weight(1f)  
-                        )  
-                        NoticeCheckbox(  
-                            label = "PJJC",  
-                            checked = bind.pjjcNotice,  
-                            onCheckedChange = {   
-                                viewModel.updateBindNotice(bind, pjjcNotice = it)  
-                            },  
-                            modifier = Modifier.weight(1f)  
-                        )  
-                        NoticeCheckbox(  
-                            label = "上升提醒",  
-                            checked = bind.upNotice,  
-                            onCheckedChange = {   
-                                viewModel.updateBindNotice(bind, upNotice = it)  
-                            },  
-                            modifier = Modifier.weight(1f)  
-                        )  
-                        NoticeCheckbox(  
-                            label = "上线通知",  
-                            checked = bind.onlineNotice != 0,  
-                            onCheckedChange = { checked ->  
-                                viewModel.updateBindNotice(  
-                                    bind,  
-                                    onlineNotice = if (checked) 1 else 0  
-                                )  
-                            },  
-                            modifier = Modifier.weight(1f)  
-                        )  
-                    }					
+						modifier = Modifier.fillMaxWidth(),  
+						horizontalArrangement = Arrangement.spacedBy(12.dp) // 增加间距  
+					) {  
+						NoticeCheckbox(  
+							label = "JJC",  
+							checked = bind.jjcNotice,  
+							onCheckedChange = {   
+								viewModel.updateBindNotice(bind, jjcNotice = it)  
+							},  
+							modifier = Modifier.weight(1f)  
+						)  
+						NoticeCheckbox(  
+							label = "PJJC",  
+							checked = bind.pjjcNotice,  
+							onCheckedChange = {   
+								viewModel.updateBindNotice(bind, pjjcNotice = it)  
+							},  
+							modifier = Modifier.weight(1f)  
+						)  
+						NoticeCheckbox(  
+							label = "上升",  
+							checked = bind.upNotice,  
+							onCheckedChange = {   
+								viewModel.updateBindNotice(bind, upNotice = it)  
+							},  
+							modifier = Modifier.weight(1f)  
+						)  
+						NoticeCheckbox(  
+							label = "上线",  
+							checked = bind.onlineNotice != 0,  
+							onCheckedChange = { checked ->  
+								viewModel.updateBindNotice(  
+									bind,  
+									onlineNotice = if (checked) 1 else 0  
+								)  
+							},  
+							modifier = Modifier.weight(1f)  
+						)  
+					}					
                 }    
                 Row {    
                     IconButton(onClick = onQuery) {    
