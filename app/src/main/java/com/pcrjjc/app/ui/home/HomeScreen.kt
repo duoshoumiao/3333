@@ -442,39 +442,54 @@ private fun BindCard(
                         )    
                     }
 					
-                    Spacer(modifier = Modifier.height(8.dp))    
-  
-					NoticeCheckbox(    
-						label = "JJC排名变动",    
-						checked = bind.jjcNotice,    
-						onCheckedChange = {    
-							viewModel.updateBindNotice(bind, jjcNotice = it)    
-						}    
-					)    
-					NoticeCheckbox(    
-						label = "PJJC排名变动",    
-						checked = bind.pjjcNotice,    
-						onCheckedChange = {    
-							viewModel.updateBindNotice(bind, pjjcNotice = it)    
-						}    
-					)    
-					NoticeCheckbox(    
-						label = "排名上升也通知",    
-						checked = bind.upNotice,    
-						onCheckedChange = {    
-							viewModel.updateBindNotice(bind, upNotice = it)    
-						}    
-					)    
-					NoticeCheckbox(    
-						label = "上线提醒",    
-						checked = bind.onlineNotice != 0,    
-						onCheckedChange = { checked ->    
-							viewModel.updateBindNotice(    
-								bind,    
-								onlineNotice = if (checked) 1 else 0    
-							)    
-						}    
-					)					
+                    Spacer(modifier = Modifier.height(8.dp))  
+                      
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)  
+                    ) {  
+                        NoticeCheckbox(  
+                            label = "JJC",  
+                            checked = bind.jjcNotice,  
+                            onCheckedChange = {   
+                                viewModel.updateBindNotice(bind, jjcNotice = it)  
+                            },  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                        NoticeCheckbox(  
+                            label = "PJJC",  
+                            checked = bind.pjjcNotice,  
+                            onCheckedChange = {   
+                                viewModel.updateBindNotice(bind, pjjcNotice = it)  
+                            },  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                    }  
+                      
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)  
+                    ) {  
+                        NoticeCheckbox(  
+                            label = "上升通知",  
+                            checked = bind.upNotice,  
+                            onCheckedChange = {   
+                                viewModel.updateBindNotice(bind, upNotice = it)  
+                            },  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                        NoticeCheckbox(  
+                            label = "上线提醒",  
+                            checked = bind.onlineNotice != 0,  
+                            onCheckedChange = { checked ->  
+                                viewModel.updateBindNotice(  
+                                    bind,  
+                                    onlineNotice = if (checked) 1 else 0  
+                                )  
+                            },  
+                            modifier = Modifier.weight(1f)  
+                        )  
+                    }					
                 }    
                 Row {    
                     IconButton(onClick = onQuery) {    
