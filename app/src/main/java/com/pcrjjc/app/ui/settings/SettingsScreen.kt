@@ -391,73 +391,7 @@ fun SettingsScreen(
                     }  
                 }  
             }
-			
-			// ========== 通知设置 ==========    
-            if (uiState.binds.isNotEmpty()) {    
-                Text("通知设置", style = MaterialTheme.typography.titleMedium)    
-                uiState.binds.forEach { bind ->    
-                    Card(    
-                        modifier = Modifier.fillMaxWidth(),    
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)    
-                    ) {    
-                        Column(modifier = Modifier.padding(16.dp)) {    
-                            Text(    
-                                text = bind.name ?: "UID: ${bind.pcrid}",    
-                                style = MaterialTheme.typography.titleSmall    
-                            )    
-                            Spacer(modifier = Modifier.height(8.dp))    
-  
-                            NoticeCheckbox(    
-                                label = "JJC排名变动",    
-                                checked = bind.jjcNotice,    
-                                onCheckedChange = {    
-                                    viewModel.updateBindNotice(bind, jjcNotice = it)    
-                                }    
-                            )    
-                            NoticeCheckbox(    
-                                label = "PJJC排名变动",    
-                                checked = bind.pjjcNotice,    
-                                onCheckedChange = {    
-                                    viewModel.updateBindNotice(bind, pjjcNotice = it)    
-                                }    
-                            )    
-                            NoticeCheckbox(    
-                                label = "排名上升也通知",    
-                                checked = bind.upNotice,    
-                                onCheckedChange = {    
-                                    viewModel.updateBindNotice(bind, upNotice = it)    
-                                }    
-                            )    
-                            NoticeCheckbox(    
-                                label = "上线提醒",    
-                                checked = bind.onlineNotice != 0,    
-                                onCheckedChange = { checked ->    
-                                    viewModel.updateBindNotice(    
-                                        bind,    
-                                        onlineNotice = if (checked) 1 else 0    
-                                    )    
-                                }    
-                            )    
-                        }    
-                    }    
-                }    
-}
         }
     }
 }
   
-@Composable    
-private fun NoticeCheckbox(    
-    label: String,    
-    checked: Boolean,    
-    onCheckedChange: (Boolean) -> Unit    
-) {    
-    Row(    
-        modifier = Modifier.fillMaxWidth(),    
-        horizontalArrangement = Arrangement.SpaceBetween,    
-        verticalAlignment = Alignment.CenterVertically    
-    ) {    
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)    
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)    
-    }    
-}
