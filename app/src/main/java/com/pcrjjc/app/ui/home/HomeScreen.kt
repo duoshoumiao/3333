@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.home    
 
+import androidx.compose.ui.draw.scale
 import androidx.compose.material3.Checkbox
 import com.pcrjjc.app.ui.components.StrokedIcon  
 import com.pcrjjc.app.ui.components.GoldColor
