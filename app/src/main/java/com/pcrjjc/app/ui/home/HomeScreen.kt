@@ -450,7 +450,7 @@ private fun BindCard(
 						horizontalArrangement = Arrangement.spacedBy(8.dp) // 增加间距  
 					) {  
 						NoticeCheckbox(  
-							label = "JJC",  
+							label = "J场",  
 							checked = bind.jjcNotice,  
 							onCheckedChange = {   
 								viewModel.updateBindNotice(bind, jjcNotice = it)  
@@ -458,7 +458,7 @@ private fun BindCard(
 							modifier = Modifier.weight(1f)  
 						)  
 						NoticeCheckbox(  
-							label = "PJJC",  
+							label = "P场",  
 							checked = bind.pjjcNotice,  
 							onCheckedChange = {   
 								viewModel.updateBindNotice(bind, pjjcNotice = it)  
