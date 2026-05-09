@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.home    
 
+import androidx.compose.material3.Checkbox
 import com.pcrjjc.app.ui.components.StrokedIcon  
 import com.pcrjjc.app.ui.components.GoldColor
 import androidx.compose.material.icons.filled.Edit  // ← 新增  
@@ -320,7 +321,8 @@ fun HomeScreen(
                                             onQuery = { onNavigateToQuery(bind.id) },    
                                             onDetail = { onNavigateToDetail(bind.id) },    
                                             onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },    
-                                            onDelete = { viewModel.deleteBind(bind) }    
+                                            onDelete = { viewModel.deleteBind(bind) },  
+											viewModel = viewModel  // ← 添加这行      
                                         )    
                                     }    
                                     item { Spacer(modifier = Modifier.height(80.dp)) }    
@@ -356,7 +358,8 @@ fun HomeScreen(
                                             onQuery = { onNavigateToQuery(bind.id) },    
                                             onDetail = { onNavigateToDetail(bind.id) },    
                                             onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },    
-                                            onDelete = { viewModel.deleteBind(bind) }    
+                                            onDelete = { viewModel.deleteBind(bind) },  
+											viewModel = viewModel  // ← 添加这行      
                                         )    
                                     }    
                                     item { Spacer(modifier = Modifier.height(80.dp)) }    
