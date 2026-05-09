@@ -527,18 +527,19 @@ private fun NoticeChip(text: String) {
     }    
 }
 
-@Composable    
-private fun NoticeCheckbox(    
-    label: String,    
-    checked: Boolean,    
-    onCheckedChange: (Boolean) -> Unit    
-) {    
-    Row(    
-        modifier = Modifier.fillMaxWidth(),    
-        horizontalArrangement = Arrangement.SpaceBetween,    
-        verticalAlignment = Alignment.CenterVertically    
-    ) {    
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)    
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)    
-    }    
+@Composable  
+private fun NoticeCheckbox(  
+    label: String,  
+    checked: Boolean,  
+    onCheckedChange: (Boolean) -> Unit,  
+    modifier: Modifier = Modifier  
+) {  
+    Row(  
+        modifier = modifier,  
+        horizontalArrangement = Arrangement.SpaceBetween,  
+        verticalAlignment = Alignment.CenterVertically  
+    ) {  
+        Text(text = label, style = MaterialTheme.typography.bodySmall)  
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)  
+    }  
 }
