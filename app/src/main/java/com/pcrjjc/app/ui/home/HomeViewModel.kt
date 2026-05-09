@@ -61,5 +61,23 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {  
             bindDao.deleteById(bind.id)  
         }  
-    }  
+    }
+    fun updateBindNotice(  
+        bind: PcrBind,  
+        jjcNotice: Boolean? = null,  
+        pjjcNotice: Boolean? = null,  
+        upNotice: Boolean? = null,  
+        onlineNotice: Int? = null  
+    ) {  
+        viewModelScope.launch {  
+            val updated = bind.copy(  
+                jjcNotice = jjcNotice ?: bind.jjcNotice,  
+                pjjcNotice = pjjcNotice ?: bind.pjjcNotice,  
+                upNotice = upNotice ?: bind.upNotice,  
+                onlineNotice = onlineNotice ?: bind.onlineNotice  
+            )  
+            bindDao.update(updated)  
+        }  
+    }	
 }
+

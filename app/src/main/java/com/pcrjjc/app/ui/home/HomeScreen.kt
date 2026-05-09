@@ -283,7 +283,8 @@ fun HomeScreen(
                                             onQuery = { onNavigateToQuery(bind.id) },    
                                             onDetail = { onNavigateToDetail(bind.id) },    
                                             onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },    
-                                            onDelete = { viewModel.deleteBind(bind) }    
+                                            onDelete = { viewModel.deleteBind(bind) },  
+											viewModel = viewModel     
                                         )    
                                     }    
                                     item { Spacer(modifier = Modifier.height(80.dp)) }    
@@ -393,7 +394,8 @@ private fun BindCard(
     onQuery: () -> Unit,    
     onDetail: () -> Unit,    
     onHistory: () -> Unit,    
-    onDelete: () -> Unit    
+    onDelete: () -> Unit,  
+    viewModel: HomeViewModel  
 ) {    
     Card(    
         modifier = Modifier    
@@ -435,7 +437,38 @@ private fun BindCard(
                             style = MaterialTheme.typography.bodySmall,    
                             color = MaterialTheme.colorScheme.onSurfaceVariant    
                         )    
-                    }    
+                    }
+					
+                    Spacer(modifier = Modifier.height(8.dp))  
+                      
+                    NoticeCheckbox(  
+                        label = "JJC排名变动",  
+                        checked = bind.jjcNotice,  
+                        onCheckedChange = {   
+                            // 需要从 HomeViewModel 调用更新方法  
+                        }  
+                    )  
+                    NoticeCheckbox(  
+                        label = "PJJC排名变动",  
+                        checked = bind.pjjcNotice,  
+                        onCheckedChange = {   
+                            // 需要从 HomeViewModel 调用更新方法  
+                        }  
+                    )  
+                    NoticeCheckbox(  
+                        label = "排名上升也通知",  
+                        checked = bind.upNotice,  
+                        onCheckedChange = {   
+                            // 需要从 HomeViewModel 调用更新方法  
+                        }  
+                    )  
+                    NoticeCheckbox(  
+                        label = "上线提醒",  
+                        checked = bind.onlineNotice != 0,  
+                        onCheckedChange = { checked ->  
+                            // 需要从 HomeViewModel 调用更新方法  
+                        }  
+                    )					
                 }    
                 Row {    
                     IconButton(onClick = onQuery) {    
@@ -452,17 +485,7 @@ private fun BindCard(
                         )    
                     }    
                 }    
-            }    
-  
-            Row(    
-                modifier = Modifier.padding(top = 8.dp),    
-                horizontalArrangement = Arrangement.spacedBy(8.dp)    
-            ) {    
-                if (bind.jjcNotice) NoticeChip("JJC")    
-                if (bind.pjjcNotice) NoticeChip("PJJC")    
-                if (bind.upNotice) NoticeChip("排名上升")    
-                if (bind.onlineNotice > 0) NoticeChip("上线LV${bind.onlineNotice}")    
-            }    
+            }        
         }    
     }    
 }    
@@ -480,5 +503,21 @@ private fun NoticeChip(text: String) {
             style = MaterialTheme.typography.labelSmall,    
             color = MaterialTheme.colorScheme.onSecondaryContainer    
         )    
+    }    
+}
+
+@Composable    
+private fun NoticeCheckbox(    
+    label: String,    
+    checked: Boolean,    
+    onCheckedChange: (Boolean) -> Unit    
+) {    
+    Row(    
+        modifier = Modifier.fillMaxWidth(),    
+        horizontalArrangement = Arrangement.SpaceBetween,    
+        verticalAlignment = Alignment.CenterVertically    
+    ) {    
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)    
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)    
     }    
 }
