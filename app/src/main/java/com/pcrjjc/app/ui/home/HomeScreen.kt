@@ -447,7 +447,7 @@ private fun BindCard(
                       
                     Row(  
 						modifier = Modifier.fillMaxWidth(),  
-						horizontalArrangement = Arrangement.spacedBy(25.dp) // 增加间距  
+						horizontalArrangement = Arrangement.spacedBy(8.dp) // 增加间距  
 					) {  
 						NoticeCheckbox(  
 							label = "JJC",  
