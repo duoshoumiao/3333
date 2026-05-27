@@ -2229,12 +2229,12 @@ private fun DailyConfigItemView(
                 }
             }
   
-"multi", "multi_search" -> {
-                Text(
-                    text = config.desc,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
+			"multi", "multi_search" -> {  
+				Text(  
+					text = config.desc,  
+					style = MaterialTheme.typography.bodyMedium  
+				)  
+				Spacer(modifier = Modifier.height(4.dp))  
 				if (config.candidates.size > MAX_VISIBLE_CANDIDATES) {  
 					OutlinedTextField(  
 						value = searchQuery,  
@@ -2252,39 +2252,64 @@ private fun DailyConfigItemView(
 						}  
 					)  
 					Spacer(modifier = Modifier.height(4.dp))  
-				}
-                // currentValue 是 JSONArray 或 List
-                val selectedValues = remember(config.currentValue) {
-                    when (val cv = config.currentValue) {
-                        is List<*> -> cv.map { it.toString() }.toSet()
-                        is org.json.JSONArray -> {
-                            (0 until cv.length()).map { cv.get(it).toString() }.toSet()
-                        }
-                        else -> emptySet()
-                    }
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    visibleCandidates.forEach { cand ->
-                        val candStr = cand.value?.toString() ?: ""
-                        val selected = selectedValues.contains(candStr)
-                        FilterChip(
-                            selected = selected,
-                            onClick = {
-                                val newSet = if (selected) {
-                                    selectedValues - candStr
-                                } else {
-                                    selectedValues + candStr
-                                }
-                                // 保持原始类型：尝试转回数字
-                                val newList = newSet.map { s ->
-                                    s.toIntOrNull() ?: s.toDoubleOrNull() ?: s
-                                }
-                                onUpdateConfigList(config.key, newList)
-                            },
-                            label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }
-                        )
-                    }
-                }
+				}  
+				  
+				// 添加全选和取消全选按钮  
+				Row(  
+					modifier = Modifier.fillMaxWidth(),  
+					horizontalArrangement = Arrangement.spacedBy(8.dp)  
+				) {  
+					TextButton(  
+						onClick = {  
+							val allValues = config.candidates.map {   
+								it.value?.toString() ?: ""   
+							}.map { s -> s.toIntOrNull() ?: s.toDoubleOrNull() ?: s }  
+							onUpdateConfigList(config.key, allValues)  
+						}  
+					) {  
+						Text("全选")  
+					}  
+					TextButton(  
+						onClick = {  
+							onUpdateConfigList(config.key, emptyList())  
+						}  
+					) {  
+						Text("取消全选")  
+					}  
+				}  
+				Spacer(modifier = Modifier.height(4.dp))  
+				  
+				// 原有的 FilterChip 渲染逻辑...  
+				val selectedValues = remember(config.currentValue) {  
+					when (val cv = config.currentValue) {  
+						is List<*> -> cv.map { it.toString() }.toSet()  
+						is org.json.JSONArray -> {  
+							(0 until cv.length()).map { cv.get(it).toString() }.toSet()  
+						}  
+						else -> emptySet()  
+					}  
+				}  
+				FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {  
+					visibleCandidates.forEach { cand ->  
+						val candStr = cand.value?.toString() ?: ""  
+						val selected = selectedValues.contains(candStr)  
+						FilterChip(  
+							selected = selected,  
+							onClick = {  
+								val newSet = if (selected) {  
+									selectedValues - candStr  
+								} else {  
+									selectedValues + candStr  
+								}  
+								val newList = newSet.map { s ->  
+									s.toIntOrNull() ?: s.toDoubleOrNull() ?: s  
+								}  
+								onUpdateConfigList(config.key, newList)  
+							},  
+							label = { Text(cand.display, style = MaterialTheme.typography.bodySmall) }  
+						)  
+					}  
+				} 
                 if (hasMoreCandidates) {
                     TextButton(onClick = { showAllCandidates = true }) {
                         Text("展开更多 (${config.candidates.size - MAX_VISIBLE_CANDIDATES} more)", style = MaterialTheme.typography.bodySmall)
