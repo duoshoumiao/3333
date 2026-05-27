@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.master    
-    
+
+import androidx.compose.foundation.layout.FlowRow    
 import androidx.compose.foundation.layout.Arrangement    
 import androidx.compose.foundation.layout.Column    
 import androidx.compose.foundation.layout.Row    
@@ -134,36 +135,38 @@ fun MasterScreen(
                     }    
                 }    
     
-                Spacer(modifier = Modifier.height(8.dp))    
+                Spacer(modifier = Modifier.height(4.dp))    
                 Text("竞技场透视", style = MaterialTheme.typography.titleMedium)    
     
-                Text("选择服务器", style = MaterialTheme.typography.labelMedium)    
-                Row(    
-                    modifier = Modifier.fillMaxWidth(),    
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)    
-                ) {    
-                    Platform.entries.forEach { platform ->    
-                        FilterChip(    
-                            selected = uiState.selectedPlatform == platform,    
-                            onClick = { viewModel.updatePlatform(platform) },    
-                            label = { Text(platform.displayName) }    
-                        )    
-                    }    
-                }    
-    
-                Text("透视类型", style = MaterialTheme.typography.labelMedium)    
-                Row(    
-                    modifier = Modifier.fillMaxWidth(),    
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)    
-                ) {    
-                    ArenaType.entries.forEach { type ->    
-                        FilterChip(    
-                            selected = uiState.selectedType == type,    
-                            onClick = { viewModel.updateType(type) },    
-                            label = { Text(type.displayName) }    
-                        )    
-                    }    
-                }    
+                Text("选择服务器", style = MaterialTheme.typography.labelMedium)  
+				FlowRow(  
+					modifier = Modifier.fillMaxWidth(),  
+					horizontalArrangement = Arrangement.spacedBy(6.dp),  
+					verticalArrangement = Arrangement.spacedBy(4.dp)  
+				) {  
+					Platform.entries.forEach { platform ->  
+						FilterChip(  
+							selected = uiState.selectedPlatform == platform,  
+							onClick = { viewModel.updatePlatform(platform) },  
+							label = { Text(platform.displayName, style = MaterialTheme.typography.bodySmall) }  
+						)  
+					}  
+				}  
+				  
+				Text("透视类型", style = MaterialTheme.typography.labelMedium)  
+				FlowRow(  
+					modifier = Modifier.fillMaxWidth(),  
+					horizontalArrangement = Arrangement.spacedBy(6.dp),  
+					verticalArrangement = Arrangement.spacedBy(4.dp)  
+				) {  
+					ArenaType.entries.forEach { type ->  
+						FilterChip(  
+							selected = uiState.selectedType == type,  
+							onClick = { viewModel.updateType(type) },  
+							label = { Text(type.displayName, style = MaterialTheme.typography.bodySmall) }  
+						)  
+					}  
+				}  
     
                 Button(    
                     onClick = { viewModel.queryRanking() },    
