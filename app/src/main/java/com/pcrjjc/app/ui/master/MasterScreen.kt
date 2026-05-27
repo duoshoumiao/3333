@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.master    
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow    
 import androidx.compose.foundation.layout.Arrangement    
 import androidx.compose.foundation.layout.Column    
@@ -64,11 +65,11 @@ import com.pcrjjc.app.domain.QueryEngine
 import com.pcrjjc.app.util.Platform    
 import kotlinx.coroutines.launch    
     
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)  
-@Composable    
-fun MasterScreen(    
-    viewModel: MasterViewModel = hiltViewModel(),    
-    onNavigateBack: () -> Unit    
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)  
+@Composable  
+fun MasterScreen(  
+    viewModel: MasterViewModel = hiltViewModel(),  
+    onNavigateBack: () -> Unit  
 ) {    
     val uiState by viewModel.uiState.collectAsState()    
     val masterAccounts by viewModel.masterAccounts.collectAsState()    
