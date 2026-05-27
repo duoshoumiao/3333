@@ -109,12 +109,13 @@ fun MasterScreen(
             // ==================== 上半部分：账号管理 + 透视控制 ====================    
             Column(    
                 modifier = Modifier    
-                    .fillMaxWidth()    
+                    .fillMaxWidth() 
+					.heightIn(max = 220.dp)  // 限制上半部分最大高度     
                     .verticalScroll(rememberScrollState())    
                     .padding(horizontal = 16.dp),    
                 verticalArrangement = Arrangement.spacedBy(12.dp)    
             ) {    
-                Spacer(modifier = Modifier.height(4.dp))    
+                Spacer(modifier = Modifier.height(2.dp))    
     
                 Text(    
                     "账号（仅用于透视，不参与轮询监控）",    
@@ -187,7 +188,7 @@ fun MasterScreen(
                     }    
                 }    
     
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))    
+                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))    
             }    
     
             // ==================== 下半部分：透视结果 HorizontalPager ====================    
