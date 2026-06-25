@@ -342,8 +342,28 @@ fun HomeScreen(
                                         .padding(horizontal = 16.dp),    
                                     verticalArrangement = Arrangement.spacedBy(8.dp)    
                                 ) {    
-                                    item { Spacer(modifier = Modifier.height(8.dp)) }    
-                                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->    
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    item {  
+                                        Button(  
+                                            onClick = { showClearPjjcDialog = true },  
+                                            modifier = Modifier.fillMaxWidth(),  
+                                            colors = ButtonDefaults.buttonColors(  
+                                                containerColor = MaterialTheme.colorScheme.error  
+                                            )  
+                                        ) {  
+                                            Icon(  
+                                                Icons.Default.CleaningServices,  
+                                                contentDescription = null,  
+                                                tint = MaterialTheme.colorScheme.onError  
+                                            )  
+                                            Spacer(modifier = Modifier.width(8.dp))  
+                                            Text(  
+                                                "一键清空绑定（保留已开启P场推送）",  
+                                                color = MaterialTheme.colorScheme.onError  
+                                            )  
+                                        }  
+                                    }  
+                                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->
                                         BindCard(    
                                             index = index + 1,    
                                             bind = bind,    
@@ -382,7 +402,7 @@ fun HomeScreen(
                                     item { Spacer(modifier = Modifier.height(8.dp)) }      
                                     item {  
                                         Button(  
-                                            onClick = { showClearPjjcDialog = true },  
+                                            onClick = { showClearManualDialog = true },  
                                             modifier = Modifier.fillMaxWidth(),  
                                             colors = ButtonDefaults.buttonColors(  
                                                 containerColor = MaterialTheme.colorScheme.error  
@@ -395,12 +415,12 @@ fun HomeScreen(
                                             )  
                                             Spacer(modifier = Modifier.width(8.dp))  
                                             Text(  
-                                                "一键清空绑定（保留已开启P场推送）",  
+                                                "一键清空绑定（保留已开启推送）",
                                                 color = MaterialTheme.colorScheme.onError  
                                             )  
                                         }  
                                     }  
-                                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->  
+                                    itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->  
                                         BindCard(    
                                             index = index + 1,    
                                             bind = bind,    
