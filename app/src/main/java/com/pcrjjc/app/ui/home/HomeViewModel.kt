@@ -72,8 +72,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {  
             bindDao.clearPjjcBindsExceptNotice()  
         }  
-    }
-	fun updateBindNotice(  
+    }  
+  
+    fun clearManualBinds() {  
+        viewModelScope.launch {  
+            bindDao.clearManualBindsExceptNotice()  
+        }  
+    }  
+	fun updateBindNotice( 
         bind: PcrBind,  
         jjcNotice: Boolean? = null,  
         pjjcNotice: Boolean? = null,  

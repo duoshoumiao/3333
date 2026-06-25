@@ -109,6 +109,7 @@ fun HomeScreen(
     // 一键清空确认对话框状态  
     var showClearJjcDialog by remember { mutableStateOf(false) }  
     var showClearPjjcDialog by remember { mutableStateOf(false) }
+	var showClearManualDialog by remember { mutableStateOf(false) }
 	
 	Scaffold(
         topBar = {
@@ -381,7 +382,7 @@ fun HomeScreen(
                                     item { Spacer(modifier = Modifier.height(8.dp)) }  
                                     item {  
                                         Button(  
-                                            onClick = { showClearPjjcDialog = true },  
+                                            onClick = { showClearManualDialog = true },  
                                             modifier = Modifier.fillMaxWidth(),  
                                             colors = ButtonDefaults.buttonColors(  
                                                 containerColor = MaterialTheme.colorScheme.error  
@@ -447,6 +448,22 @@ fun HomeScreen(
                     },  
                     dismissButton = {  
                         TextButton(onClick = { showClearPjjcDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }
+			if (showClearManualDialog) {  
+                AlertDialog(  
+                    onDismissRequest = { showClearManualDialog = false },  
+                    title = { Text("清空手动绑定") },  
+                    text = { Text("将删除所有手动绑定，但保留已开启任意推送（J场/P场/上升/上线）的绑定。确定继续吗？") },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            viewModel.clearManualBinds()  
+                            showClearManualDialog = false  
+                        }) { Text("确定") }  
+                    },  
+                    dismissButton = {  
+                        TextButton(onClick = { showClearManualDialog = false }) { Text("取消") }  
                     }  
                 )  
             }			
