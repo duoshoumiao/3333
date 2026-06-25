@@ -378,11 +378,11 @@ fun HomeScreen(
                                         .fillMaxSize()    
                                         .padding(horizontal = 16.dp),    
                                     verticalArrangement = Arrangement.spacedBy(8.dp)    
-                                ) {    
-                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                ) {      
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }      
                                     item {  
                                         Button(  
-                                            onClick = { showClearManualDialog = true },  
+                                            onClick = { showClearPjjcDialog = true },  
                                             modifier = Modifier.fillMaxWidth(),  
                                             colors = ButtonDefaults.buttonColors(  
                                                 containerColor = MaterialTheme.colorScheme.error  
@@ -399,8 +399,8 @@ fun HomeScreen(
                                                 color = MaterialTheme.colorScheme.onError  
                                             )  
                                         }  
-                                    } 
-                                    itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->    
+                                    }  
+                                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->  
                                         BindCard(    
                                             index = index + 1,    
                                             bind = bind,    
