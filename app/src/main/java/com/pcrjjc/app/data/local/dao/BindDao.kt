@@ -50,6 +50,12 @@ interface BindDao {
     @Query("DELETE FROM pcr_bind")
     suspend fun deleteAll()
 
-    @Query("SELECT COUNT(*) FROM pcr_bind WHERE platform = :platform")
+    @Query("DELETE FROM pcr_bind WHERE arenaType = 1 AND jjcNotice = 0")  
+    suspend fun clearJjcBindsExceptNotice()  
+  
+    @Query("DELETE FROM pcr_bind WHERE arenaType = 2 AND pjjcNotice = 0")  
+    suspend fun clearPjjcBindsExceptNotice()
+	
+	@Query("SELECT COUNT(*) FROM pcr_bind WHERE platform = :platform")
     suspend fun getBindCount(platform: Int): Int
 }

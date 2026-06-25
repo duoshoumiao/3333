@@ -62,7 +62,18 @@ class HomeViewModel @Inject constructor(
             bindDao.deleteById(bind.id)  
         }  
     }
-    fun updateBindNotice(  
+    fun clearJjcBinds() {  
+        viewModelScope.launch {  
+            bindDao.clearJjcBindsExceptNotice()  
+        }  
+    }  
+  
+    fun clearPjjcBinds() {  
+        viewModelScope.launch {  
+            bindDao.clearPjjcBindsExceptNotice()  
+        }  
+    }
+	fun updateBindNotice(  
         bind: PcrBind,  
         jjcNotice: Boolean? = null,  
         pjjcNotice: Boolean? = null,  

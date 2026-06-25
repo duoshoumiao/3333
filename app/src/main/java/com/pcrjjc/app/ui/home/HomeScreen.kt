@@ -54,6 +54,10 @@ import androidx.compose.material3.Tab
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog  
+import androidx.compose.material3.Button  
+import androidx.compose.material3.ButtonDefaults  
+import androidx.compose.material3.TextButton
 import com.pcrjjc.app.ui.components.ImageTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -102,7 +106,11 @@ fun HomeScreen(
     // 折叠菜单状态
     var showMenu by remember { mutableStateOf(false) }
 
-    Scaffold(
+    // 一键清空确认对话框状态  
+    var showClearJjcDialog by remember { mutableStateOf(false) }  
+    var showClearPjjcDialog by remember { mutableStateOf(false) }
+	
+	Scaffold(
         topBar = {
             ImageTopAppBar(
 				title = {
@@ -276,7 +284,27 @@ fun HomeScreen(
                                         .padding(horizontal = 16.dp),    
                                     verticalArrangement = Arrangement.spacedBy(8.dp)    
                                 ) {    
-                                    item { Spacer(modifier = Modifier.height(8.dp)) }    
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    item {  
+                                        Button(  
+                                            onClick = { showClearJjcDialog = true },  
+                                            modifier = Modifier.fillMaxWidth(),  
+                                            colors = ButtonDefaults.buttonColors(  
+                                                containerColor = MaterialTheme.colorScheme.error  
+                                            )  
+                                        ) {  
+                                            Icon(  
+                                                Icons.Default.CleaningServices,  
+                                                contentDescription = null,  
+                                                tint = MaterialTheme.colorScheme.onError  
+                                            )  
+                                            Spacer(modifier = Modifier.width(8.dp))  
+                                            Text(  
+                                                "一键清空绑定（保留已开启J场推送）",  
+                                                color = MaterialTheme.colorScheme.onError  
+                                            )  
+                                        }  
+                                    }   
                                     itemsIndexed(jjcBinds, key = { _, bind -> "jjc_${bind.id}" }) { index, bind ->    
                                         BindCard(    
                                             index = index + 1,    
@@ -350,7 +378,27 @@ fun HomeScreen(
                                         .padding(horizontal = 16.dp),    
                                     verticalArrangement = Arrangement.spacedBy(8.dp)    
                                 ) {    
-                                    item { Spacer(modifier = Modifier.height(8.dp)) }    
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    item {  
+                                        Button(  
+                                            onClick = { showClearPjjcDialog = true },  
+                                            modifier = Modifier.fillMaxWidth(),  
+                                            colors = ButtonDefaults.buttonColors(  
+                                                containerColor = MaterialTheme.colorScheme.error  
+                                            )  
+                                        ) {  
+                                            Icon(  
+                                                Icons.Default.CleaningServices,  
+                                                contentDescription = null,  
+                                                tint = MaterialTheme.colorScheme.onError  
+                                            )  
+                                            Spacer(modifier = Modifier.width(8.dp))  
+                                            Text(  
+                                                "一键清空绑定（保留已开启P场推送）",  
+                                                color = MaterialTheme.colorScheme.onError  
+                                            )  
+                                        }  
+                                    } 
                                     itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->    
                                         BindCard(    
                                             index = index + 1,    
@@ -369,7 +417,39 @@ fun HomeScreen(
                         }    
                     }    
                 }    
-            }    
+            }
+			if (showClearJjcDialog) {  
+                AlertDialog(  
+                    onDismissRequest = { showClearJjcDialog = false },  
+                    title = { Text("清空 J 场绑定") },  
+                    text = { Text("将删除所有 J 场绑定，但保留已开启「J场」推送的绑定。确定继续吗？") },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            viewModel.clearJjcBinds()  
+                            showClearJjcDialog = false  
+                        }) { Text("确定") }  
+                    },  
+                    dismissButton = {  
+                        TextButton(onClick = { showClearJjcDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }  
+            if (showClearPjjcDialog) {  
+                AlertDialog(  
+                    onDismissRequest = { showClearPjjcDialog = false },  
+                    title = { Text("清空 P 场绑定") },  
+                    text = { Text("将删除所有 P 场绑定，但保留已开启「P场」推送的绑定。确定继续吗？") },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            viewModel.clearPjjcBinds()  
+                            showClearPjjcDialog = false  
+                        }) { Text("确定") }  
+                    },  
+                    dismissButton = {  
+                        TextButton(onClick = { showClearPjjcDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }			
         }    
     }    
 }    
