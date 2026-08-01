@@ -202,7 +202,7 @@ class DailyViewModel @Inject constructor(
   
     companion object {  
         private const val TAG = "DailyVM"  
-        private const val APP_VERSION = "1.7.0"  
+        private const val APP_VERSION = "1.8.0"  
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()  
 		val CHANNEL_OPTIONS = listOf("官服", "渠道服", "官服免登录") 
     }  
