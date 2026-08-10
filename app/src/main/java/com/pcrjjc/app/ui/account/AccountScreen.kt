@@ -29,6 +29,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab  
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -53,15 +57,31 @@ import com.pcrjjc.app.util.Platform
 fun AccountScreen(  
     onNavigateBack: () -> Unit  
 ) {  
-    val pagerState = rememberPagerState(initialPage = 0) { 2 }  
+    val tabs = listOf("监控账号", "我的账号")  
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }  
+    val coroutineScope = rememberCoroutineScope()  
   
-    HorizontalPager(  
-        state = pagerState,  
-        modifier = Modifier.fillMaxSize()  
-    ) { page ->  
-        when (page) {  
-            0 -> AccountPageContent(onNavigateBack = onNavigateBack)   // 监控账号管理  
-            1 -> MasterScreen(onNavigateBack = onNavigateBack)         // 我的账号  
+    Column(modifier = Modifier.fillMaxSize()) {  
+        TabRow(selectedTabIndex = pagerState.currentPage) {  
+            tabs.forEachIndexed { index, title ->  
+                Tab(  
+                    selected = pagerState.currentPage == index,  
+                    onClick = {  
+                        coroutineScope.launch { pagerState.animateScrollToPage(index) }  
+                    },  
+                    text = { Text(title) }  
+                )  
+            }  
+        }  
+  
+        HorizontalPager(  
+            state = pagerState,  
+            modifier = Modifier.fillMaxWidth().weight(1f)  
+        ) { page ->  
+            when (page) {  
+                0 -> AccountPageContent(onNavigateBack = onNavigateBack)   // 监控账号管理  
+                1 -> MasterScreen(onNavigateBack = onNavigateBack)         // 我的账号  
+            }  
         }  
     }  
 }
@@ -78,7 +98,7 @@ private fun AccountPageContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("监控账号管理") },
+                title = { Text("监控账号管理，左滑进入竞技场透视页面") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
