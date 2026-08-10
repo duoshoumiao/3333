@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch  
 import kotlinx.coroutines.withContext  
 import javax.inject.Inject  
+import com.pcrjjc.app.data.local.SettingsDataStore
   
 data class LabyrinthUiState(  
     val selectedPlatform: Platform = Platform.B_SERVER,  
@@ -37,8 +38,9 @@ data class LabyrinthUiState(
 class LabyrinthViewModel @Inject constructor(  
     private val accountDao: AccountDao,  
     private val clientManager: ClientManager,  
-    private val labyrinthDb: LabyrinthDb  
-) : ViewModel() {  
+    private val labyrinthDb: LabyrinthDb,  
+    private val settingsDataStore: SettingsDataStore  
+) : ViewModel() { 
   
     companion object {  
         private const val TAG = "LabyrinthViewModel"  
@@ -54,7 +56,25 @@ class LabyrinthViewModel @Inject constructor(
     /** 公会下拉选项 (guildId -> guildName) */  
     val guildOptions: List<Pair<Int, String>> by lazy { labyrinthDb.guildOptions() }  
   
-    fun updatePlatform(p: Platform) { _uiState.value = _uiState.value.copy(selectedPlatform = p, errorMessage = null) }  
+    init {  
+        viewModelScope.launch {  
+            val cfg = settingsDataStore.getLabyrinthConfig()  
+            val cur = _uiState.value  
+            _uiState.value = cur.copy(  
+                selectedPlatform = cfg.platformId  
+                    ?.let { id -> Platform.entries.firstOrNull { it.id == id } }  
+                    ?: cur.selectedPlatform,  
+                selectedGuildId = cfg.guildId ?: cur.selectedGuildId,  
+                difficulty = cfg.difficulty ?: cur.difficulty,  
+                perfectStart = cfg.perfect ?: cur.perfectStart,  
+                thirdBlockType = cfg.third ?: cur.thirdBlockType,  
+                area3Bosses = cfg.area3Bosses ?: cur.area3Bosses,  
+                area5Bosses = cfg.area5Bosses ?: cur.area5Bosses  
+            )  
+        }  
+    }
+	
+	fun updatePlatform(p: Platform) { _uiState.value = _uiState.value.copy(selectedPlatform = p, errorMessage = null) }  
     fun updateGuild(id: Int) { _uiState.value = _uiState.value.copy(selectedGuildId = id) }  
     fun updateDifficulty(d: Int) { _uiState.value = _uiState.value.copy(difficulty = d) }  
     fun updatePerfectStart(v: Boolean) { _uiState.value = _uiState.value.copy(perfectStart = v) }  
@@ -87,7 +107,18 @@ class LabyrinthViewModel @Inject constructor(
             _uiState.value = state.copy(isLoading = true, errorMessage = null, logs = emptyList())  
             try {  
                 withContext(Dispatchers.IO) {  
-                    val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
+                    // 点击开始时持久化当前选项  
+                    val s = _uiState.value  
+                    settingsDataStore.saveLabyrinthConfig(  
+                        platformId = s.selectedPlatform.id,  
+                        guildId = s.selectedGuildId,  
+                        difficulty = s.difficulty,  
+                        perfect = s.perfectStart,  
+                        third = s.thirdBlockType,  
+                        area3 = s.area3Bosses,  
+                        area5 = s.area5Bosses  
+                    )
+					val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
                     if (accounts.isEmpty()) {  
                         throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在“我的账号”里添加")  
                     }  

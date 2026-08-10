@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit    
 import androidx.datastore.preferences.core.longPreferencesKey    
 import androidx.datastore.preferences.core.stringPreferencesKey    
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore    
 import kotlinx.coroutines.flow.Flow    
 import kotlinx.coroutines.flow.first    
@@ -35,6 +36,14 @@ class SettingsDataStore(private val context: Context) {
 		private val KEY_EMAIL_ADDRESS = stringPreferencesKey("email_address")       // 邮箱地址  
         private val KEY_EMAIL_AUTH_CODE = stringPreferencesKey("email_auth_code")    // 邮箱授权码  
         private val KEY_EMAIL_PUSH_ENABLED = booleanPreferencesKey("email_push_enabled") // 邮箱推送开关
+		// ==================== 黎明界刷开局选项 ====================  
+        private val KEY_LAB_PLATFORM = intPreferencesKey("lab_platform")  
+        private val KEY_LAB_GUILD = intPreferencesKey("lab_guild")  
+        private val KEY_LAB_DIFFICULTY = intPreferencesKey("lab_difficulty")  
+        private val KEY_LAB_PERFECT = booleanPreferencesKey("lab_perfect")  
+        private val KEY_LAB_THIRD = stringPreferencesKey("lab_third_block_type")  
+        private val KEY_LAB_AREA3_BOSSES = stringPreferencesKey("lab_area3_bosses")  
+        private val KEY_LAB_AREA5_BOSSES = stringPreferencesKey("lab_area5_bosses")
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->    
@@ -257,4 +266,57 @@ class SettingsDataStore(private val context: Context) {
             prefs[KEY_NOTIFIED_VERSION] = version  
         }  
     }  
+	// ==================== 黎明界刷开局选项 ====================  
+  
+    /**  
+     * 保存的黎明界选项。字段为 null 表示从未保存过，调用方（ViewModel）用其默认值。  
+     */  
+    data class LabyrinthConfig(  
+        val platformId: Int?,  
+        val guildId: Int?,  
+        val difficulty: Int?,  
+        val perfect: Boolean?,  
+        val third: String?,  
+        val area3Bosses: Set<Int>?,  
+        val area5Bosses: Set<Int>?  
+    )  
+  
+    private fun parseBossSet(raw: String?): Set<Int>? {  
+        if (raw == null) return null              // 未保存过  
+        if (raw.isBlank()) return emptySet()      // 保存过但清空  
+        return raw.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()  
+    }  
+  
+    suspend fun getLabyrinthConfig(): LabyrinthConfig {  
+        val prefs = context.dataStore.data.first()  
+        return LabyrinthConfig(  
+            platformId = prefs[KEY_LAB_PLATFORM],  
+            guildId = prefs[KEY_LAB_GUILD],  
+            difficulty = prefs[KEY_LAB_DIFFICULTY],  
+            perfect = prefs[KEY_LAB_PERFECT],  
+            third = prefs[KEY_LAB_THIRD],  
+            area3Bosses = parseBossSet(prefs[KEY_LAB_AREA3_BOSSES]),  
+            area5Bosses = parseBossSet(prefs[KEY_LAB_AREA5_BOSSES])  
+        )  
+    }  
+  
+    suspend fun saveLabyrinthConfig(  
+        platformId: Int,  
+        guildId: Int,  
+        difficulty: Int,  
+        perfect: Boolean,  
+        third: String,  
+        area3: Set<Int>,  
+        area5: Set<Int>  
+    ) {  
+        context.dataStore.edit { prefs ->  
+            prefs[KEY_LAB_PLATFORM] = platformId  
+            prefs[KEY_LAB_GUILD] = guildId  
+            prefs[KEY_LAB_DIFFICULTY] = difficulty  
+            prefs[KEY_LAB_PERFECT] = perfect  
+            prefs[KEY_LAB_THIRD] = third  
+            prefs[KEY_LAB_AREA3_BOSSES] = area3.joinToString(",")  
+            prefs[KEY_LAB_AREA5_BOSSES] = area5.joinToString(",")  
+        }  
+    }
 }
