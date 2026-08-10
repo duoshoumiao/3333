@@ -12,13 +12,12 @@ import kotlinx.coroutines.withContext
  */  
 class LabyrinthDb(private val context: Context) {  
   
-    // 懒加载 + 只解析一次  
     @Volatile private var loaded = false  
   
-    private val enterGuild = LinkedHashMap<Int, String>()   // guild_id -> guild_name  
-    private val questData = HashMap<Int, Int>()             // quest_id -> wave_group_id  
-    private val waveGroup = HashMap<Int, List<Int>>()       // wave_group_id -> enemy_id 列表(非0)  
-    private val enemyParam = HashMap<Int, Int>()            // enemy_id -> unit_id  
+    private val enterGuild = LinkedHashMap<Int, String>()  
+    private val questData = HashMap<Int, Int>()  
+    private val waveGroup = HashMap<Int, List<Int>>()  
+    private val enemyParam = HashMap<Int, Int>()  
   
     private fun readJsonArray(path: String): JSONArray {  
         context.assets.open(path).use { input ->  
