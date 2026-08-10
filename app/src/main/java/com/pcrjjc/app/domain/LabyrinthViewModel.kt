@@ -42,7 +42,7 @@ class LabyrinthViewModel @Inject constructor(
   
     companion object {  
         private const val TAG = "LabyrinthViewModel"  
-        private const val MAX_COUNT = 300  
+        private const val MAX_COUNT = 9999  
     }  
   
     private val queryEngine = QueryEngine()  

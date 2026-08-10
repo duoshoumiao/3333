@@ -88,211 +88,205 @@ fun LabyrinthScreen(
         },  
         snackbarHost = { SnackbarHost(snackbarHostState) }  
     ) { paddingValues ->  
-        Column(  
+        LazyColumn(  
             modifier = Modifier  
                 .fillMaxSize()  
                 .padding(paddingValues)  
         ) {  
-            // ==================== 上半部分：表单 ====================  
-            Column(  
-                modifier = Modifier  
-                    .fillMaxWidth()  
-                    .heightIn(max = 360.dp)  
-                    .verticalScroll(rememberScrollState())  
-                    .padding(horizontal = 16.dp),  
-                verticalArrangement = Arrangement.spacedBy(10.dp)  
-            ) {  
-                Spacer(modifier = Modifier.height(2.dp))  
-                Text(  
-                    "使用“我的账号”里对应服务器的账号登录（与竞技场透视共用）。若已进入黎明界会先撤退再刷。",  
-                    style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.onSurfaceVariant  
-                )  
-  
-                // 服务器  
-                Text("选择服务器", style = MaterialTheme.typography.labelMedium)  
-                FlowRow(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),  
-                    verticalArrangement = Arrangement.spacedBy(4.dp)  
+            // ==================== 表单 ====================  
+            item {  
+                Column(  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .padding(horizontal = 16.dp),  
+                    verticalArrangement = Arrangement.spacedBy(10.dp)  
                 ) {  
-                    Platform.entries.forEach { platform ->  
-                        FilterChip(  
-                            selected = uiState.selectedPlatform == platform,  
-                            onClick = { viewModel.updatePlatform(platform) },  
-                            label = { Text(platform.displayName, style = MaterialTheme.typography.bodySmall) }  
-                        )  
-                    }  
-                }  
-  
-                // 难度  
-                Text("难度", style = MaterialTheme.typography.labelMedium)  
-                FlowRow(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),  
-                    verticalArrangement = Arrangement.spacedBy(4.dp)  
-                ) {  
-                    (1..5).forEach { d ->  
-                        FilterChip(  
-                            selected = uiState.difficulty == d,  
-                            onClick = { viewModel.updateDifficulty(d) },  
-                            label = { Text("难度$d", style = MaterialTheme.typography.bodySmall) }  
-                        )  
-                    }  
-                }  
-  
-                // 公会下拉  
-                Text("公会", style = MaterialTheme.typography.labelMedium)  
-                var guildExpanded by remember { mutableStateOf(false) }  
-                val guildName = viewModel.guildOptions  
-                    .firstOrNull { it.first == uiState.selectedGuildId }?.second  
-                    ?: uiState.selectedGuildId.toString()  
-                ExposedDropdownMenuBox(  
-                    expanded = guildExpanded,  
-                    onExpandedChange = { guildExpanded = it }  
-                ) {  
-                    OutlinedTextField(  
-                        value = guildName,  
-                        onValueChange = {},  
-                        readOnly = true,  
-                        label = { Text("公会") },  
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },  
-                        modifier = Modifier  
-                            .fillMaxWidth()  
-                            .menuAnchor()  
+                    Spacer(modifier = Modifier.height(2.dp))  
+                    Text(  
+                        "使用“我的账号”里对应服务器的账号登录（与竞技场透视共用）。若已进入黎明界会先撤退再刷。",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
                     )  
-                    ExposedDropdownMenu(  
-                        expanded = guildExpanded,  
-                        onDismissRequest = { guildExpanded = false }  
+  
+                    // 服务器  
+                    Text("选择服务器", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                        verticalArrangement = Arrangement.spacedBy(4.dp)  
                     ) {  
-                        viewModel.guildOptions.forEach { (id, name) ->  
-                            DropdownMenuItem(  
-                                text = { Text(name) },  
-                                onClick = {  
-                                    viewModel.updateGuild(id)  
-                                    guildExpanded = false  
-                                }  
+                        Platform.entries.forEach { platform ->  
+                            FilterChip(  
+                                selected = uiState.selectedPlatform == platform,  
+                                onClick = { viewModel.updatePlatform(platform) },  
+                                label = { Text(platform.displayName, style = MaterialTheme.typography.bodySmall) }  
                             )  
                         }  
                     }  
-                }  
   
-                // 完美开局  
-                Row(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.SpaceBetween,  
-                    verticalAlignment = Alignment.CenterVertically  
-                ) {  
-                    Text("完美开局（凹高分，不错过EX/必要遗物）", style = MaterialTheme.typography.bodyMedium)  
-                    Switch(  
-                        checked = uiState.perfectStart,  
-                        onCheckedChange = { viewModel.updatePerfectStart(it) }  
-                    )  
-                }  
+                    // 难度  
+                    Text("难度", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                        verticalArrangement = Arrangement.spacedBy(4.dp)  
+                    ) {  
+                        (1..5).forEach { d ->  
+                            FilterChip(  
+                                selected = uiState.difficulty == d,  
+                                onClick = { viewModel.updateDifficulty(d) },  
+                                label = { Text("难度$d", style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
+                    }  
   
-                // 区域3/5 第3格  
-                Text("区域3/5第3格", style = MaterialTheme.typography.labelMedium)  
-                FlowRow(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)  
-                ) {  
-                    listOf("必须遗物", "必须事件", "两者都行").forEach { opt ->  
-                        FilterChip(  
-                            selected = uiState.thirdBlockType == opt,  
-                            onClick = { viewModel.updateThirdBlockType(opt) },  
-                            label = { Text(opt, style = MaterialTheme.typography.bodySmall) }  
+                    // 公会下拉  
+                    Text("公会", style = MaterialTheme.typography.labelMedium)  
+                    var guildExpanded by remember { mutableStateOf(false) }  
+                    val guildName = viewModel.guildOptions  
+                        .firstOrNull { it.first == uiState.selectedGuildId }?.second  
+                        ?: uiState.selectedGuildId.toString()  
+                    ExposedDropdownMenuBox(  
+                        expanded = guildExpanded,  
+                        onExpandedChange = { guildExpanded = it }  
+                    ) {  
+                        OutlinedTextField(  
+                            value = guildName,  
+                            onValueChange = {},  
+                            readOnly = true,  
+                            label = { Text("公会") },  
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },  
+                            modifier = Modifier  
+                                .fillMaxWidth()  
+                                .menuAnchor()  
+                        )  
+                        ExposedDropdownMenu(  
+                            expanded = guildExpanded,  
+                            onDismissRequest = { guildExpanded = false }  
+                        ) {  
+                            viewModel.guildOptions.forEach { (id, name) ->  
+                                DropdownMenuItem(  
+                                    text = { Text(name) },  
+                                    onClick = {  
+                                        viewModel.updateGuild(id)  
+                                        guildExpanded = false  
+                                    }  
+                                )  
+                            }  
+                        }  
+                    }  
+  
+                    // 完美开局  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.SpaceBetween,  
+                        verticalAlignment = Alignment.CenterVertically  
+                    ) {  
+                        Text("完美开局（凹高分，不错过EX/必要遗物）", style = MaterialTheme.typography.bodyMedium)  
+                        Switch(  
+                            checked = uiState.perfectStart,  
+                            onCheckedChange = { viewModel.updatePerfectStart(it) }  
                         )  
                     }  
-                }  
   
-                // 区域3 Boss 多选  
-                Text("区域3 Boss（可多选）", style = MaterialTheme.typography.labelMedium)  
-                FlowRow(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),  
-                    verticalArrangement = Arrangement.spacedBy(4.dp)  
-                ) {  
-                    LabyrinthRouteFinder.AREA3_BOSSES.forEach { (unitId, name, diff) ->  
-                        FilterChip(  
-                            selected = unitId in uiState.area3Bosses,  
-                            onClick = { viewModel.toggleArea3Boss(unitId) },  
-                            label = { Text("【$diff】$name", style = MaterialTheme.typography.bodySmall) }  
-                        )  
+                    // 区域3/5 第3格  
+                    Text("区域3/5第3格", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)  
+                    ) {  
+                        listOf("必须遗物", "必须事件", "两者都行").forEach { opt ->  
+                            FilterChip(  
+                                selected = uiState.thirdBlockType == opt,  
+                                onClick = { viewModel.updateThirdBlockType(opt) },  
+                                label = { Text(opt, style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
                     }  
-                }  
   
-                // 区域5 Boss 多选  
-                Text("区域5 Boss（可多选）", style = MaterialTheme.typography.labelMedium)  
-                FlowRow(  
-                    modifier = Modifier.fillMaxWidth(),  
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),  
-                    verticalArrangement = Arrangement.spacedBy(4.dp)  
-                ) {  
-                    LabyrinthRouteFinder.AREA5_BOSSES.forEach { (unitId, name, diff) ->  
-                        FilterChip(  
-                            selected = unitId in uiState.area5Bosses,  
-                            onClick = { viewModel.toggleArea5Boss(unitId) },  
-                            label = { Text("【$diff】$name", style = MaterialTheme.typography.bodySmall) }  
-                        )  
+                    // 区域3 Boss 多选  
+                    Text("区域3 Boss（可多选）", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                        verticalArrangement = Arrangement.spacedBy(4.dp)  
+                    ) {  
+                        LabyrinthRouteFinder.AREA3_BOSSES.forEach { (unitId, name, diff) ->  
+                            FilterChip(  
+                                selected = unitId in uiState.area3Bosses,  
+                                onClick = { viewModel.toggleArea3Boss(unitId) },  
+                                label = { Text("【$diff】$name", style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
                     }  
-                }  
   
-                Button(  
-                    onClick = { viewModel.startReroll() },  
-                    modifier = Modifier.fillMaxWidth(),  
-                    enabled = !uiState.isLoading  
-                ) {  
-                    if (uiState.isLoading) {  
-                        CircularProgressIndicator(  
-                            modifier = Modifier.height(20.dp).width(20.dp),  
-                            strokeWidth = 2.dp,  
-                            color = MaterialTheme.colorScheme.onPrimary  
-                        )  
-                        Spacer(modifier = Modifier.width(8.dp))  
-                        Text("刷取中...")  
-                    } else {  
-                        Text("开始刷开局")  
+                    // 区域5 Boss 多选  
+                    Text("区域5 Boss（可多选）", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                        verticalArrangement = Arrangement.spacedBy(4.dp)  
+                    ) {  
+                        LabyrinthRouteFinder.AREA5_BOSSES.forEach { (unitId, name, diff) ->  
+                            FilterChip(  
+                                selected = unitId in uiState.area5Bosses,  
+                                onClick = { viewModel.toggleArea5Boss(unitId) },  
+                                label = { Text("【$diff】$name", style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
                     }  
-                }  
   
-                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))  
+                    Button(  
+                        onClick = { viewModel.startReroll() },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = !uiState.isLoading  
+                    ) {  
+                        if (uiState.isLoading) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.height(20.dp).width(20.dp),  
+                                strokeWidth = 2.dp,  
+                                color = MaterialTheme.colorScheme.onPrimary  
+                            )  
+                            Spacer(modifier = Modifier.width(8.dp))  
+                            Text("刷取中...")  
+                        } else {  
+                            Text("开始刷开局")  
+                        }  
+                    }  
+  
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))  
+                }  
             }  
   
-            // ==================== 下半部分：结果日志 ====================  
+            // ==================== 结果日志 ====================  
             if (uiState.logs.isEmpty()) {  
-                Column(  
-                    modifier = Modifier.fillMaxSize().padding(16.dp),  
-                    horizontalAlignment = Alignment.CenterHorizontally,  
-                    verticalArrangement = Arrangement.Center  
-                ) {  
+                item {  
                     Text(  
                         text = "配置好后点击“开始刷开局”，结果将显示在此处",  
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),  
                         style = MaterialTheme.typography.bodySmall,  
                         color = MaterialTheme.colorScheme.onSurfaceVariant,  
                         textAlign = TextAlign.Center  
                     )  
                 }  
             } else {  
-                LazyColumn(  
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),  
-                    verticalArrangement = Arrangement.spacedBy(8.dp)  
-                ) {  
-                    item { Spacer(modifier = Modifier.height(8.dp)) }  
-                    items(uiState.logs) { line ->  
-                        Card(  
-                            modifier = Modifier.fillMaxWidth(),  
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)  
-                        ) {  
-                            Text(  
-                                text = line,  
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),  
-                                style = MaterialTheme.typography.bodyMedium  
-                            )  
-                        }  
+                item { Spacer(modifier = Modifier.height(8.dp)) }  
+                items(uiState.logs) { line ->  
+                    Card(  
+                        modifier = Modifier  
+                            .fillMaxWidth()  
+                            .padding(horizontal = 16.dp, vertical = 4.dp),  
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)  
+                    ) {  
+                        Text(  
+                            text = line,  
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),  
+                            style = MaterialTheme.typography.bodyMedium  
+                        )  
                     }  
-                    item { Spacer(modifier = Modifier.height(24.dp)) }  
                 }  
+                item { Spacer(modifier = Modifier.height(24.dp)) }  
             }  
-        }  
+        } 
     }  
 }
