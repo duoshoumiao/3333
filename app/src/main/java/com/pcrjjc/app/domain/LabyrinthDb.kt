@@ -6,10 +6,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext  
   
 /**  
- * 黎明界游戏数据（从 assets/labyrinth/*.json 加载）  
+ * 黎明界游戏数据（从 assets 下的 labyrinth JSON 加载）  
  * 用于 Boss 过滤：block.questId -> wave_group_id -> enemy_id 列表 -> unit_id 集合  
  * 对应 PPPPPP autopcr/module/modules/labyrinth.py 的 _boss_unit_ids  
- */  
+ */
 class LabyrinthDb(private val context: Context) {  
   
     @Volatile private var loaded = false  
