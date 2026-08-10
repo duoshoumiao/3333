@@ -98,7 +98,7 @@ private fun AccountPageContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("监控账号管理，左滑进入竞技场透视页面") },
+                title = { Text("竞技场监控账号") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
