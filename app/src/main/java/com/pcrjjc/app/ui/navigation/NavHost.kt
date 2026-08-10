@@ -13,7 +13,6 @@ import com.pcrjjc.app.ui.detail.DetailScreen
 import com.pcrjjc.app.ui.fortnightly.FortnightlyScreen  
 import com.pcrjjc.app.ui.history.HistoryScreen  
 import com.pcrjjc.app.ui.home.HomeScreen  
-import com.pcrjjc.app.ui.master.MasterScreen  
 import com.pcrjjc.app.ui.query.QueryScreen  
 import com.pcrjjc.app.ui.room.ChatScreen  
 import com.pcrjjc.app.ui.room.RoomScreen  
@@ -36,7 +35,6 @@ sealed class Screen(val route: String) {
     }      
     data object Settings : Screen("settings")      
     data object Account : Screen("account")      
-    data object Master : Screen("master")  
     data object Fortnightly : Screen("fortnightly")  
     data object Daily : Screen("daily")  
     data object Room : Screen("room")  
@@ -66,7 +64,6 @@ fun PcrJjcNavHost() {
                 },  
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },  
                 onNavigateToAccount = { navController.navigate(Screen.Account.route) },  
-                onNavigateToMaster = { navController.navigate(Screen.Master.route) },  
                 onNavigateToFortnightly = { navController.navigate(Screen.Fortnightly.route) },  
                 onNavigateToDaily = { navController.navigate(Screen.Daily.route) },  
                 onNavigateToRoom = { navController.navigate(Screen.Room.route) },  
@@ -124,10 +121,6 @@ fun PcrJjcNavHost() {
   
         composable(Screen.Account.route) {      
             AccountScreen(onNavigateBack = { navController.popBackStack() })      
-        }      
-  
-        composable(Screen.Master.route) {      
-            MasterScreen(onNavigateBack = { navController.popBackStack() })      
         }      
   
         composable(Screen.Fortnightly.route) {      

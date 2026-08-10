@@ -88,7 +88,6 @@ fun HomeScreen(
     onNavigateToHistory: (Long, Int) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
-    onNavigateToMaster: () -> Unit,
     onNavigateToFortnightly: () -> Unit,
     onNavigateToDaily: () -> Unit,
     onNavigateToRoom: () -> Unit,                     
@@ -173,9 +172,6 @@ fun HomeScreen(
 					}  
 					IconButton(onClick = { launchArenaBreaker(context) }) {  
 						StrokedIcon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
-					}  
-					IconButton(onClick = onNavigateToMaster) {  
-						StrokedIcon(Icons.Default.Visibility, contentDescription = "账号")  
 					}  
 					IconButton(onClick = onNavigateToAccount) {  
 						StrokedIcon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  

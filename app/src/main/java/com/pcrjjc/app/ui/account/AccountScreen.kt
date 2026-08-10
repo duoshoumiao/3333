@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager  
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,13 +45,32 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pcrjjc.app.data.local.entity.Account
+import com.pcrjjc.app.ui.master.MasterScreen
 import com.pcrjjc.app.util.Platform
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AccountScreen(
-    viewModel: AccountViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+@OptIn(ExperimentalFoundationApi::class)  
+@Composable  
+fun AccountScreen(  
+    onNavigateBack: () -> Unit  
+) {  
+    val pagerState = rememberPagerState(initialPage = 0) { 2 }  
+  
+    HorizontalPager(  
+        state = pagerState,  
+        modifier = Modifier.fillMaxSize()  
+    ) { page ->  
+        when (page) {  
+            0 -> AccountPageContent(onNavigateBack = onNavigateBack)   // 监控账号管理  
+            1 -> MasterScreen(onNavigateBack = onNavigateBack)         // 我的账号  
+        }  
+    }  
+}
+
+@OptIn(ExperimentalMaterial3Api::class)  
+@Composable  
+private fun AccountPageContent(  
+    viewModel: AccountViewModel = hiltViewModel(),  
+    onNavigateBack: () -> Unit  
 ) {
     val accounts by viewModel.accounts.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
