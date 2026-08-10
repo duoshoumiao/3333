@@ -19,6 +19,7 @@ import com.pcrjjc.app.ui.room.RoomScreen
 import com.pcrjjc.app.ui.clanranking.ClanRankingScreen
 import com.pcrjjc.app.ui.settings.SettingsScreen  
 import com.pcrjjc.app.ui.eqa.EqaScreen
+import com.pcrjjc.app.ui.labyrinth.LabyrinthScreen
   
 sealed class Screen(val route: String) {      
     data object Home : Screen("home")      
@@ -40,6 +41,7 @@ sealed class Screen(val route: String) {
     data object Room : Screen("room")  
     data object ClanRanking : Screen("clan_ranking")
 	data object Eqa : Screen("eqa")
+	data object Labyrinth : Screen("labyrinth")
 	data object Chat : Screen("chat/{roomId}/{playerQq}/{playerName}/{roomName}/{hostQq}") {
         fun createRoute(roomId: String, playerQq: String, playerName: String, roomName: String, hostQq: String) =
             "chat/$roomId/$playerQq/${java.net.URLEncoder.encode(playerName, "UTF-8")}/${java.net.URLEncoder.encode(roomName, "UTF-8")}/$hostQq"
@@ -68,7 +70,8 @@ fun PcrJjcNavHost() {
                 onNavigateToDaily = { navController.navigate(Screen.Daily.route) },  
                 onNavigateToRoom = { navController.navigate(Screen.Room.route) },  
                 onNavigateToClanRanking = { navController.navigate(Screen.ClanRanking.route) },  
-                onNavigateToEqa = { navController.navigate(Screen.Eqa.route) }  
+                onNavigateToEqa = { navController.navigate(Screen.Eqa.route) },  
+                onNavigateToLabyrinth = { navController.navigate(Screen.Labyrinth.route) }
             )  
         }  
   
@@ -165,6 +168,10 @@ fun PcrJjcNavHost() {
         // 问答路由  
         composable(Screen.Eqa.route) {  
             EqaScreen(onNavigateBack = { navController.popBackStack() })  
+        }
+		// 黎明界刷开局路由  
+        composable(Screen.Labyrinth.route) {  
+            LabyrinthScreen(onNavigateBack = { navController.popBackStack() })  
         }
 	}      
 }

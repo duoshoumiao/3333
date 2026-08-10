@@ -10,6 +10,7 @@ import com.pcrjjc.app.data.local.dao.AccountDao
 import com.pcrjjc.app.data.remote.RoomClient  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.UpdateChecker  
+import com.pcrjjc.app.domain.LabyrinthDb
 import com.pcrjjc.app.data.local.dao.BindDao    
 import com.pcrjjc.app.data.local.dao.HistoryDao    
 import com.pcrjjc.app.data.local.dao.RankCacheDao  
@@ -111,5 +112,11 @@ object AppModule {
     @Singleton  
     fun provideClientManager(): ClientManager {  
         return ClientManager()  
-    }  
+    }
+    // 新增：黎明界游戏数据（assets/labyrinth/*.json）单例  
+    @Provides  
+    @Singleton  
+    fun provideLabyrinthDb(@ApplicationContext context: Context): LabyrinthDb {  
+        return LabyrinthDb(context)  
+    }	
 }

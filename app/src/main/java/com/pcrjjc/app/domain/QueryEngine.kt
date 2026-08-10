@@ -136,6 +136,88 @@ class QueryEngine {
         }  
         return result.sortedBy { it.rank }  
     }  
+	
+	// ==================== 黎明界（Labyrinth）====================  
+  
+    /** 黎明界地图格子 */  
+    data class LabyrinthBlock(  
+        val blockId: Int,  
+        val area: Int,  
+        val column: Int,  
+        val row: Int,  
+        val blockType: Int,  
+        val questId: Int,  
+        val nextBlockIdList: List<Int>  
+    )  
+  
+    /** labyrinth/top 结果：已有开局的 enter_id + 已解锁最高难度 */  
+    data class LabyrinthTopResult(  
+        val enterId: Long,  
+        val maxUnlockedDifficulty: Int  
+    )  
+  
+    /** labyrinth/enter 结果：本次开局 enter_id + 地图 */  
+    data class LabyrinthEnterResult(  
+        val enterId: Long,  
+        val blocks: List<LabyrinthBlock>  
+    )  
+  
+    @Suppress("UNCHECKED_CAST")  
+    private suspend fun callLabyrinth(  
+        client: Any,  
+        api: String,  
+        params: MutableMap<String, Any?>  
+    ): Map<String, Any?> {  
+        return when (client) {  
+            is PcrClient -> client.callApi(api, params)  
+            is TwPcrClient -> client.callApi(api, params)  
+            else -> throw IllegalArgumentException("Unknown client type")  
+        }  
+    }  
+  
+    /** 调 /labyrinth/top：读取已有开局 enter_id 和已解锁最高难度 */  
+    @Suppress("UNCHECKED_CAST")  
+    suspend fun labyrinthTop(client: Any): LabyrinthTopResult {  
+        val res = callLabyrinth(client, "/labyrinth/top", mutableMapOf())  
+        val enterId = (res["enter_id"] as? Number)?.toLong() ?: 0L  
+        // guild_cleared_difficulty_list: [{guild_id, difficulty}, ...]  
+        val clearedList = res["guild_cleared_difficulty_list"] as? List<Map<String, Any?>>  
+        val cleared = clearedList  
+            ?.mapNotNull { (it["difficulty"] as? Number)?.toInt() }  
+            ?.filter { it > 0 }  
+            ?: emptyList()  
+        val maxUnlocked = if (cleared.isEmpty()) 1 else minOf(cleared.max() + 1, 5)  
+        return LabyrinthTopResult(enterId, maxUnlocked)  
+    }  
+  
+    /** 调 /labyrinth/enter：进入某公会某难度，返回地图 */  
+    @Suppress("UNCHECKED_CAST")  
+    suspend fun labyrinthEnter(client: Any, guildId: Int, difficulty: Int): LabyrinthEnterResult {  
+        val res = callLabyrinth(  
+            client,  
+            "/labyrinth/enter",  
+            mutableMapOf("guild_id" to guildId, "difficulty" to difficulty)  
+        )  
+        val enterId = (res["enter_id"] as? Number)?.toLong() ?: 0L  
+        val mapList = res["map_list"] as? List<Map<String, Any?>> ?: emptyList()  
+        val blocks = mapList.mapNotNull { item ->  
+            val blockId = (item["block_id"] as? Number)?.toInt() ?: return@mapNotNull null  
+            val area = (item["area"] as? Number)?.toInt() ?: return@mapNotNull null  
+            val column = (item["column"] as? Number)?.toInt() ?: return@mapNotNull null  
+            val row = (item["row"] as? Number)?.toInt() ?: 0  
+            val blockType = (item["block_type"] as? Number)?.toInt() ?: 0  
+            val questId = (item["quest_id"] as? Number)?.toInt() ?: 0  
+            val nextList = (item["next_block_id_list"] as? List<*>)  
+                ?.mapNotNull { (it as? Number)?.toInt() } ?: emptyList()  
+            LabyrinthBlock(blockId, area, column, row, blockType, questId, nextList)  
+        }  
+        return LabyrinthEnterResult(enterId, blocks)  
+    }  
+  
+    /** 调 /labyrinth/retire：撤退当前开局 */  
+    suspend fun labyrinthRetire(client: Any, enterId: Long) {  
+        callLabyrinth(client, "/labyrinth/retire", mutableMapOf("enter_id" to enterId))  
+    }
   
     @Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
