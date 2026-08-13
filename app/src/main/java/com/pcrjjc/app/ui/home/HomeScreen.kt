@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.home    
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.scale
 import androidx.compose.material3.Checkbox
 import com.pcrjjc.app.ui.components.StrokedIcon  
@@ -24,6 +25,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow  
+import androidx.compose.foundation.lazy.items  
+import androidx.compose.foundation.horizontalScroll  
+import androidx.compose.foundation.rememberScrollState  
+import androidx.compose.foundation.layout.size  
+import androidx.compose.material3.OutlinedTextField  
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -107,7 +115,25 @@ fun HomeScreen(
     // 折叠菜单状态
     var showMenu by remember { mutableStateOf(false) }
 
-    // 一键清空确认对话框状态  
+    // 检索用状态  
+    var showSearch by remember { mutableStateOf(false) }  
+    var searchQuery by remember { mutableStateOf("") }  
+  
+    // 全部功能入口（顶部横向栏和搜索弹窗共用同一数据源）  
+    data class FeatureEntry(val name: String, val icon: ImageVector, val onClick: () -> Unit)  
+    val featureEntries = listOf(  
+        FeatureEntry("公会战", Icons.Default.MeetingRoom, onNavigateToRoom),  
+        FeatureEntry("公会排名", Icons.Default.Leaderboard, onNavigateToClanRanking),  
+        FeatureEntry("问答", Icons.Default.QuestionAnswer, onNavigateToEqa),  
+        FeatureEntry("黎明界刷开局", Icons.Default.Explore, onNavigateToLabyrinth),  
+        FeatureEntry("清日常", Icons.Default.CleaningServices, onNavigateToDaily),  
+        FeatureEntry("半月刊", Icons.Default.DateRange, onNavigateToFortnightly),  
+        FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) },  
+        FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
+        FeatureEntry("设置", Icons.Default.Settings, onNavigateToSettings)  
+    )
+	
+	// 一键清空确认对话框状态  
     var showClearJjcDialog by remember { mutableStateOf(false) }  
     var showClearPjjcDialog by remember { mutableStateOf(false) }
 	var showClearManualDialog by remember { mutableStateOf(false) }
@@ -115,83 +141,9 @@ fun HomeScreen(
 	Scaffold(
         topBar = {
             ImageTopAppBar(
-				title = {
-                    // 点击标题展开/折叠菜单
-                    Row(
-                        modifier = Modifier.clickable { showMenu = !showMenu },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("LB")
-                        Icon(
-                            if (showMenu) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = "菜单",
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                    }
-                    // 折叠菜单下拉（第113-127行替换为以下内容）  
-                    DropdownMenu(  
-                        expanded = showMenu,  
-                        onDismissRequest = { showMenu = false }  
-                    ) {  
-                        DropdownMenuItem(  
-                            text = { Text("公会战") },  
-                            onClick = {  
-                                showMenu = false  
-                                onNavigateToRoom()  
-                            },  
-                            leadingIcon = {  
-                                Icon(Icons.Default.MeetingRoom, contentDescription = null)  
-                            }  
-                        )
-                        DropdownMenuItem(  
-                            text = { Text("公会排名") },  
-                            onClick = {  
-                                showMenu = false  
-                                onNavigateToClanRanking()  
-                            },  
-                            leadingIcon = {  
-                                Icon(Icons.Default.Leaderboard, contentDescription = null)  
-                            }  
-                        )						
-                        DropdownMenuItem(  
-                            text = { Text("问答") },  
-                            onClick = { 
-                                showMenu = false  
-                                onNavigateToEqa()  
-                            },  
-                            leadingIcon = {  
-                                Icon(Icons.Default.QuestionAnswer, contentDescription = null)  
-                            }  
-                        )
-						DropdownMenuItem(  
-                            text = { Text("黎明界刷开局") },  
-                            onClick = {  
-                                showMenu = false  
-                                onNavigateToLabyrinth()  
-                            },  
-                            leadingIcon = {  
-                                Icon(Icons.Default.Explore, contentDescription = null)  
-                            }  
-                        )
-					}
+				title = {  
+                    Text("LB")  
                 },
-				actions = {  
-					IconButton(onClick = onNavigateToDaily) {  
-						StrokedIcon(Icons.Default.CleaningServices, contentDescription = "清日常")  
-					}  
-					IconButton(onClick = onNavigateToFortnightly) {  
-						StrokedIcon(Icons.Default.DateRange, contentDescription = "半月刊")  
-					}  
-					IconButton(onClick = { launchArenaBreaker(context) }) {  
-						StrokedIcon(Icons.Default.ContentCut, contentDescription = "怎么拆")  
-					}  
-					IconButton(onClick = onNavigateToAccount) {  
-						StrokedIcon(Icons.Default.ManageAccounts, contentDescription = "账号管理")  
-					}  
-					IconButton(onClick = onNavigateToSettings) {  
-						StrokedIcon(Icons.Default.Settings, contentDescription = "设置")  
-					}  
-				}  
 			)    
         },    
         floatingActionButton = {    
@@ -199,12 +151,40 @@ fun HomeScreen(
                 Icon(Icons.Default.Add, contentDescription = "添加绑定")    
             }    
         }    
-    ) { paddingValues ->    
+    ) { paddingValues ->  
+        Column(  
+            modifier = Modifier  
+                .fillMaxSize()  
+                .padding(paddingValues)  
+        ) {  
+            // 顶部横向功能栏 + 搜索按钮（可左右滑动）  
+            LazyRow(  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .padding(vertical = 8.dp),  
+                verticalAlignment = Alignment.CenterVertically  
+            ) {  
+                item {  
+                    IconButton(onClick = { showSearch = true }) {  
+                        Icon(Icons.Default.Search, contentDescription = "搜索")  
+                    }  
+                }  
+                items(featureEntries) { entry ->  
+                    Column(  
+                        modifier = Modifier  
+                            .clickable { entry.onClick() }  
+                            .padding(horizontal = 12.dp, vertical = 4.dp),  
+                        horizontalAlignment = Alignment.CenterHorizontally  
+                    ) {  
+                        Icon(entry.icon, contentDescription = entry.name)  
+                        Text(entry.name, style = MaterialTheme.typography.labelSmall)  
+                    }  
+                }  
+            }
         if (totalCount == 0) {    
             Column(    
                 modifier = Modifier    
-                    .fillMaxSize()    
-                    .padding(paddingValues),    
+                    .fillMaxSize(),    
                 horizontalAlignment = Alignment.CenterHorizontally,    
                 verticalArrangement = Arrangement.Center    
             ) {    
@@ -242,8 +222,7 @@ fun HomeScreen(
   
             Column(    
                 modifier = Modifier    
-                    .fillMaxSize()    
-                    .padding(paddingValues)    
+                    .fillMaxSize() 
             ) {    
                 TabRow(selectedTabIndex = pagerState.currentPage) {    
                     tabs.forEachIndexed { index, title ->    
@@ -492,6 +471,64 @@ fun HomeScreen(
                     },  
                     dismissButton = {  
                         TextButton(onClick = { showClearManualDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }
+            if (showSearch) {  
+                AlertDialog(  
+                    onDismissRequest = {  
+                        showSearch = false  
+                        searchQuery = ""  
+                    },  
+                    title = { Text("搜索功能") },  
+                    text = {  
+                        Column {  
+                            OutlinedTextField(  
+                                value = searchQuery,  
+                                onValueChange = { searchQuery = it },  
+                                modifier = Modifier.fillMaxWidth(),  
+                                singleLine = true,  
+                                leadingIcon = {  
+                                    Icon(Icons.Default.Search, contentDescription = null)  
+                                },  
+                                placeholder = { Text("输入功能名") }  
+                            )  
+                            Spacer(modifier = Modifier.height(8.dp))  
+                            // 可上下滑动的功能名列表（按输入过滤）  
+                            LazyColumn(  
+                                modifier = Modifier  
+                                    .fillMaxWidth()  
+                                    .heightIn(max = 320.dp)  
+                            ) {  
+                                items(  
+                                    featureEntries.filter {  
+                                        it.name.contains(searchQuery, ignoreCase = true)  
+                                    }  
+                                ) { entry ->  
+                                    Row(  
+                                        modifier = Modifier  
+                                            .fillMaxWidth()  
+                                            .clickable {  
+                                                entry.onClick()  
+                                                showSearch = false  
+                                                searchQuery = ""  
+                                            }  
+                                            .padding(vertical = 12.dp),  
+                                        verticalAlignment = Alignment.CenterVertically  
+                                    ) {  
+                                        Icon(entry.icon, contentDescription = null)  
+                                        Spacer(modifier = Modifier.width(12.dp))  
+                                        Text(entry.name)  
+                                    }  
+                                }  
+                            }  
+                        }  
+                    },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            showSearch = false  
+                            searchQuery = ""  
+                        }) { Text("关闭") }  
                     }  
                 )  
             }			
