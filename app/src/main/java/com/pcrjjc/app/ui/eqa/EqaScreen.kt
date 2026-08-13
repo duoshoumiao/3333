@@ -34,7 +34,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost  
 import androidx.compose.material3.SnackbarHostState  
 import androidx.compose.material3.Text  
-import androidx.compose.material3.TopAppBar  
+import androidx.compose.material3.TopAppBar 
+import androidx.compose.material3.AlertDialog  
+import androidx.compose.material3.Button  
+import androidx.compose.material3.TextButton  
+import androidx.compose.material3.LinearProgressIndicator  
+import androidx.compose.material.icons.filled.Download 
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.LaunchedEffect  
 import androidx.compose.runtime.collectAsState  
@@ -198,13 +203,69 @@ fun EqaScreen(
         }  
     }  
   
-    Scaffold(  
+    // 更新提示 / 一键下载弹窗（带进度条）  
+    if (uiState.showUpdateDialog) {  
+        AlertDialog(  
+            onDismissRequest = {  
+                if (!uiState.isDownloading) viewModel.dismissUpdateDialog()  
+            },  
+            title = { Text("问答有更新") },  
+            text = {  
+                Column(modifier = Modifier.fillMaxWidth()) {  
+                    Text(  
+                        "检测到问答内容有更新，建议一键下载保存到本地，" +  
+                            "下载后每次打开将直接读取本地缓存，无需重新联网下载。",  
+                        style = MaterialTheme.typography.bodySmall  
+                    )  
+                    if (uiState.isDownloading) {  
+                        Spacer(modifier = Modifier.height(12.dp))  
+                        LinearProgressIndicator(  
+                            progress = { uiState.downloadProgress },  
+                            modifier = Modifier.fillMaxWidth()  
+                        )  
+                        Spacer(modifier = Modifier.height(4.dp))  
+                        Text(  
+                            uiState.downloadMessage  
+                                ?: "正在下载... ${(uiState.downloadProgress * 100).toInt()}%",  
+                            style = MaterialTheme.typography.bodySmall  
+                        )  
+                    }  
+                }  
+            },  
+            confirmButton = {  
+                Button(  
+                    onClick = { if (!uiState.isDownloading) viewModel.downloadAll() },  
+                    enabled = !uiState.isDownloading  
+                ) {  
+                    Text(if (uiState.isDownloading) "下载中..." else "一键下载")  
+                }  
+            },  
+            dismissButton = {  
+                TextButton(  
+                    onClick = { if (!uiState.isDownloading) viewModel.dismissUpdateDialog() },  
+                    enabled = !uiState.isDownloading  
+                ) {  
+                    Text("稍后")  
+                }  
+            }  
+        )  
+    }
+	
+	Scaffold(  
         topBar = {  
             TopAppBar(  
                 title = { Text("问答") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")  
+                    }  
+                },  
+                actions = {  
+                    IconButton(  
+                        onClick = { viewModel.downloadAll() },  
+                        enabled = !uiState.isDownloading  
+                    ) {  
+                        Icon(Icons.Default.Download, contentDescription = "下载到本地")  
                     }  
                 }  
             )  
