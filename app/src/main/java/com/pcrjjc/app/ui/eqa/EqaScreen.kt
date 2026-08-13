@@ -156,10 +156,11 @@ fun EqaScreen(
                     AsyncImage(  
                         model = ImageRequest.Builder(context)  
                             .data(imageUrl)  
+                            .size(Size.ORIGINAL)  
                             .crossfade(true)  
                             .diskCachePolicy(CachePolicy.ENABLED)  
                             .memoryCachePolicy(CachePolicy.ENABLED)  
-                            .build(),  
+                            .build(),
                         contentDescription = "全屏图片",  
                         modifier = Modifier  
                             .fillMaxWidth()  
@@ -468,8 +469,9 @@ private fun AnswerItem(
                         AsyncImage(  
                             model = ImageRequest.Builder(context)  
                                 .data(file)  
+                                .size(Size.ORIGINAL)  
                                 .crossfade(true)  
-                                .build(),  
+                                .build(),
                             contentDescription = "图片",  
                             modifier = Modifier  
                                 .fillMaxWidth()  
@@ -512,10 +514,11 @@ private fun AnswerItem(
                         AsyncImage(  
                             model = ImageRequest.Builder(context)  
                                 .data(segment.data)  
+                                .size(Size.ORIGINAL)  
                                 .crossfade(true)  
                                 .diskCachePolicy(CachePolicy.ENABLED)  
                                 .memoryCachePolicy(CachePolicy.ENABLED)  
-                                .build(),  
+                                .build(),
                             contentDescription = "图片",  
                             modifier = Modifier  
                                 .fillMaxWidth()  
