@@ -535,6 +535,7 @@ fun HomeScreen(
         }    
     }    
 }    
+}  
   
 private fun launchArenaBreaker(context: Context) {    
     if (!Settings.canDrawOverlays(context)) {    
@@ -664,8 +665,7 @@ private fun BindCard(
                     }    
                 }    
             }        
-        }
-		}
+        }    
     }    
 }    
   
