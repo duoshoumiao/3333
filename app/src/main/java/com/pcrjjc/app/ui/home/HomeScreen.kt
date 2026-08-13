@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.home    
 
+import androidx.compose.material3.TopAppBar
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.scale
 import androidx.compose.material3.Checkbox
@@ -140,7 +141,7 @@ fun HomeScreen(
 	
 	Scaffold(
         topBar = {
-            ImageTopAppBar(  
+            TopAppBar(  
 				title = {    
                     LazyRow(    
                         modifier = Modifier.fillMaxWidth(),    
