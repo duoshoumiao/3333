@@ -138,7 +138,7 @@ class LabyrinthViewModel @Inject constructor(
                         queryEngine.labyrinthRetire(client, top.enterId)  
                     }  
   
-                    // 3. 最多 300 次重开  
+                    // 3. 最多 9999 次重开  
                     var lastReason = ""  
                     for (attempt in 1..MAX_COUNT) {  
                         val enter = queryEngine.labyrinthEnter(client, state.selectedGuildId, state.difficulty)  

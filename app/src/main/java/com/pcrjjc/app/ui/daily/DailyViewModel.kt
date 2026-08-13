@@ -23,6 +23,10 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject  
 import kotlinx.coroutines.async  
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job  
+import kotlinx.coroutines.isActive  
+import kotlinx.coroutines.CancellationException  
+import kotlin.coroutines.coroutineContext
   
 // ==================== 指令数据 ====================  
   
@@ -664,8 +668,9 @@ class DailyViewModel @Inject constructor(
         _uiState.value = state.copy(isExecuting = true, errorMessage = null)  
   
         viewModelScope.launch {  
+            val validateJob = startValidateListener(baseUrl)  
             try {  
-                val resultJson = withContext(Dispatchers.IO) {  
+                val resultJson = withContext(Dispatchers.IO) {
                     val json = JSONObject().apply {  
                         put("command", commandText)  
                     }  
@@ -702,9 +707,116 @@ class DailyViewModel @Inject constructor(
                     executionResult = "执行失败: ${e.message}",  
                     showResultDialog = true  
                 )  
+            } finally {  
+                validateJob.cancel()  
+            }  
+        }  
+    }
+	
+	/**  
+     * 监听清日常人工过码通道：连接服务端 SSE /daily/api/query_validate，  
+     * 收到需要过码的 ValidateInfo 后自动过码，并回填 POST /daily/api/validate。  
+     * 返回一个 Job，调用方在请求结束后应 cancel 掉它。  
+     */  
+    private fun startValidateListener(baseUrl: String): kotlinx.coroutines.Job {  
+        return viewModelScope.launch(Dispatchers.IO) {  
+            try {  
+                val request = Request.Builder()  
+                    .url("$baseUrl/daily/api/query_validate")  
+                    .addHeader("X-App-Version", APP_VERSION)  
+                    .addHeader("Accept", "text/event-stream")  
+                    .build()  
+                httpClient.newCall(request).execute().use { resp ->  
+                    val body = resp.body ?: return@use  
+                    val source = body.source()  
+                    while (isActive && !source.exhausted()) {  
+                        val line = source.readUtf8Line() ?: break  
+                        if (!line.startsWith("data:")) continue  
+                        val payload = line.removePrefix("data:").trim()  
+                        if (payload.isEmpty()) continue  
+                        try {  
+                            val info = JSONObject(payload)  
+                            val status = info.optString("status", "")  
+                            if (status == "ok") continue  
+                            val id = info.optString("id", "")  
+                            val challenge = info.optString("challenge", "")  
+                            val gt = info.optString("gt", "")  
+                            val userid = info.optString("userid", "")  
+                            if (id.isBlank() || gt.isBlank() || challenge.isBlank()) continue  
+  
+                            // 自动过码（复刻 pcrd.tencentbot.top 流程）  
+                            val solved = solveCaptcha(gt, challenge, userid) ?: continue  
+  
+                            // 回填结果  
+                            val validateJson = JSONObject().apply {  
+                                put("id", id)  
+                                put("challenge", solved.first)   // 过码返回的 challenge  
+                                put("userid", solved.second)     // gt_user_id  
+                                put("validate", solved.third)    // validate  
+                            }  
+                            val postReq = Request.Builder()  
+                                .url("$baseUrl/daily/api/validate")  
+                                .addHeader("X-App-Version", APP_VERSION)  
+                                .post(validateJson.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                                .build()  
+                            httpClient.newCall(postReq).execute().use { r -> r.body?.string() }  
+                        } catch (e: Exception) {  
+                            Log.e(TAG, "validate listener parse/solve failed: ${e.message}", e)  
+                        }  
+                    }  
+                }  
+            } catch (e: CancellationException) {  
+                throw e  
+            } catch (e: Exception) {  
+                Log.e(TAG, "validate listener error: ${e.message}", e)  
             }  
         }  
     }  
+  
+    /**  
+     * 自动过码，返回 Triple(challenge, gt_user_id, validate)，失败返回 null。  
+     */  
+    private fun solveCaptcha(gt: String, challenge: String, userId: String): Triple<String, String, String>? {  
+        return try {  
+            val client = OkHttpClient.Builder()  
+                .connectTimeout(30, TimeUnit.SECONDS)  
+                .readTimeout(30, TimeUnit.SECONDS)  
+                .build()  
+            val request = Request.Builder()  
+                .url("https://pcrd.tencentbot.top/geetest_renew?captcha_type=1&challenge=$challenge&gt=$gt&userid=$userId&gs=1")  
+                .addHeader("Content-Type", "application/json")  
+                .addHeader("User-Agent", "pcrjjc2/1.0.0")  
+                .build()  
+            val json = JSONObject(client.newCall(request).execute().body?.string() ?: "{}")  
+            val uuid = json.getString("uuid")  
+            for (i in 0 until 10) {  
+                val checkReq = Request.Builder()  
+                    .url("https://pcrd.tencentbot.top/check/$uuid")  
+                    .addHeader("Content-Type", "application/json")  
+                    .addHeader("User-Agent", "pcrjjc2/1.0.0")  
+                    .build()  
+                val checkJson = JSONObject(client.newCall(checkReq).execute().body?.string() ?: "{}")  
+                if (checkJson.has("queue_num")) {  
+                    Thread.sleep(minOf(checkJson.getInt("queue_num"), 3) * 10000L)  
+                    continue  
+                }  
+                val infoObj = checkJson.get("info")  
+                if (infoObj is JSONObject && infoObj.has("validate")) {  
+                    return Triple(  
+                        infoObj.getString("challenge"),  
+                        infoObj.getString("gt_user_id"),  
+                        infoObj.getString("validate")  
+                    )  
+                }  
+                if (infoObj is String && (infoObj == "fail" || infoObj == "url invalid")) return null  
+                if (infoObj is String && infoObj == "in running") Thread.sleep(5000)  
+            }  
+            null  
+        } catch (e: Exception) {  
+            Log.e(TAG, "solveCaptcha failed: ${e.message}", e)  
+            null  
+        }  
+    }
 	
 	private fun executeDailyAll(baseUrl: String) {  
 		val accounts = _uiState.value.accounts  
@@ -718,8 +830,9 @@ class DailyViewModel @Inject constructor(
 	  
 		_uiState.value = _uiState.value.copy(isExecuting = true, errorMessage = null)  
 	  
-		viewModelScope.launch {  
-			try {  
+		viewModelScope.launch {    
+			val validateJob = startValidateListener(baseUrl)   // 新增  
+			try { 
 				val results = coroutineScope {  
 					accounts.map { accName ->  
 						async(Dispatchers.IO) {  
@@ -765,8 +878,10 @@ class DailyViewModel @Inject constructor(
 					executionResult = "清日常所有执行失败: ${e.message}",  
 					showResultDialog = true  
 				)  
-			}  
-		}  
+			} finally {                                          // 新增  
+				validateJob.cancel()                             // 新增  
+			}    
+		}    
 	}
 	
 	private var autoDefPollJob: kotlinx.coroutines.Job? = null  
