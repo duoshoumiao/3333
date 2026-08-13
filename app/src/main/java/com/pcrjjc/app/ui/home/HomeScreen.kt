@@ -466,8 +466,390 @@ fun HomeScreen(
                         TextButton(onClick = { showClearManualDialog = false }) { Text("取消") }  
                     }  
                 )  
+            }	
+        }             
+        @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)    
+@Composable    
+fun HomeScreen(
+    viewModel: HomeViewModel = hiltViewModel(),
+    onNavigateToBind: () -> Unit,
+    onNavigateToQuery: (Int) -> Unit,
+    onNavigateToDetail: (Int) -> Unit,
+    onNavigateToHistory: (Long, Int) -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToAccount: () -> Unit,
+    onNavigateToFortnightly: () -> Unit,
+    onNavigateToDaily: () -> Unit,
+    onNavigateToRoom: () -> Unit,                     
+    onNavigateToClanRanking: () -> Unit,              // ← 加逗号  
+    onNavigateToEqa: () -> Unit,  
+    onNavigateToLabyrinth: () -> Unit               
+) {
+    val jjcBinds by viewModel.jjcBinds.collectAsState()
+    val pjjcBinds by viewModel.pjjcBinds.collectAsState()
+    val manualBinds by viewModel.manualBinds.collectAsState()
+    val rankCaches by viewModel.rankCaches.collectAsState()
+    val context = LocalContext.current
+
+    val totalCount = jjcBinds.size + pjjcBinds.size + manualBinds.size
+
+    // 折叠菜单状态
+    var showMenu by remember { mutableStateOf(false) }
+
+    // 检索用状态  
+    var showSearch by remember { mutableStateOf(false) }  
+    var searchQuery by remember { mutableStateOf("") }  
+  
+    // 全部功能入口（顶部横向栏和搜索弹窗共用同一数据源）  
+    data class FeatureEntry(val name: String, val icon: ImageVector, val onClick: () -> Unit)  
+    val featureEntries = listOf(  
+        FeatureEntry("公会战", Icons.Default.MeetingRoom, onNavigateToRoom),  
+        FeatureEntry("公会排名", Icons.Default.Leaderboard, onNavigateToClanRanking),  
+        FeatureEntry("问答", Icons.Default.QuestionAnswer, onNavigateToEqa),  
+        FeatureEntry("黎明界刷开局", Icons.Default.Explore, onNavigateToLabyrinth),  
+        FeatureEntry("清日常", Icons.Default.CleaningServices, onNavigateToDaily),  
+        FeatureEntry("半月刊", Icons.Default.DateRange, onNavigateToFortnightly),  
+        FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) },  
+        FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
+        FeatureEntry("设置", Icons.Default.Settings, onNavigateToSettings)  
+    )
+	
+	// 一键清空确认对话框状态  
+    var showClearJjcDialog by remember { mutableStateOf(false) }  
+    var showClearPjjcDialog by remember { mutableStateOf(false) }
+	var showClearManualDialog by remember { mutableStateOf(false) }
+	
+	Scaffold(
+        topBar = {
+            ImageTopAppBar(  
+				title = {    
+                    LazyRow(    
+                        modifier = Modifier.fillMaxWidth(),    
+                        verticalAlignment = Alignment.CenterVertically    
+                    ) {    
+                        item {    
+                            IconButton(onClick = { showSearch = true }) {    
+                                Icon(Icons.Default.Search, contentDescription = "搜索")    
+                            }    
+                        }    
+                        items(featureEntries) { entry ->    
+                            Column(    
+                                modifier = Modifier    
+                                    .clickable { entry.onClick() }    
+                                    .padding(horizontal = 8.dp),    
+                                horizontalAlignment = Alignment.CenterHorizontally    
+                            ) {    
+                                Icon(entry.icon, contentDescription = entry.name)    
+                                Text(entry.name, style = MaterialTheme.typography.labelSmall)    
+                            }    
+                        }    
+                    }    
+                },    
+			)    
+        },    
+        floatingActionButton = {    
+            FloatingActionButton(onClick = onNavigateToBind) {    
+                Icon(Icons.Default.Add, contentDescription = "添加绑定")    
+            }    
+        }    
+    ) { paddingValues ->    
+        if (totalCount == 0) {   
+            Column(    
+                modifier = Modifier    
+                    .fillMaxSize()   
+                    .padding(paddingValues),   
+                horizontalAlignment = Alignment.CenterHorizontally,    
+                verticalArrangement = Arrangement.Center    
+            ) {    
+                Text(    
+                    text = "暂无绑定",    
+                    style = MaterialTheme.typography.titleLarge,    
+                    color = MaterialTheme.colorScheme.onSurfaceVariant    
+                )    
+                Spacer(modifier = Modifier.height(8.dp))    
+                Text(    
+                    text = "点击右下角按钮添加竞技场绑定",    
+                    style = MaterialTheme.typography.bodyMedium,    
+                    color = MaterialTheme.colorScheme.onSurfaceVariant    
+                )    
+            }    
+        } else {    
+            val tabs = mutableListOf<String>()    
+            if (jjcBinds.isNotEmpty() || pjjcBinds.isEmpty() && manualBinds.isEmpty()) {    
+                tabs.add("J场（JJC）")    
+            }    
+            if (pjjcBinds.isNotEmpty() || jjcBinds.isEmpty() && manualBinds.isEmpty()) {    
+                tabs.add("P场（PJJC）")    
+            }    
+            if (manualBinds.isNotEmpty()) {    
+                tabs.add("手动绑定")    
+            }    
+            if (!tabs.contains("J场（JJC）")) tabs.add(0, "J场（JJC）")    
+            if (!tabs.contains("P场（PJJC）")) tabs.add(    
+                if (tabs.indexOf("J场（JJC）") >= 0) tabs.indexOf("J场（JJC）") + 1 else 0,    
+                "P场（PJJC）"    
+            )    
+  
+            val pagerState = rememberPagerState(pageCount = { tabs.size })    
+            val coroutineScope = rememberCoroutineScope()    
+  
+            Column(    
+                modifier = Modifier    
+                    .fillMaxSize() 
+                    .padding(paddingValues)
+            ) {    
+                TabRow(selectedTabIndex = pagerState.currentPage) {    
+                    tabs.forEachIndexed { index, title ->    
+                        Tab(    
+                            selected = pagerState.currentPage == index,    
+                            onClick = {    
+                                coroutineScope.launch {    
+                                    pagerState.animateScrollToPage(index)    
+                                }    
+                            },    
+                            text = {    
+                                val count = when (title) {    
+                                    "J场（JJC）" -> jjcBinds.size    
+                                    "P场（PJJC）" -> pjjcBinds.size    
+                                    "手动绑定" -> manualBinds.size    
+                                    else -> 0    
+                                }    
+                                Text("$title ($count)")    
+                            }    
+                        )    
+                    }    
+                }    
+  
+                HorizontalPager(    
+                    state = pagerState,    
+                    modifier = Modifier.fillMaxSize()    
+                ) { page ->    
+                    val tabTitle = tabs[page]    
+                    when (tabTitle) {    
+                        "J场（JJC）" -> {    
+                            if (jjcBinds.isEmpty()) {    
+                                Column(    
+                                    modifier = Modifier.fillMaxSize(),    
+                                    horizontalAlignment = Alignment.CenterHorizontally,    
+                                    verticalArrangement = Arrangement.Center    
+                                ) {    
+                                    Text(    
+                                        text = "暂无 JJC 绑定",    
+                                        style = MaterialTheme.typography.bodyMedium,    
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant    
+                                    )    
+                                }    
+                            } else {    
+                                LazyColumn(    
+                                    modifier = Modifier    
+                                        .fillMaxSize()    
+                                        .padding(horizontal = 16.dp),    
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)    
+                                ) {    
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    item {  
+                                        Button(  
+                                            onClick = { showClearJjcDialog = true },  
+                                            modifier = Modifier.fillMaxWidth(),  
+                                            colors = ButtonDefaults.buttonColors(  
+                                                containerColor = MaterialTheme.colorScheme.error  
+                                            )  
+                                        ) {  
+                                            Icon(  
+                                                Icons.Default.CleaningServices,  
+                                                contentDescription = null,  
+                                                tint = MaterialTheme.colorScheme.onError  
+                                            )  
+                                            Spacer(modifier = Modifier.width(8.dp))  
+                                            Text(  
+                                                "一键清空绑定（保留已开启J场推送）",  
+                                                color = MaterialTheme.colorScheme.onError  
+                                            )  
+                                        }  
+                                    }   
+                                    itemsIndexed(jjcBinds, key = { _, bind -> "jjc_${bind.id}" }) { index, bind ->    
+                                        BindCard(    
+                                            index = index + 1,    
+                                            bind = bind,    
+                                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],    
+                                            onQuery = { onNavigateToQuery(bind.id) },    
+                                            onDetail = { onNavigateToDetail(bind.id) },    
+                                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },    
+                                            onDelete = { viewModel.deleteBind(bind) },  
+											viewModel = viewModel     
+                                        )    
+                                    }    
+                                    item { Spacer(modifier = Modifier.height(80.dp)) }    
+                                }    
+                            }    
+                        }    
+                        "P场（PJJC）" -> {    
+                            if (pjjcBinds.isEmpty()) {    
+                                Column(    
+                                    modifier = Modifier.fillMaxSize(),    
+                                    horizontalAlignment = Alignment.CenterHorizontally,    
+                                    verticalArrangement = Arrangement.Center    
+                                ) {    
+                                    Text(    
+                                        text = "暂无 PJJC 绑定",    
+                                        style = MaterialTheme.typography.bodyMedium,    
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant    
+                                    )    
+                                }    
+                            } else {    
+                                LazyColumn(    
+                                    modifier = Modifier    
+                                        .fillMaxSize()    
+                                        .padding(horizontal = 16.dp),    
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)    
+                                ) {    
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                                    item {  
+                                        Button(  
+                                            onClick = { showClearPjjcDialog = true },  
+                                            modifier = Modifier.fillMaxWidth(),  
+                                            colors = ButtonDefaults.buttonColors(  
+                                                containerColor = MaterialTheme.colorScheme.error  
+                                            )  
+                                        ) {  
+                                            Icon(  
+                                                Icons.Default.CleaningServices,  
+                                                contentDescription = null,  
+                                                tint = MaterialTheme.colorScheme.onError  
+                                            )  
+                                            Spacer(modifier = Modifier.width(8.dp))  
+                                            Text(  
+                                                "一键清空绑定（保留已开启P场推送）",  
+                                                color = MaterialTheme.colorScheme.onError  
+                                            )  
+                                        }  
+                                    }  
+                                    itemsIndexed(pjjcBinds, key = { _, bind -> "pjjc_${bind.id}" }) { index, bind ->
+                                        BindCard(    
+                                            index = index + 1,    
+                                            bind = bind,    
+                                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],    
+                                            onQuery = { onNavigateToQuery(bind.id) },    
+                                            onDetail = { onNavigateToDetail(bind.id) },    
+                                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },    
+                                            onDelete = { viewModel.deleteBind(bind) },  
+											viewModel = viewModel  // ← 添加这行      
+                                        )    
+                                    }    
+                                    item { Spacer(modifier = Modifier.height(80.dp)) }    
+                                }    
+                            }    
+                        }    
+                        "手动绑定" -> {    
+                            if (manualBinds.isEmpty()) {    
+                                Column(    
+                                    modifier = Modifier.fillMaxSize(),    
+                                    horizontalAlignment = Alignment.CenterHorizontally,    
+                                    verticalArrangement = Arrangement.Center    
+                                ) {    
+                                    Text(    
+                                        text = "暂无手动绑定",    
+                                        style = MaterialTheme.typography.bodyMedium,    
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant    
+                                    )    
+                                }    
+                            } else {    
+                                LazyColumn(    
+                                    modifier = Modifier    
+                                        .fillMaxSize()    
+                                        .padding(horizontal = 16.dp),    
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)    
+                                ) {      
+                                    item { Spacer(modifier = Modifier.height(8.dp)) }      
+                                    item {  
+                                        Button(  
+                                            onClick = { showClearManualDialog = true },  
+                                            modifier = Modifier.fillMaxWidth(),  
+                                            colors = ButtonDefaults.buttonColors(  
+                                                containerColor = MaterialTheme.colorScheme.error  
+                                            )  
+                                        ) {  
+                                            Icon(  
+                                                Icons.Default.CleaningServices,  
+                                                contentDescription = null,  
+                                                tint = MaterialTheme.colorScheme.onError  
+                                            )  
+                                            Spacer(modifier = Modifier.width(8.dp))  
+                                            Text(  
+                                                "一键清空绑定（保留已开启推送）",
+                                                color = MaterialTheme.colorScheme.onError  
+                                            )  
+                                        }  
+                                    }  
+                                    itemsIndexed(manualBinds, key = { _, bind -> "manual_${bind.id}" }) { index, bind ->  
+                                        BindCard(    
+                                            index = index + 1,    
+                                            bind = bind,    
+                                            rankCache = rankCaches[Pair(bind.pcrid, bind.platform)],    
+                                            onQuery = { onNavigateToQuery(bind.id) },    
+                                            onDetail = { onNavigateToDetail(bind.id) },    
+                                            onHistory = { onNavigateToHistory(bind.pcrid, bind.platform) },    
+                                            onDelete = { viewModel.deleteBind(bind) },  
+											viewModel = viewModel  // ← 添加这行      
+                                        )    
+                                    }    
+                                    item { Spacer(modifier = Modifier.height(80.dp)) }    
+                                }    
+                            }    
+                        }    
+                    }    
+                }    
             }
-            if (showSearch) {  
+			if (showClearJjcDialog) {  
+                AlertDialog(  
+                    onDismissRequest = { showClearJjcDialog = false },  
+                    title = { Text("清空 J 场绑定") },  
+                    text = { Text("将删除所有 J 场绑定，但保留已开启「J场」推送的绑定。确定继续吗？") },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            viewModel.clearJjcBinds()  
+                            showClearJjcDialog = false  
+                        }) { Text("确定") }  
+                    },  
+                    dismissButton = {  
+                        TextButton(onClick = { showClearJjcDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }  
+            if (showClearPjjcDialog) {  
+                AlertDialog(  
+                    onDismissRequest = { showClearPjjcDialog = false },  
+                    title = { Text("清空 P 场绑定") },  
+                    text = { Text("将删除所有 P 场绑定，但保留已开启「P场」推送的绑定。确定继续吗？") },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            viewModel.clearPjjcBinds()  
+                            showClearPjjcDialog = false  
+                        }) { Text("确定") }  
+                    },  
+                    dismissButton = {  
+                        TextButton(onClick = { showClearPjjcDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }
+			if (showClearManualDialog) {  
+                AlertDialog(  
+                    onDismissRequest = { showClearManualDialog = false },  
+                    title = { Text("清空手动绑定") },  
+                    text = { Text("将删除所有手动绑定，但保留已开启任意推送（J场/P场/上升/上线）的绑定。确定继续吗？") },  
+                    confirmButton = {  
+                        TextButton(onClick = {  
+                            viewModel.clearManualBinds()  
+                            showClearManualDialog = false  
+                        }) { Text("确定") }  
+                    },  
+                    dismissButton = {  
+                        TextButton(onClick = { showClearManualDialog = false }) { Text("取消") }  
+                    }  
+                )  
+            }	
+        }
+		if (showSearch) {  
                 AlertDialog(  
                     onDismissRequest = {  
                         showSearch = false  
@@ -524,8 +906,7 @@ fun HomeScreen(
                         }) { Text("关闭") }  
                     }  
                 )  
-            }			
-        }    
+            } 		
     }    
 }    
   
