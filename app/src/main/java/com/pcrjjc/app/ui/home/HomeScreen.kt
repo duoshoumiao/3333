@@ -664,7 +664,8 @@ private fun BindCard(
                     }    
                 }    
             }        
-        }    
+        }
+		}
     }    
 }    
   
