@@ -140,10 +140,30 @@ fun HomeScreen(
 	
 	Scaffold(
         topBar = {
-            ImageTopAppBar(
-				title = {  
-                    Text("LB")  
-                },
+            ImageTopAppBar(  
+				title = {    
+                    LazyRow(    
+                        modifier = Modifier.fillMaxWidth(),    
+                        verticalAlignment = Alignment.CenterVertically    
+                    ) {    
+                        item {    
+                            IconButton(onClick = { showSearch = true }) {    
+                                Icon(Icons.Default.Search, contentDescription = "搜索")    
+                            }    
+                        }    
+                        items(featureEntries) { entry ->    
+                            Column(    
+                                modifier = Modifier    
+                                    .clickable { entry.onClick() }    
+                                    .padding(horizontal = 8.dp),    
+                                horizontalAlignment = Alignment.CenterHorizontally    
+                            ) {    
+                                Icon(entry.icon, contentDescription = entry.name)    
+                                Text(entry.name, style = MaterialTheme.typography.labelSmall)    
+                            }    
+                        }    
+                    }    
+                },    
 			)    
         },    
         floatingActionButton = {    
@@ -151,40 +171,12 @@ fun HomeScreen(
                 Icon(Icons.Default.Add, contentDescription = "添加绑定")    
             }    
         }    
-    ) { paddingValues ->  
-        Column(  
-            modifier = Modifier  
-                .fillMaxSize()  
-                .padding(paddingValues)  
-        ) {  
-            // 顶部横向功能栏 + 搜索按钮（可左右滑动）  
-            LazyRow(  
-                modifier = Modifier  
-                    .fillMaxWidth()  
-                    .padding(vertical = 8.dp),  
-                verticalAlignment = Alignment.CenterVertically  
-            ) {  
-                item {  
-                    IconButton(onClick = { showSearch = true }) {  
-                        Icon(Icons.Default.Search, contentDescription = "搜索")  
-                    }  
-                }  
-                items(featureEntries) { entry ->  
-                    Column(  
-                        modifier = Modifier  
-                            .clickable { entry.onClick() }  
-                            .padding(horizontal = 12.dp, vertical = 4.dp),  
-                        horizontalAlignment = Alignment.CenterHorizontally  
-                    ) {  
-                        Icon(entry.icon, contentDescription = entry.name)  
-                        Text(entry.name, style = MaterialTheme.typography.labelSmall)  
-                    }  
-                }  
-            }
-        if (totalCount == 0) {    
+    ) { paddingValues ->    
+        if (totalCount == 0) {   
             Column(    
                 modifier = Modifier    
-                    .fillMaxSize(),    
+                    .fillMaxSize()   
+                    .padding(paddingValues),   
                 horizontalAlignment = Alignment.CenterHorizontally,    
                 verticalArrangement = Arrangement.Center    
             ) {    
@@ -223,6 +215,7 @@ fun HomeScreen(
             Column(    
                 modifier = Modifier    
                     .fillMaxSize() 
+                    .padding(paddingValues)
             ) {    
                 TabRow(selectedTabIndex = pagerState.currentPage) {    
                     tabs.forEachIndexed { index, title ->    
@@ -535,7 +528,6 @@ fun HomeScreen(
         }    
     }    
 }    
-}  
   
 private fun launchArenaBreaker(context: Context) {    
     if (!Settings.canDrawOverlays(context)) {    
