@@ -86,10 +86,10 @@ import com.pcrjjc.app.ScreenCaptureActivity
 import com.pcrjjc.app.data.local.entity.PcrBind    
 import com.pcrjjc.app.data.local.entity.RankCache    
 import com.pcrjjc.app.util.Platform    
-import kotlinx.coroutines.launch    
+import kotlinx.coroutines.launch      
   
-
-@Composable    
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)  
+@Composable      
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToBind: () -> Unit,
