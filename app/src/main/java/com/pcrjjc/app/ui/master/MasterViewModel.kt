@@ -182,9 +182,9 @@ class MasterViewModel @Inject constructor(
                     val client = clientManager.getClient(account)  
   
                     when (state.selectedType) {  
-                        ArenaType.JJC -> queryEngine.queryArenaRanking(client)  
-                        ArenaType.PJJC -> queryEngine.queryGrandArenaRanking(client)  
-                    }  
+                        ArenaType.JJC -> queryEngine.queryArenaRanking(client, clientManager = clientManager, account = account)  
+                        ArenaType.PJJC -> queryEngine.queryGrandArenaRanking(client, clientManager = clientManager, account = account)  
+                    } 
                 }  
   
                 val allBinds = bindDao.getAllBindsSync()  
@@ -226,11 +226,20 @@ class MasterViewModel @Inject constructor(
                 }		
             } catch (e: Exception) {  
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
+                // 可能是会话失效/顶号，销毁可能已失效的 client，保证下次点击一定重新登录  
+                try {  
+                    val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
+                    if (accounts.isNotEmpty()) {  
+                        clientManager.clearClient(accounts.first().id)  
+                    }  
+                } catch (ignore: Exception) {  
+                    Log.w(TAG, "clearClient on error failed: ${ignore.message}")  
+                }  
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     errorMessage = "查询失败: ${e.message ?: e.javaClass.simpleName}"  
                 )  
-            }  
+            }
         }  
     }  
   

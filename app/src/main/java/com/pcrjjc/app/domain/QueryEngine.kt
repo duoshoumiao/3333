@@ -61,23 +61,36 @@ class QueryEngine {
      * 排名API不返回user_name，需要逐个调用get_profile获取  
      */  
     @Suppress("UNCHECKED_CAST")  
-    suspend fun queryArenaRanking(client: Any, pages: Int = 3): List<ArenaRankingPlayer> {  
+    suspend fun queryArenaRanking(  
+        client: Any,  
+        pages: Int = 3,  
+        clientManager: ClientManager? = null,  
+        account: Account? = null  
+    ): List<ArenaRankingPlayer> {  
+        var activeClient = client  
         val allPlayers = mutableListOf<ArenaRankingPlayer>()  
+  
+        // 单页请求；返回 null 表示疑似会话失效（响应缺少 ranking 字段）  
+        suspend fun fetchRankingPage(c: Any, page: Int): List<Map<String, Any?>>? {  
+            val res = when (c) {  
+                is PcrClient -> c.callApi("/arena/ranking", mutableMapOf("limit" to 20, "page" to page))  
+                is TwPcrClient -> c.callApi("/arena/ranking", mutableMapOf("limit" to 20, "page" to page))  
+                else -> throw IllegalArgumentException("Unknown client type")  
+            }  
+            return res["ranking"] as? List<Map<String, Any?>>  
+        }  
+  
         // 第一步：获取排名列表（viewer_id, rank, team_level）  
         for (page in 1..pages) {  
             try {  
-                val res = when (client) {  
-                    is PcrClient -> client.callApi(  
-                        "/arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    is TwPcrClient -> client.callApi(  
-                        "/arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    else -> throw IllegalArgumentException("Unknown client type")  
+                var ranking = fetchRankingPage(activeClient, page)  
+                // 会话失效检测：首页就拿不到 ranking，尝试重新登录并重试一次  
+                if (ranking == null && page == 1 && clientManager != null && account != null) {  
+                    Log.w(TAG, "queryArenaRanking session expired, relogin and retry")  
+                    activeClient = clientManager.relogin(account)  
+                    ranking = fetchRankingPage(activeClient, page)  
                 }  
-                val ranking = res["ranking"] as? List<Map<String, Any?>> ?: continue  
+                if (ranking == null) continue  
                 for (item in ranking) {  
                     val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
                     val rank = (item["rank"] as? Number)?.toInt() ?: continue  
@@ -90,35 +103,48 @@ class QueryEngine {
                 Log.e(TAG, "queryArenaRanking page $page failed: ${e.message}", e)  
             }  
         }  
-        // 第二步：逐个获取用户名称  
+        // 第二步：逐个获取用户名称（用可能已刷新的 activeClient）  
         val result = allPlayers.map { player ->  
-            val userName = getUserName(client, player.viewerId)  
+            val userName = getUserName(activeClient, player.viewerId)  
             player.copy(userName = userName)  
         }  
         return result.sortedBy { it.rank }  
-    }  
+    }
   
     /**  
      * PJJC透视：查询公主竞技场排名前51名玩家  
      * 排名API不返回user_name，需要逐个调用get_profile获取  
      */  
     @Suppress("UNCHECKED_CAST")  
-    suspend fun queryGrandArenaRanking(client: Any, pages: Int = 3): List<ArenaRankingPlayer> {  
+    suspend fun queryGrandArenaRanking(  
+        client: Any,  
+        pages: Int = 3,  
+        clientManager: ClientManager? = null,  
+        account: Account? = null  
+    ): List<ArenaRankingPlayer> {  
+        var activeClient = client  
         val allPlayers = mutableListOf<ArenaRankingPlayer>()  
+  
+        // 单页请求；返回 null 表示疑似会话失效（响应缺少 ranking 字段）  
+        suspend fun fetchRankingPage(c: Any, page: Int): List<Map<String, Any?>>? {  
+            val res = when (c) {  
+                is PcrClient -> c.callApi("/grand_arena/ranking", mutableMapOf("limit" to 20, "page" to page))  
+                is TwPcrClient -> c.callApi("/grand_arena/ranking", mutableMapOf("limit" to 20, "page" to page))  
+                else -> throw IllegalArgumentException("Unknown client type")  
+            }  
+            return res["ranking"] as? List<Map<String, Any?>>  
+        }  
+  
         for (page in 1..pages) {  
             try {  
-                val res = when (client) {  
-                    is PcrClient -> client.callApi(  
-                        "/grand_arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    is TwPcrClient -> client.callApi(  
-                        "/grand_arena/ranking",  
-                        mutableMapOf("limit" to 20, "page" to page)  
-                    )  
-                    else -> throw IllegalArgumentException("Unknown client type")  
+                var ranking = fetchRankingPage(activeClient, page)  
+                // 会话失效检测：首页就拿不到 ranking，尝试重新登录并重试一次  
+                if (ranking == null && page == 1 && clientManager != null && account != null) {  
+                    Log.w(TAG, "queryGrandArenaRanking session expired, relogin and retry")  
+                    activeClient = clientManager.relogin(account)  
+                    ranking = fetchRankingPage(activeClient, page)  
                 }  
-                val ranking = res["ranking"] as? List<Map<String, Any?>> ?: continue  
+                if (ranking == null) continue  
                 for (item in ranking) {  
                     val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
                     val rank = (item["rank"] as? Number)?.toInt() ?: continue  
@@ -131,11 +157,11 @@ class QueryEngine {
             }  
         }  
         val result = allPlayers.map { player ->  
-            val userName = getUserName(client, player.viewerId)  
+            val userName = getUserName(activeClient, player.viewerId)  
             player.copy(userName = userName)  
         }  
         return result.sortedBy { it.rank }  
-    }  
+    }
 	
 	// ==================== 黎明界（Labyrinth）====================  
   
