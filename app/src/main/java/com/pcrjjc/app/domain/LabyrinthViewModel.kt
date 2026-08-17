@@ -122,10 +122,10 @@ class LabyrinthViewModel @Inject constructor(
                     if (accounts.isEmpty()) {  
                         throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在“我的账号”里添加")  
                     }  
-                    var activeClient = clientManager.getClient(accounts.first())
+                    val client = clientManager.getClient(accounts.first())  
   
                     // 1. 校验难度是否解锁（_max_unlocked_difficulty）  
-                    val top = queryEngine.labyrinthTop(activeClient, clientManager, accounts.first())  
+                    val top = queryEngine.labyrinthTop(client, clientManager, accounts.first())
                     if (state.difficulty > top.maxUnlockedDifficulty) {  
                         throw IllegalStateException(  
                             "黎明界难度${state.difficulty}尚未解锁，当前最大可挑战难度为${top.maxUnlockedDifficulty}"  
@@ -135,27 +135,13 @@ class LabyrinthViewModel @Inject constructor(
                     // 2. 已有开局先撤退  
                     if (top.enterId != 0L) {  
                         appendLog("检测到已有黎明界开局，先撤退。")  
-                        queryEngine.labyrinthRetire(activeClient, top.enterId)  
+                        queryEngine.labyrinthRetire(client, top.enterId)  
                     }  
   
                     // 3. 最多 9999 次重开  
                     var lastReason = ""  
-                    var consecutiveFailures = 0  
                     for (attempt in 1..MAX_COUNT) {  
-                        val enter = queryEngine.labyrinthEnter(activeClient, state.selectedGuildId, state.difficulty)  
-  
-                        // 会话失效检测：进入黎明界返回空（既无 enter_id 也无 blocks），疑似被挤号/会话过期  
-                        if (enter.enterId == 0L && enter.blocks.isEmpty()) {  
-                            consecutiveFailures++  
-                            if (consecutiveFailures >= 3) {  
-                                throw IllegalStateException("会话失效，重新登录后仍无法进入黎明界，请稍后重试")  
-                            }  
-                            appendLog("检测到会话失效，重新登录后重试（第 $consecutiveFailures 次）")  
-                            activeClient = clientManager.relogin(accounts.first())  
-                            continue  
-                        }  
-                        consecutiveFailures = 0  
-  
+                        val enter = queryEngine.labyrinthEnter(client, state.selectedGuildId, state.difficulty)  
                         val (routes, reason) = routeFinder.findRoutes(  
                             enter.blocks, state.difficulty,  
                             state.area3Bosses, state.area5Bosses,  
@@ -174,10 +160,10 @@ class LabyrinthViewModel @Inject constructor(
                             return@withContext  
                         }  
                         lastReason = reason  
-                        if (enter.enterId != 0L) queryEngine.labyrinthRetire(activeClient, enter.enterId)  
-                        queryEngine.labyrinthTop(activeClient)  
+                        if (enter.enterId != 0L) queryEngine.labyrinthRetire(client, enter.enterId)  
+                        queryEngine.labyrinthTop(client)  
                     }  
-                    throw IllegalStateException("重开${MAX_COUNT}次仍未刷到目标路线，最后失败原因：$lastReason")
+                    throw IllegalStateException("重开${MAX_COUNT}次仍未刷到目标路线，最后失败原因：$lastReason")  
                 }  
                 _uiState.value = _uiState.value.copy(isLoading = false)  
             } catch (e: Exception) {  
