@@ -125,7 +125,7 @@ class LabyrinthViewModel @Inject constructor(
                     val client = clientManager.getClient(accounts.first())  
   
                     // 1. 校验难度是否解锁（_max_unlocked_difficulty）  
-                    val top = queryEngine.labyrinthTop(client)  
+                    val top = queryEngine.labyrinthTop(client, clientManager, accounts.first())
                     if (state.difficulty > top.maxUnlockedDifficulty) {  
                         throw IllegalStateException(  
                             "黎明界难度${state.difficulty}尚未解锁，当前最大可挑战难度为${top.maxUnlockedDifficulty}"  
@@ -168,11 +168,21 @@ class LabyrinthViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isLoading = false)  
             } catch (e: Exception) {  
                 Log.e(TAG, "startReroll failed: ${e.message}", e)  
+                // セッション失効/顶号の可能性があるので、失効した可能性のあるクライアントを破棄し  
+                // 次回クリック時に必ず再ログインさせる  
+                try {  
+                    val accounts = accountDao.getMasterAccountsByPlatform(_uiState.value.selectedPlatform.id)  
+                    if (accounts.isNotEmpty()) {  
+                        clientManager.clearClient(accounts.first().id)  
+                    }  
+                } catch (ignore: Exception) {  
+                    Log.w(TAG, "clearClient on error failed: ${ignore.message}")  
+                }  
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     errorMessage = e.message ?: e.javaClass.simpleName  
                 )  
-            }  
+            }
         }  
     }  
 }

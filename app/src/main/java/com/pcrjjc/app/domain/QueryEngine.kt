@@ -177,8 +177,22 @@ class QueryEngine {
   
     /** 调 /labyrinth/top：读取已有开局 enter_id 和已解锁最高难度 */  
     @Suppress("UNCHECKED_CAST")  
-    suspend fun labyrinthTop(client: Any): LabyrinthTopResult {  
-        val res = callLabyrinth(client, "/labyrinth/top", mutableMapOf())  
+    suspend fun labyrinthTop(  
+        client: Any,  
+        clientManager: ClientManager? = null,  
+        account: Account? = null  
+    ): LabyrinthTopResult {  
+        var res = callLabyrinth(client, "/labyrinth/top", mutableMapOf())  
+  
+        // 会话失效检测：顶号/过期后响应缺少关键字段（既无 enter_id 也无 guild_cleared_difficulty_list）  
+        val looksExpired = !res.containsKey("enter_id") &&  
+            !res.containsKey("guild_cleared_difficulty_list")  
+        if (looksExpired && clientManager != null && account != null) {  
+            Log.w(TAG, "labyrinthTop session expired, relogin and retry")  
+            val retryClient = clientManager.relogin(account)  
+            res = callLabyrinth(retryClient, "/labyrinth/top", mutableMapOf())  
+        }  
+  
         val enterId = (res["enter_id"] as? Number)?.toLong() ?: 0L  
         // guild_cleared_difficulty_list: [{guild_id, difficulty}, ...]  
         val clearedList = res["guild_cleared_difficulty_list"] as? List<Map<String, Any?>>  
@@ -188,7 +202,7 @@ class QueryEngine {
             ?: emptyList()  
         val maxUnlocked = if (cleared.isEmpty()) 1 else minOf(cleared.max() + 1, 5)  
         return LabyrinthTopResult(enterId, maxUnlocked)  
-    }  
+    }
   
     /** 调 /labyrinth/enter：进入某公会某难度，返回地图 */  
     @Suppress("UNCHECKED_CAST")  
