@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
 import com.pcrjjc.app.data.local.dao.AccountDao  
+import com.pcrjjc.app.data.local.entity.Account 
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.LabyrinthDb  
 import com.pcrjjc.app.domain.LabyrinthRouteFinder  
@@ -34,8 +35,12 @@ data class LabyrinthUiState(
         .filter { it.third == "简单" }.map { it.first }.toSet(),  
     val isLoading: Boolean = false,  
     val logs: List<String> = emptyList(),  
-    val errorMessage: String? = null  
-)  
+    val errorMessage: String? = null,  
+    // 当前服务器平台下可选的「我的账号」列表  
+    val availableAccounts: List<Account> = emptyList(),  
+    // 当前选中的账号 id（null 表示未选/无账号）  
+    val selectedAccountId: Int? = null  
+)
   
 @HiltViewModel  
 class LabyrinthViewModel @Inject constructor(  
@@ -75,10 +80,33 @@ class LabyrinthViewModel @Inject constructor(
                 area3Bosses = cfg.area3Bosses ?: cur.area3Bosses,  
                 area5Bosses = cfg.area5Bosses ?: cur.area5Bosses  
             )  
-        }  
+            // 初始平台加载「我的账号」列表  
+            loadAccountsForPlatform(_uiState.value.selectedPlatform.id)  
+        }
     }
 	
-	fun updatePlatform(p: Platform) { _uiState.value = _uiState.value.copy(selectedPlatform = p, errorMessage = null) }  
+	fun updatePlatform(p: Platform) {  
+        _uiState.value = _uiState.value.copy(selectedPlatform = p, errorMessage = null)  
+        viewModelScope.launch { loadAccountsForPlatform(p.id) }  
+    }  
+  
+    /** 加载指定服务器平台下的「我的账号」，并设置默认选中账号 */  
+    private suspend fun loadAccountsForPlatform(platformId: Int) {  
+        val accounts = accountDao.getMasterAccountsByPlatform(platformId)  
+        val cur = _uiState.value  
+        // 若原选中账号仍在新列表里则保留，否则默认选第一个  
+        val newSelectedId = accounts.firstOrNull { it.id == cur.selectedAccountId }?.id  
+            ?: accounts.firstOrNull()?.id  
+        _uiState.value = cur.copy(  
+            availableAccounts = accounts,  
+            selectedAccountId = newSelectedId  
+        )  
+    }  
+  
+    /** 手动切换选中的账号 */  
+    fun updateSelectedAccount(id: Int) {  
+        _uiState.value = _uiState.value.copy(selectedAccountId = id)  
+    }
     fun updateGuild(id: Int) { _uiState.value = _uiState.value.copy(selectedGuildId = id) }  
     fun updateDifficulty(d: Int) { _uiState.value = _uiState.value.copy(difficulty = d) }  
     fun updatePerfectStart(v: Boolean) { _uiState.value = _uiState.value.copy(perfectStart = v) }  
@@ -126,10 +154,13 @@ class LabyrinthViewModel @Inject constructor(
                     if (accounts.isEmpty()) {  
                         throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在“我的账号”里添加")  
                     }  
-                    var activeClient = clientManager.getClient(accounts.first(), forceRelogin = true)
+                    // 按界面选中的账号 id 选出目标账号，找不到则回退到第一个  
+                    val selectedAccount = accounts.firstOrNull { it.id == state.selectedAccountId }  
+                        ?: accounts.first()  
+                    var activeClient = clientManager.getClient(selectedAccount, forceRelogin = true)
   
                     // 1. 校验难度是否解锁（_max_unlocked_difficulty）  
-                    val top = queryEngine.labyrinthTop(activeClient, clientManager, accounts.first())  
+                    val top = queryEngine.labyrinthTop(activeClient, clientManager, selectedAccount) 
                     if (state.difficulty > top.maxUnlockedDifficulty) {  
                         throw IllegalStateException(  
                             "黎明界难度${state.difficulty}尚未解锁，当前最大可挑战难度为${top.maxUnlockedDifficulty}"  
@@ -155,7 +186,7 @@ class LabyrinthViewModel @Inject constructor(
                                 throw IllegalStateException("会话失效，重新登录后仍无法进入黎明界，请稍后重试")  
                             }  
                             appendLog("检测到会话失效，重新登录后重试（第 $consecutiveFailures 次）")  
-                            activeClient = clientManager.relogin(accounts.first())  
+                            activeClient = clientManager.relogin(selectedAccount)  
                             continue  
                         }  
                         consecutiveFailures = 0  
@@ -188,7 +219,10 @@ class LabyrinthViewModel @Inject constructor(
                 Log.w(TAG, "startReroll needs manual captcha")  
                 try {  
                     val accounts = accountDao.getMasterAccountsByPlatform(_uiState.value.selectedPlatform.id)  
-                    val account = accounts.firstOrNull()  
+                    // 优先用界面选中的账号，找不到再回退到第一个  
+                    val selectedId = _uiState.value.selectedAccountId  
+                    val account = accounts.firstOrNull { it.id == selectedId }  
+                        ?: accounts.firstOrNull() 
                     if (account != null) {  
                         captchaManager.requestCaptcha(  
                             CaptchaRequest(  
@@ -217,7 +251,11 @@ class LabyrinthViewModel @Inject constructor(
                 try {  
                     val accounts = accountDao.getMasterAccountsByPlatform(_uiState.value.selectedPlatform.id)  
                     if (accounts.isNotEmpty()) {  
-                        clientManager.clearClient(accounts.first().id)  
+                        // 优先清理界面选中的账号，找不到再回退到第一个  
+                        val selectedId = _uiState.value.selectedAccountId  
+                        val target = accounts.firstOrNull { it.id == selectedId }  
+                            ?: accounts.first()  
+                        clientManager.clearClient(target.id)  
                     }  
                 } catch (ignore: Exception) {  
                     Log.w(TAG, "clearClient on error failed: ${ignore.message}")  
