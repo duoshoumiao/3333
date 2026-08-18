@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn    
 import androidx.compose.foundation.lazy.items    
 import androidx.compose.foundation.lazy.LazyListScope  
-import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.foundation.pager.HorizontalPager    
 import androidx.compose.foundation.pager.rememberPagerState    
 import androidx.compose.foundation.rememberScrollState    
@@ -77,7 +76,8 @@ fun MasterScreen(
     val uiState by viewModel.uiState.collectAsState()    
     val masterAccounts by viewModel.masterAccounts.collectAsState()    
     val snackbarHostState = remember { SnackbarHostState() }    
-    var showAddDialog by remember { mutableStateOf(false) }    
+    var showAddDialog by remember { mutableStateOf(false) }  
+    var selectedTab by remember { mutableStateOf(0) }   // ← 新增
     
     LaunchedEffect(uiState.errorMessage) {    
         uiState.errorMessage?.let {    
@@ -195,7 +195,7 @@ fun MasterScreen(
             }  
   
             // ==================== 下半部分：透视结果（J场/P场切换）====================  
-            stickyHeader {  
+            item {  
                 val tabs = listOf("J场（JJC）", "P场（PJJC）")  
                 TabRow(  
                     selectedTabIndex = selectedTab,  
