@@ -123,7 +123,6 @@ fun LabyrinthScreen(
                             )  
                         }  
                     }  
-                    }  
   
                     // 账号下拉  
                     Text("选择账号", style = MaterialTheme.typography.labelMedium)  
