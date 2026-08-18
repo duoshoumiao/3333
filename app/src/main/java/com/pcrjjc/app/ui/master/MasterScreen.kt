@@ -172,7 +172,31 @@ fun MasterScreen(
                         }  
                     }  
   
-                    Button(  
+                    // 选择账号  
+					Text("选择账号", style = MaterialTheme.typography.labelMedium)  
+					if (uiState.availableAccounts.isEmpty()) {  
+						Text(  
+							text = "该服务器暂无我的账号",  
+							style = MaterialTheme.typography.bodySmall,  
+							color = MaterialTheme.colorScheme.onSurfaceVariant  
+						)  
+					} else {  
+						FlowRow(  
+							modifier = Modifier.fillMaxWidth(),  
+							horizontalArrangement = Arrangement.spacedBy(6.dp),  
+							verticalArrangement = Arrangement.spacedBy(4.dp)  
+						) {  
+							uiState.availableAccounts.forEach { account ->  
+								FilterChip(  
+									selected = uiState.selectedAccountId == account.id,  
+									onClick = { viewModel.updateSelectedAccount(account.id) },  
+									label = { Text(account.account, style = MaterialTheme.typography.bodySmall) }  
+								)  
+							}  
+						}  
+					}  
+					
+					Button(  
                         onClick = { viewModel.queryRanking() },  
                         modifier = Modifier.fillMaxWidth(),  
                         enabled = !uiState.isLoading  

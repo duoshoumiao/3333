@@ -46,8 +46,12 @@ data class MasterUiState(
     val addPassword: String = "",  
     val addViewerId: String = "",  
     val isAddingAccount: Boolean = false,  
-    val addError: String? = null  
-)  
+    val addError: String? = null,  
+    // 当前服务器平台下可选的「我的账号」列表  
+    val availableAccounts: List<Account> = emptyList(),  
+    // 当前选中的账号 id（null 表示未选/无账号）  
+    val selectedAccountId: Int? = null  
+)
   
 @HiltViewModel  
 class MasterViewModel @Inject constructor(  
@@ -72,7 +76,9 @@ class MasterViewModel @Inject constructor(
     init {  
         loadBoundIds()  
         loadCachedRanking()  
-    } 
+        // 初始平台加载「我的账号」列表  
+        viewModelScope.launch { loadAccountsForPlatform(_uiState.value.selectedPlatform.id) }  
+    }
   
     private fun loadBoundIds() {  
 		viewModelScope.launch {  
@@ -164,6 +170,25 @@ class MasterViewModel @Inject constructor(
             errorMessage = null  
         )  
         loadCachedRanking()  
+        viewModelScope.launch { loadAccountsForPlatform(platform.id) }  
+    }  
+  
+    /** 加载指定服务器平台下的「我的账号」，并设置默认选中账号 */  
+    private suspend fun loadAccountsForPlatform(platformId: Int) {  
+        val accounts = accountDao.getMasterAccountsByPlatform(platformId)  
+        val cur = _uiState.value  
+        // 若原选中账号仍在新列表里则保留，否则默认选第一个  
+        val newSelectedId = accounts.firstOrNull { it.id == cur.selectedAccountId }?.id  
+            ?: accounts.firstOrNull()?.id  
+        _uiState.value = cur.copy(  
+            availableAccounts = accounts,  
+            selectedAccountId = newSelectedId  
+        )  
+    }  
+  
+    /** 手动切换选中的账号 */  
+    fun updateSelectedAccount(id: Int) {  
+        _uiState.value = _uiState.value.copy(selectedAccountId = id)  
     }
   
     fun queryRanking() {  
@@ -178,7 +203,9 @@ class MasterViewModel @Inject constructor(
                         throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在上方添加")  
                     }  
   
-                    val account = accounts.first()  
+                    // 按界面选中的账号 id 选出目标账号，找不到则回退到第一个  
+                    val account = accounts.firstOrNull { it.id == state.selectedAccountId }  
+                        ?: accounts.first()  
                     val client = clientManager.getClient(account, forceRelogin = true)
   
                     when (state.selectedType) {  
@@ -230,8 +257,11 @@ class MasterViewModel @Inject constructor(
                 try {  
                     val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
                     if (accounts.isNotEmpty()) {  
-                        clientManager.clearClient(accounts.first().id)  
-                    }  
+                        // 优先清理界面选中的账号，找不到再回退到第一个  
+                        val target = accounts.firstOrNull { it.id == state.selectedAccountId }  
+                            ?: accounts.first()  
+                        clientManager.clearClient(target.id)  
+                    }
                 } catch (ignore: Exception) {  
                     Log.w(TAG, "clearClient on error failed: ${ignore.message}")  
                 }  
