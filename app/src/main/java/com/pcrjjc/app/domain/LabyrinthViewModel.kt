@@ -8,6 +8,10 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.LabyrinthDb  
 import com.pcrjjc.app.domain.LabyrinthRouteFinder  
 import com.pcrjjc.app.domain.QueryEngine  
+import com.pcrjjc.app.domain.QueryEngine  
+import com.pcrjjc.app.domain.CaptchaManager  
+import com.pcrjjc.app.domain.CaptchaRequest  
+import com.pcrjjc.app.data.remote.CaptchaRequiredException
 import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Dispatchers  
@@ -39,8 +43,9 @@ class LabyrinthViewModel @Inject constructor(
     private val accountDao: AccountDao,  
     private val clientManager: ClientManager,  
     private val labyrinthDb: LabyrinthDb,  
-    private val settingsDataStore: SettingsDataStore  
-) : ViewModel() { 
+    private val settingsDataStore: SettingsDataStore,  
+    private val captchaManager: CaptchaManager  
+) : ViewModel() {
   
     companion object {  
         private const val TAG = "LabyrinthViewModel"  
@@ -180,7 +185,33 @@ class LabyrinthViewModel @Inject constructor(
                     throw IllegalStateException("重开${MAX_COUNT}次仍未刷到目标路线，最后失败原因：$lastReason")
                 }  
                 _uiState.value = _uiState.value.copy(isLoading = false)  
-            } catch (e: Exception) {  
+            } catch (e: CaptchaRequiredException) {  
+                Log.w(TAG, "startReroll needs manual captcha")  
+                try {  
+                    val accounts = accountDao.getMasterAccountsByPlatform(_uiState.value.selectedPlatform.id)  
+                    val account = accounts.firstOrNull()  
+                    if (account != null) {  
+                        captchaManager.requestCaptcha(  
+                            CaptchaRequest(  
+                                gt = e.gt,  
+                                challenge = e.challenge,  
+                                gtUserId = e.gtUserId,  
+                                accountId = account.id,  
+                                account = account.account,  
+                                password = account.password,  
+                                platform = account.platform  
+                            )  
+                        )  
+                        clientManager.clearClient(account.id)  
+                    }  
+                } catch (ignore: Exception) {  
+                    Log.w(TAG, "requestCaptcha failed: ${ignore.message}")  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    isLoading = false,  
+                    errorMessage = "需要手动过码，请在弹窗中完成验证后重试"  
+                )
+			} catch (e: Exception) {  
                 Log.e(TAG, "startReroll failed: ${e.message}", e)  
                 // セッション失効/顶号の可能性があるので、失効した可能性のあるクライアントを破棄し  
                 // 次回クリック時に必ず再ログインさせる  
