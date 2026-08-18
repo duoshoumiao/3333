@@ -123,8 +123,45 @@ fun LabyrinthScreen(
                             )  
                         }  
                     }  
+                    }  
   
-                    // 难度  
+                    // 账号下拉  
+                    Text("选择账号", style = MaterialTheme.typography.labelMedium)  
+                    var accountExpanded by remember { mutableStateOf(false) }  
+                    val selectedAccountName = uiState.availableAccounts  
+                        .firstOrNull { it.id == uiState.selectedAccountId }?.account  
+                        ?: "该服务器暂无我的账号"  
+                    ExposedDropdownMenuBox(  
+                        expanded = accountExpanded,  
+                        onExpandedChange = { accountExpanded = it }  
+                    ) {  
+                        OutlinedTextField(  
+                            value = selectedAccountName,  
+                            onValueChange = {},  
+                            readOnly = true,  
+                            label = { Text("账号") },  
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },  
+                            modifier = Modifier  
+                                .fillMaxWidth()  
+                                .menuAnchor()  
+                        )  
+                        ExposedDropdownMenu(  
+                            expanded = accountExpanded,  
+                            onDismissRequest = { accountExpanded = false }  
+                        ) {  
+                            uiState.availableAccounts.forEach { account ->  
+                                DropdownMenuItem(  
+                                    text = { Text(account.account) },  
+                                    onClick = {  
+                                        viewModel.updateSelectedAccount(account.id)  
+                                        accountExpanded = false  
+                                    }  
+                                )  
+                            }  
+                        }  
+                    }  
+  
+                    // 难度 
                     Text("难度", style = MaterialTheme.typography.labelMedium)  
                     FlowRow(  
                         modifier = Modifier.fillMaxWidth(),  
