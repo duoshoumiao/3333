@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width    
 import androidx.compose.foundation.lazy.LazyColumn    
 import androidx.compose.foundation.lazy.items    
+import androidx.compose.foundation.lazy.LazyListScope  
+import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.foundation.pager.HorizontalPager    
 import androidx.compose.foundation.pager.rememberPagerState    
 import androidx.compose.foundation.rememberScrollState    
@@ -102,141 +104,137 @@ fun MasterScreen(
             }    
         }    
     ) { paddingValues ->    
-        Column(    
-            modifier = Modifier    
-                .fillMaxSize()    
-                .padding(paddingValues)    
-        ) {    
-            // ==================== 上半部分：账号管理 + 透视控制 ====================    
-            Column(    
-                modifier = Modifier    
-                    .fillMaxWidth() 
-					.heightIn(max = 220.dp)  // 限制上半部分最大高度     
-                    .verticalScroll(rememberScrollState())    
-                    .padding(horizontal = 16.dp),    
-                verticalArrangement = Arrangement.spacedBy(12.dp)    
-            ) {    
-                Spacer(modifier = Modifier.height(2.dp))    
-    
-                Text(    
-                    "账号（仅用于透视，不参与轮询监控）",    
-                    style = MaterialTheme.typography.titleMedium    
-                )    
-    
-                if (masterAccounts.isEmpty()) {    
-                    Text(    
-                        text = "暂无账号，请点击右下角添加",    
-                        style = MaterialTheme.typography.bodyMedium,    
-                        color = MaterialTheme.colorScheme.onSurfaceVariant    
-                    )    
-                } else {    
-                    masterAccounts.forEach { account ->    
-                        MasterAccountCard(    
-                            account = account,    
-                            onDelete = { viewModel.deleteMasterAccount(account) }    
-                        )    
-                    }    
-                }    
-    
-                Spacer(modifier = Modifier.height(4.dp))    
-                Text("竞技场透视", style = MaterialTheme.typography.titleMedium)    
-    
-                Text("选择服务器", style = MaterialTheme.typography.labelMedium)  
-				FlowRow(  
-					modifier = Modifier.fillMaxWidth(),  
-					horizontalArrangement = Arrangement.spacedBy(6.dp),  
-					verticalArrangement = Arrangement.spacedBy(4.dp)  
-				) {  
-					Platform.entries.forEach { platform ->  
-						FilterChip(  
-							selected = uiState.selectedPlatform == platform,  
-							onClick = { viewModel.updatePlatform(platform) },  
-							label = { Text(platform.displayName, style = MaterialTheme.typography.bodySmall) }  
-						)  
-					}  
-				}  
-				  
-				Text("透视类型", style = MaterialTheme.typography.labelMedium)  
-				FlowRow(  
-					modifier = Modifier.fillMaxWidth(),  
-					horizontalArrangement = Arrangement.spacedBy(6.dp),  
-					verticalArrangement = Arrangement.spacedBy(4.dp)  
-				) {  
-					ArenaType.entries.forEach { type ->  
-						FilterChip(  
-							selected = uiState.selectedType == type,  
-							onClick = { viewModel.updateType(type) },  
-							label = { Text(type.displayName, style = MaterialTheme.typography.bodySmall) }  
-						)  
-					}  
-				}  
-    
-                Button(    
-                    onClick = { viewModel.queryRanking() },    
-                    modifier = Modifier.fillMaxWidth(),    
-                    enabled = !uiState.isLoading    
-                ) {    
-                    if (uiState.isLoading) {    
-                        CircularProgressIndicator(    
-                            modifier = Modifier.height(20.dp).width(20.dp),    
-                            strokeWidth = 2.dp,    
-                            color = MaterialTheme.colorScheme.onPrimary    
-                        )    
-                        Spacer(modifier = Modifier.width(8.dp))    
-                        Text("查询中...")    
-                    } else {    
-                        Text("开始透视")    
-                    }    
-                }    
-    
-                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))    
-            }    
-    
-            // ==================== 下半部分：透视结果 HorizontalPager ====================    
-            val tabs = listOf("J场（JJC）", "P场（PJJC）")    
-            val pagerState = rememberPagerState(pageCount = { tabs.size })    
-            val coroutineScope = rememberCoroutineScope()    
-    
-            TabRow(selectedTabIndex = pagerState.currentPage) {    
-                tabs.forEachIndexed { index, title ->    
-                    val count = when (index) {    
-                        0 -> uiState.jjcPlayers.size    
-                        1 -> uiState.pjjcPlayers.size    
-                        else -> 0    
-                    }    
-                    Tab(    
-                        selected = pagerState.currentPage == index,    
-                        onClick = {    
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }    
-                        },    
-                        text = { Text("$title ($count)") }    
-                    )    
-                }    
-            }    
-    
-            HorizontalPager(    
-                state = pagerState,    
-                modifier = Modifier.fillMaxWidth().weight(1f)    
-            ) { page ->    
-                when (page) {    
-                    0 -> ArenaPlayerList(    
-                        players = uiState.jjcPlayers,    
-                        emptyText = "暂无数据，请选择 JJC透视 后点击开始透视",    
-                        uiState = uiState,    
-                        arenaType = ArenaType.JJC,    
-                        onBind = { viewModel.bindPlayer(it, ArenaType.JJC) },    
-                        onBindAll = { viewModel.bindAllPlayers(ArenaType.JJC) }    
-                    )    
-                    1 -> ArenaPlayerList(    
-                        players = uiState.pjjcPlayers,    
-                        emptyText = "暂无数据，请选择 PJJC透视 后点击开始透视",    
-                        uiState = uiState,    
-                        arenaType = ArenaType.PJJC,    
-                        onBind = { viewModel.bindPlayer(it, ArenaType.PJJC) },    
-                        onBindAll = { viewModel.bindAllPlayers(ArenaType.PJJC) }    
-                    )    
-                }    
-            }    
+        LazyColumn(  
+            modifier = Modifier  
+                .fillMaxSize()  
+                .padding(paddingValues)  
+        ) {  
+            // ==================== 上半部分：账号管理 + 透视控制 ====================  
+            item {  
+                Column(  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .padding(horizontal = 16.dp),  
+                    verticalArrangement = Arrangement.spacedBy(12.dp)  
+                ) {  
+                    Spacer(modifier = Modifier.height(2.dp))  
+  
+                    Text(  
+                        "账号（仅用于透视，不参与轮询监控）",  
+                        style = MaterialTheme.typography.titleMedium  
+                    )  
+  
+                    if (masterAccounts.isEmpty()) {  
+                        Text(  
+                            text = "暂无账号，请点击右下角添加",  
+                            style = MaterialTheme.typography.bodyMedium,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    } else {  
+                        masterAccounts.forEach { account ->  
+                            MasterAccountCard(  
+                                account = account,  
+                                onDelete = { viewModel.deleteMasterAccount(account) }  
+                            )  
+                        }  
+                    }  
+  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text("竞技场透视", style = MaterialTheme.typography.titleMedium)  
+  
+                    Text("选择服务器", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                        verticalArrangement = Arrangement.spacedBy(4.dp)  
+                    ) {  
+                        Platform.entries.forEach { platform ->  
+                            FilterChip(  
+                                selected = uiState.selectedPlatform == platform,  
+                                onClick = { viewModel.updatePlatform(platform) },  
+                                label = { Text(platform.displayName, style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
+                    }  
+  
+                    Text("透视类型", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),  
+                        verticalArrangement = Arrangement.spacedBy(4.dp)  
+                    ) {  
+                        ArenaType.entries.forEach { type ->  
+                            FilterChip(  
+                                selected = uiState.selectedType == type,  
+                                onClick = { viewModel.updateType(type) },  
+                                label = { Text(type.displayName, style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
+                    }  
+  
+                    Button(  
+                        onClick = { viewModel.queryRanking() },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = !uiState.isLoading  
+                    ) {  
+                        if (uiState.isLoading) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.height(20.dp).width(20.dp),  
+                                strokeWidth = 2.dp,  
+                                color = MaterialTheme.colorScheme.onPrimary  
+                            )  
+                            Spacer(modifier = Modifier.width(8.dp))  
+                            Text("查询中...")  
+                        } else {  
+                            Text("开始透视")  
+                        }  
+                    }  
+  
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))  
+                }  
+            }  
+  
+            // ==================== 下半部分：透视结果（J场/P场切换）====================  
+            stickyHeader {  
+                val tabs = listOf("J场（JJC）", "P场（PJJC）")  
+                TabRow(  
+                    selectedTabIndex = selectedTab,  
+                    containerColor = MaterialTheme.colorScheme.surface  
+                ) {  
+                    tabs.forEachIndexed { index, title ->  
+                        val count = when (index) {  
+                            0 -> uiState.jjcPlayers.size  
+                            1 -> uiState.pjjcPlayers.size  
+                            else -> 0  
+                        }  
+                        Tab(  
+                            selected = selectedTab == index,  
+                            onClick = { selectedTab = index },  
+                            text = { Text("$title ($count)") }  
+                        )  
+                    }  
+                }  
+            }  
+  
+            if (selectedTab == 0) {  
+                arenaPlayerItems(  
+                    players = uiState.jjcPlayers,  
+                    emptyText = "暂无数据，请选择 JJC透视 后点击开始透视",  
+                    uiState = uiState,  
+                    arenaType = ArenaType.JJC,  
+                    onBind = { viewModel.bindPlayer(it, ArenaType.JJC) },  
+                    onBindAll = { viewModel.bindAllPlayers(ArenaType.JJC) }  
+                )  
+            } else {  
+                arenaPlayerItems(  
+                    players = uiState.pjjcPlayers,  
+                    emptyText = "暂无数据，请选择 PJJC透视 后点击开始透视",  
+                    uiState = uiState,  
+                    arenaType = ArenaType.PJJC,  
+                    onBind = { viewModel.bindPlayer(it, ArenaType.PJJC) },  
+                    onBindAll = { viewModel.bindAllPlayers(ArenaType.PJJC) }  
+                )  
+            }  
         }    
     
         if (showAddDialog) {    
@@ -250,87 +248,85 @@ fun MasterScreen(
     
 // ==================== 透视结果列表（含一键全绑定） ====================    
     
-@Composable    
-private fun ArenaPlayerList(    
-    players: List<QueryEngine.ArenaRankingPlayer>,    
-    emptyText: String,    
-    uiState: MasterUiState,    
-    arenaType: ArenaType,    
-    onBind: (QueryEngine.ArenaRankingPlayer) -> Unit,    
-    onBindAll: () -> Unit    
-) {    
-    if (players.isEmpty()) {    
-        Column(    
-            modifier = Modifier.fillMaxSize().padding(16.dp),    
-            horizontalAlignment = Alignment.CenterHorizontally,    
-            verticalArrangement = Arrangement.Center    
-        ) {    
-            Text(    
-                text = emptyText,    
-                style = MaterialTheme.typography.bodySmall,    
-                color = MaterialTheme.colorScheme.onSurfaceVariant    
-            )    
-        }    
-    } else {    
-        val currentBoundIds = when (arenaType) {    
-            ArenaType.JJC -> uiState.boundJjcPcrIds    
-            ArenaType.PJJC -> uiState.boundPjjcPcrIds    
-        }    
-        LazyColumn(    
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),    
-            verticalArrangement = Arrangement.spacedBy(8.dp)    
-        ) {    
-            item {    
-                Spacer(modifier = Modifier.height(8.dp))    
-                val unboundCount = players.count { !currentBoundIds.contains(it.viewerId) }    
-                if (unboundCount > 0) {    
-                    Button(    
-                        onClick = onBindAll,    
-                        modifier = Modifier.fillMaxWidth(),    
-                        enabled = !uiState.isBindingAll && uiState.bindingId == null,    
-                        colors = ButtonDefaults.buttonColors(    
-                            containerColor = MaterialTheme.colorScheme.tertiary    
-                        )    
-                    ) {    
-                        if (uiState.isBindingAll) {    
-                            CircularProgressIndicator(    
-                                modifier = Modifier.height(18.dp).width(18.dp),    
-                                strokeWidth = 2.dp,    
-                                color = MaterialTheme.colorScheme.onTertiary    
-                            )    
-                            Spacer(modifier = Modifier.width(8.dp))    
-                            Text("绑定中...", color = MaterialTheme.colorScheme.onTertiary)    
-                        } else {    
-                            Text(    
-                                "一键全绑定（${unboundCount}人）",    
-                                color = MaterialTheme.colorScheme.onTertiary    
-                            )    
-                        }    
-                    }    
-                } else {    
-                    OutlinedButton(    
-                        onClick = {},    
-                        modifier = Modifier.fillMaxWidth(),    
-                        enabled = false    
-                    ) {    
-                        Text("全部已绑定")    
-                    }    
-                }    
-            }    
-    
-            items(players, key = { "${arenaType.name}_${it.viewerId}" }) { player ->    
-                PlayerCard(    
-                    player = player,    
-                    isBound = currentBoundIds.contains(player.viewerId),    
-                    isBinding = uiState.bindingId == player.viewerId,    
-                    justBound = uiState.bindSuccessIds.contains(player.viewerId),    
-                    onBind = { onBind(player) }    
-                )    
-            }    
-    
-            item { Spacer(modifier = Modifier.height(80.dp)) }    
-        }    
-    }    
+private fun LazyListScope.arenaPlayerItems(  
+    players: List<QueryEngine.ArenaRankingPlayer>,  
+    emptyText: String,  
+    uiState: MasterUiState,  
+    arenaType: ArenaType,  
+    onBind: (QueryEngine.ArenaRankingPlayer) -> Unit,  
+    onBindAll: () -> Unit  
+) {  
+    if (players.isEmpty()) {  
+        item {  
+            Column(  
+                modifier = Modifier.fillMaxWidth().padding(16.dp),  
+                horizontalAlignment = Alignment.CenterHorizontally,  
+                verticalArrangement = Arrangement.Center  
+            ) {  
+                Text(  
+                    text = emptyText,  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+            }  
+        }  
+    } else {  
+        val currentBoundIds = when (arenaType) {  
+            ArenaType.JJC -> uiState.boundJjcPcrIds  
+            ArenaType.PJJC -> uiState.boundPjjcPcrIds  
+        }  
+        item {  
+            Spacer(modifier = Modifier.height(8.dp))  
+            val unboundCount = players.count { !currentBoundIds.contains(it.viewerId) }  
+            if (unboundCount > 0) {  
+                Button(  
+                    onClick = onBindAll,  
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),  
+                    enabled = !uiState.isBindingAll && uiState.bindingId == null,  
+                    colors = ButtonDefaults.buttonColors(  
+                        containerColor = MaterialTheme.colorScheme.tertiary  
+                    )  
+                ) {  
+                    if (uiState.isBindingAll) {  
+                        CircularProgressIndicator(  
+                            modifier = Modifier.height(18.dp).width(18.dp),  
+                            strokeWidth = 2.dp,  
+                            color = MaterialTheme.colorScheme.onTertiary  
+                        )  
+                        Spacer(modifier = Modifier.width(8.dp))  
+                        Text("绑定中...", color = MaterialTheme.colorScheme.onTertiary)  
+                    } else {  
+                        Text(  
+                            "一键全绑定（${unboundCount}人）",  
+                            color = MaterialTheme.colorScheme.onTertiary  
+                        )  
+                    }  
+                }  
+            } else {  
+                OutlinedButton(  
+                    onClick = {},  
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),  
+                    enabled = false  
+                ) {  
+                    Text("全部已绑定")  
+                }  
+            }  
+        }  
+  
+        items(players, key = { "${arenaType.name}_${it.viewerId}" }) { player ->  
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {  
+                PlayerCard(  
+                    player = player,  
+                    isBound = currentBoundIds.contains(player.viewerId),  
+                    isBinding = uiState.bindingId == player.viewerId,  
+                    justBound = uiState.bindSuccessIds.contains(player.viewerId),  
+                    onBind = { onBind(player) }  
+                )  
+            }  
+        }  
+  
+        item { Spacer(modifier = Modifier.height(80.dp)) }  
+    }  
 }    
     
 // ==================== 账号卡片 ====================    
