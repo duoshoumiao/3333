@@ -8,7 +8,6 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.LabyrinthDb  
 import com.pcrjjc.app.domain.LabyrinthRouteFinder  
 import com.pcrjjc.app.domain.QueryEngine  
-import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.CaptchaManager  
 import com.pcrjjc.app.domain.CaptchaRequest  
 import com.pcrjjc.app.data.remote.CaptchaRequiredException
