@@ -179,7 +179,7 @@ class MasterViewModel @Inject constructor(
                     }  
   
                     val account = accounts.first()  
-                    val client = clientManager.getClient(account)  
+                    val client = clientManager.getClient(account, forceRelogin = true)
   
                     when (state.selectedType) {  
                         ArenaType.JJC -> queryEngine.queryArenaRanking(client, clientManager = clientManager, account = account)  

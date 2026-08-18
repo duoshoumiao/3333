@@ -126,7 +126,7 @@ class LabyrinthViewModel @Inject constructor(
                     if (accounts.isEmpty()) {  
                         throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在“我的账号”里添加")  
                     }  
-                    var activeClient = clientManager.getClient(accounts.first()) 
+                    var activeClient = clientManager.getClient(accounts.first(), forceRelogin = true)
   
                     // 1. 校验难度是否解锁（_max_unlocked_difficulty）  
                     val top = queryEngine.labyrinthTop(activeClient, clientManager, accounts.first())  
