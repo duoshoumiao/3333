@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -102,7 +103,8 @@ fun HomeScreen(
     onNavigateToRoom: () -> Unit,                     
     onNavigateToClanRanking: () -> Unit,              // ← 加逗号  
     onNavigateToEqa: () -> Unit,  
-    onNavigateToLabyrinth: () -> Unit               
+    onNavigateToLabyrinth: () -> Unit,  
+    onNavigateToExEquip: () -> Unit  
 ) {
     val jjcBinds by viewModel.jjcBinds.collectAsState()
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()
@@ -128,8 +130,9 @@ fun HomeScreen(
         FeatureEntry("黎明界刷开局", Icons.Default.Explore, onNavigateToLabyrinth),  
         FeatureEntry("清日常", Icons.Default.CleaningServices, onNavigateToDaily),  
         FeatureEntry("半月刊", Icons.Default.DateRange, onNavigateToFortnightly),  
-        FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) },  
-        FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
+        FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) }, 		
+        FeatureEntry("EX状态", Icons.Default.Save, onNavigateToExEquip),
+		FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
         FeatureEntry("设置", Icons.Default.Settings, onNavigateToSettings)  
     )
 	
