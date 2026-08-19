@@ -83,8 +83,8 @@ class ExEquipViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)  
             try {  
                 val client = withContext(Dispatchers.IO) {  
-                    clientManager.getClient(account)  
-                }  
+                    clientManager.getClient(account, forceRelogin = true)  
+                }
                 if (client !is PcrClient) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
