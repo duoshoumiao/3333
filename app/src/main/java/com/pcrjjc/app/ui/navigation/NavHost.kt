@@ -20,6 +20,7 @@ import com.pcrjjc.app.ui.clanranking.ClanRankingScreen
 import com.pcrjjc.app.ui.settings.SettingsScreen  
 import com.pcrjjc.app.ui.eqa.EqaScreen
 import com.pcrjjc.app.ui.labyrinth.LabyrinthScreen
+import com.pcrjjc.app.ui.exequip.ExEquipScreen
   
 sealed class Screen(val route: String) {      
     data object Home : Screen("home")      
@@ -42,6 +43,7 @@ sealed class Screen(val route: String) {
     data object ClanRanking : Screen("clan_ranking")
 	data object Eqa : Screen("eqa")
 	data object Labyrinth : Screen("labyrinth")
+	data object ExEquip : Screen("ex_equip")
 	data object Chat : Screen("chat/{roomId}/{playerQq}/{playerName}/{roomName}/{hostQq}") {
         fun createRoute(roomId: String, playerQq: String, playerName: String, roomName: String, hostQq: String) =
             "chat/$roomId/$playerQq/${java.net.URLEncoder.encode(playerName, "UTF-8")}/${java.net.URLEncoder.encode(roomName, "UTF-8")}/$hostQq"
@@ -71,7 +73,8 @@ fun PcrJjcNavHost() {
                 onNavigateToRoom = { navController.navigate(Screen.Room.route) },  
                 onNavigateToClanRanking = { navController.navigate(Screen.ClanRanking.route) },  
                 onNavigateToEqa = { navController.navigate(Screen.Eqa.route) },  
-                onNavigateToLabyrinth = { navController.navigate(Screen.Labyrinth.route) }
+                onNavigateToLabyrinth = { navController.navigate(Screen.Labyrinth.route) },  
+                onNavigateToExEquip = { navController.navigate(Screen.ExEquip.route) }
             )  
         }  
   
@@ -172,6 +175,10 @@ fun PcrJjcNavHost() {
 		// 黎明界刷开局路由  
         composable(Screen.Labyrinth.route) {  
             LabyrinthScreen(onNavigateBack = { navController.popBackStack() })  
+        }
+		// EX状态管理路由  
+        composable(Screen.ExEquip.route) {  
+            ExEquipScreen(onNavigateBack = { navController.popBackStack() })  
         }
 	}      
 }
