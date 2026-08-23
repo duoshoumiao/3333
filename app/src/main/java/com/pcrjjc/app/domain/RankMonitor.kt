@@ -27,14 +27,18 @@ class RankMonitor(
     private val rankCacheDao: RankCacheDao,  
     private val settingsDataStore: SettingsDataStore  
 ) { 
-    companion object {  
-        private const val TAG = "RankMonitor"  
-        private var notificationId = 1000  
-    }  
+    companion object {    
+        private const val TAG = "RankMonitor"    
+        private var notificationId = 1000    
+        // 上线提醒冷却时间：5 分钟  
+        private const val ONLINE_NOTICE_COOLDOWN_MS = 5 * 60 * 1000L  
+    }
   
-    private val cache = ConcurrentHashMap<Pair<Long, Int>, IntArray>()
-    private val pendingHistories = mutableListOf<JjcHistory>()
-    private val pendingNotifications = mutableListOf<Pair<String, NoticeType>>()
+    private val cache = ConcurrentHashMap<Pair<Long, Int>, IntArray>()  
+    private val pendingHistories = mutableListOf<JjcHistory>()  
+    private val pendingNotifications = mutableListOf<Pair<String, NoticeType>>()  
+    // 记录每个绑定上次上线提醒的时间戳（毫秒），用于 5 分钟冷却去重  
+    private val lastOnlineNoticeTime = ConcurrentHashMap<Pair<Long, Int>, Long>()
   
     /**  
      * 从数据库加载已有的排名缓存到内存，避免 Service 重启后丢失比较基准  
@@ -151,16 +155,27 @@ suspend fun processResult(result: QueryEngine.QueryResult) {
 	) {
 		val timestamp = System.currentTimeMillis() / 1000
 
-		if (noticeType == NoticeType.ONLINE) {
-			if (bind.onlineNotice == 0) return
-			val msg = "${bind.name ?: bind.pcrid} 上线了！"
-			if (addToPending) {
-				synchronized(pendingNotifications) { pendingNotifications.add(Pair(msg, noticeType)) }
-			} else {
-				sendNotification(msg, noticeType)
-			}
-			Log.i(TAG, "Send Notice: $msg")
-			return
+		if (noticeType == NoticeType.ONLINE) {  
+			if (bind.onlineNotice == 0) return  
+  
+			// 5 分钟内同一个人最多提醒一次  
+			val onlineKey = Pair(bind.pcrid, bind.platform)  
+			val now = System.currentTimeMillis()  
+			val lastTime = lastOnlineNoticeTime[onlineKey]  
+			if (lastTime != null && now - lastTime < ONLINE_NOTICE_COOLDOWN_MS) {  
+				Log.i(TAG, "Online notice skipped (cooldown): ${bind.name ?: bind.pcrid}")  
+				return  
+			}  
+			lastOnlineNoticeTime[onlineKey] = now  
+  
+			val msg = "${bind.name ?: bind.pcrid} 上线了！"  
+			if (addToPending) {  
+				synchronized(pendingNotifications) { pendingNotifications.add(Pair(msg, noticeType)) }  
+			} else {  
+				sendNotification(msg, noticeType)  
+			}  
+			Log.i(TAG, "Send Notice: $msg")  
+			return  
 		}
 
 		// 无论通知开关如何，始终记录历史
