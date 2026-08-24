@@ -31,8 +31,8 @@ interface AccountDao {
     @Query("SELECT * FROM account WHERE isMaster = 1 ORDER BY id")  
     fun getMasterAccounts(): Flow<List<Account>>  
   
-    @Query("SELECT * FROM account WHERE isMaster = 1 AND platform = :platform")  
-    suspend fun getMasterAccountsByPlatform(platform: Int): List<Account>  
+    @Query("SELECT * FROM account WHERE isMaster = 1 AND platform = :platform ORDER BY id")  
+    suspend fun getMasterAccountsByPlatform(platform: Int): List<Account>
   
     @Query("SELECT * FROM account WHERE id = :id")  
     suspend fun getAccountById(id: Int): Account?  

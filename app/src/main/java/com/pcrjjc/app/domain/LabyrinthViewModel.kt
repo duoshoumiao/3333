@@ -154,9 +154,15 @@ class LabyrinthViewModel @Inject constructor(
                     if (accounts.isEmpty()) {  
                         throw IllegalStateException("没有${state.selectedPlatform.displayName}的账号，请先在“我的账号”里添加")  
                     }  
-                    // 按界面选中的账号 id 选出目标账号，找不到则回退到第一个  
+                    // 按界面选中的账号 id 选出目标账号；找不到就报错，避免误刷上一个账号  
                     val selectedAccount = accounts.firstOrNull { it.id == state.selectedAccountId }  
-                        ?: accounts.first()  
+                        ?: throw IllegalStateException("未找到所选账号，请重新选择账号后再试")  
+                    Log.i(  
+                        TAG,  
+                        "startReroll 选中账号: selectedAccountId=${state.selectedAccountId}, " +  
+                        "使用账号 id=${selectedAccount.id}, account=${selectedAccount.account}, " +  
+                        "候选账号 ids=${accounts.map { it.id }}"  
+                    )  
                     var activeClient = clientManager.getClient(selectedAccount, forceRelogin = true)
   
                     // 1. 校验难度是否解锁（_max_unlocked_difficulty）  
