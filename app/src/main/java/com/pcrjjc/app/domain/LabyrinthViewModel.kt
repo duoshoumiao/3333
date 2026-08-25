@@ -197,7 +197,8 @@ class LabyrinthViewModel @Inject constructor(
                         }  
                         consecutiveFailures = 0  
   
-                        val (routes, reason) = routeFinder.findRoutes(  
+                        Log.i(TAG, "findRoutes perfectStart=${state.perfectStart}, third=${state.thirdBlockType}, difficulty=${state.difficulty}")
+						val (routes, reason) = routeFinder.findRoutes(  
                             enter.blocks, state.difficulty,  
                             state.area3Bosses, state.area5Bosses,  
                             state.thirdBlockType, state.perfectStart  

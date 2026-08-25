@@ -115,6 +115,15 @@ class LabyrinthRouteFinder(private val db: LabyrinthDb) {
                     blockType(block) !in expectedBlockTypes(area, column, thirdBlockType)  
                 ) return null  
             }  
+			// 区域2：第4列必须是遗物(6)，且必须直接连到第5列EX怪物(3)  
+            if (perfectStart && area == 2 && column == 4) {  
+                if (blockType(block) != 6) return null  
+                val reachesEx = block.nextBlockIdList.any { nid ->  
+                    val nb = byId[nid]  
+                    nb != null && nb.column == 5 && blockType(nb) == 3  
+                }  
+                if (!reachesEx) return null  
+            }
             if (column == lastColumn) {  
                 if (expected[column] == 8 &&  
                     !bossMatches(area, block, area3Bosses, area5Bosses)  
