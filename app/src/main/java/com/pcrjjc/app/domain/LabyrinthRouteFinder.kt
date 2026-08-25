@@ -59,7 +59,7 @@ class LabyrinthRouteFinder(private val db: LabyrinthDb) {
     }  
   
     // 对应 _expected_block_types 第 122-129 行  
-    private fun expectedBlockTypes(area: Int, column: Int, thirdBlockType: String): Set<Int> {  
+    private fun expectedBlockTypes(area: Int, column: Int, thirdBlockType: String, secondBlockType: String): Set<Int> {
         if ((area == 3 || area == 5) && column == 3) {  
             return when (thirdBlockType) {  
                 "必须事件" -> setOf(5)  
@@ -67,7 +67,14 @@ class LabyrinthRouteFinder(private val db: LabyrinthDb) {
                 else -> setOf(6) // 必须遗物  
             }  
         }  
-        return setOf(AREA_REQUIREMENTS.getValue(area).getValue(column))  
+        if (area == 2 && column == 4) {  
+            return when (secondBlockType) {  
+                "必须商店" -> setOf(7)  
+                "两者都行" -> setOf(6, 7)  
+                else -> setOf(6) // 必须遗物  
+            }  
+        }
+		return setOf(AREA_REQUIREMENTS.getValue(area).getValue(column))  
     }  
   
     // 对应 _position_name 第 73-82 行  
@@ -89,8 +96,8 @@ class LabyrinthRouteFinder(private val db: LabyrinthDb) {
     private fun findAreaRoute(  
         area: Int, mapList: List<QueryEngine.LabyrinthBlock>,  
         area3Bosses: Set<Int>, area5Bosses: Set<Int>,  
-        thirdBlockType: String, perfectStart: Boolean  
-    ): Pair<List<QueryEngine.LabyrinthBlock>?, String> {  
+        thirdBlockType: String, secondBlockType: String, perfectStart: Boolean  
+    ): Pair<List<QueryEngine.LabyrinthBlock>?, String> {
         val expected = AREA_REQUIREMENTS.getValue(area)  
         val blocks = mapList.filter { it.area == area }  
         if (blocks.isEmpty()) return null to "区域${area}没有地图数据"  
@@ -112,19 +119,18 @@ class LabyrinthRouteFinder(private val db: LabyrinthDb) {
             val column = block.column  
             if (column in expected) {  
                 if (perfectStart &&  
-                    blockType(block) !in expectedBlockTypes(area, column, thirdBlockType)  
-                ) return null  
+                    blockType(block) !in expectedBlockTypes(area, column, thirdBlockType, secondBlockType)  
+                ) return null
             }  
-			// 区域2：第4列必须是遗物(6)，且必须直接连到第5列EX怪物(3)  
+            // 区域2：第4列必须直接连到第5列EX怪物(3)  
             if (perfectStart && area == 2 && column == 4) {  
-                if (blockType(block) != 6) return null  
                 val reachesEx = block.nextBlockIdList.any { nid ->  
                     val nb = byId[nid]  
                     nb != null && nb.column == 5 && blockType(nb) == 3  
                 }  
                 if (!reachesEx) return null  
             }
-            if (column == lastColumn) {  
+			if (column == lastColumn) {  
                 if (expected[column] == 8 &&  
                     !bossMatches(area, block, area3Bosses, area5Bosses)  
                 ) return null  
@@ -150,14 +156,14 @@ class LabyrinthRouteFinder(private val db: LabyrinthDb) {
     fun findRoutes(  
         mapList: List<QueryEngine.LabyrinthBlock>, difficulty: Int,  
         area3Bosses: Set<Int>, area5Bosses: Set<Int>,  
-        thirdBlockType: String, perfectStart: Boolean  
-    ): Pair<Map<Int, List<QueryEngine.LabyrinthBlock>>?, String> {  
+        thirdBlockType: String, secondBlockType: String, perfectStart: Boolean  
+    ): Pair<Map<Int, List<QueryEngine.LabyrinthBlock>>?, String> {
         val routes = LinkedHashMap<Int, List<QueryEngine.LabyrinthBlock>>()  
         val failures = mutableListOf<String>()  
         for (area in targetAreas(difficulty)) {  
             val (route, reason) = findAreaRoute(  
-                area, mapList, area3Bosses, area5Bosses, thirdBlockType, perfectStart  
-            )  
+                area, mapList, area3Bosses, area5Bosses, thirdBlockType, secondBlockType, perfectStart  
+            )
             if (route == null) failures.add(reason) else routes[area] = route  
         }  
         if (failures.isNotEmpty()) return null to failures.joinToString("；")  

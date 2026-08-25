@@ -42,6 +42,7 @@ class SettingsDataStore(private val context: Context) {
         private val KEY_LAB_DIFFICULTY = intPreferencesKey("lab_difficulty")  
         private val KEY_LAB_PERFECT = booleanPreferencesKey("lab_perfect")  
         private val KEY_LAB_THIRD = stringPreferencesKey("lab_third_block_type")  
+		private val KEY_LAB_SECOND = stringPreferencesKey("lab_second_block_type")
         private val KEY_LAB_AREA3_BOSSES = stringPreferencesKey("lab_area3_bosses")  
         private val KEY_LAB_AREA5_BOSSES = stringPreferencesKey("lab_area5_bosses")
     }  
@@ -277,6 +278,7 @@ class SettingsDataStore(private val context: Context) {
         val difficulty: Int?,  
         val perfect: Boolean?,  
         val third: String?,  
+		val second: String?,
         val area3Bosses: Set<Int>?,  
         val area5Bosses: Set<Int>?  
     )  
@@ -295,6 +297,7 @@ class SettingsDataStore(private val context: Context) {
             difficulty = prefs[KEY_LAB_DIFFICULTY],  
             perfect = prefs[KEY_LAB_PERFECT],  
             third = prefs[KEY_LAB_THIRD],  
+			second = prefs[KEY_LAB_SECOND],
             area3Bosses = parseBossSet(prefs[KEY_LAB_AREA3_BOSSES]),  
             area5Bosses = parseBossSet(prefs[KEY_LAB_AREA5_BOSSES])  
         )  
@@ -306,6 +309,7 @@ class SettingsDataStore(private val context: Context) {
         difficulty: Int,  
         perfect: Boolean,  
         third: String,  
+		second: String,
         area3: Set<Int>,  
         area5: Set<Int>  
     ) {  
@@ -315,6 +319,7 @@ class SettingsDataStore(private val context: Context) {
             prefs[KEY_LAB_DIFFICULTY] = difficulty  
             prefs[KEY_LAB_PERFECT] = perfect  
             prefs[KEY_LAB_THIRD] = third  
+			prefs[KEY_LAB_SECOND] = second
             prefs[KEY_LAB_AREA3_BOSSES] = area3.joinToString(",")  
             prefs[KEY_LAB_AREA5_BOSSES] = area5.joinToString(",")  
         }  

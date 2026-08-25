@@ -28,6 +28,7 @@ data class LabyrinthUiState(
     val difficulty: Int = 5,                      // 默认难度 5  
     val perfectStart: Boolean = false,            // 默认完美开局 false  
     val thirdBlockType: String = "两者都行",       // 默认第3格「两者都行」  
+	val secondBlockType: String = "必须遗物",     // 默认区域2第4格「必须遗物」
     // 默认选「简单」档位 boss（对应 LabyrinthBossConfig 的默认值）  
     val area3Bosses: Set<Int> = LabyrinthRouteFinder.AREA3_BOSSES  
         .filter { it.third == "简单" }.map { it.first }.toSet(),  
@@ -77,6 +78,7 @@ class LabyrinthViewModel @Inject constructor(
                 difficulty = cfg.difficulty ?: cur.difficulty,  
                 perfectStart = cfg.perfect ?: cur.perfectStart,  
                 thirdBlockType = cfg.third ?: cur.thirdBlockType,  
+				secondBlockType = cfg.second ?: cur.secondBlockType,
                 area3Bosses = cfg.area3Bosses ?: cur.area3Bosses,  
                 area5Bosses = cfg.area5Bosses ?: cur.area5Bosses  
             )  
@@ -111,6 +113,7 @@ class LabyrinthViewModel @Inject constructor(
     fun updateDifficulty(d: Int) { _uiState.value = _uiState.value.copy(difficulty = d) }  
     fun updatePerfectStart(v: Boolean) { _uiState.value = _uiState.value.copy(perfectStart = v) }  
     fun updateThirdBlockType(v: String) { _uiState.value = _uiState.value.copy(thirdBlockType = v) }  
+	fun updateSecondBlockType(v: String) { _uiState.value = _uiState.value.copy(secondBlockType = v) }
   
     fun toggleArea3Boss(unitId: Int) {  
         val cur = _uiState.value.area3Bosses  
@@ -147,6 +150,7 @@ class LabyrinthViewModel @Inject constructor(
                         difficulty = s.difficulty,  
                         perfect = s.perfectStart,  
                         third = s.thirdBlockType,  
+						second = s.secondBlockType,
                         area3 = s.area3Bosses,  
                         area5 = s.area5Bosses  
                     )
@@ -201,8 +205,8 @@ class LabyrinthViewModel @Inject constructor(
 						val (routes, reason) = routeFinder.findRoutes(  
                             enter.blocks, state.difficulty,  
                             state.area3Bosses, state.area5Bosses,  
-                            state.thirdBlockType, state.perfectStart  
-                        )  
+                            state.thirdBlockType, state.secondBlockType, state.perfectStart  
+                        )
                         if (routes != null) {  
                             appendLog("刷到${if (state.perfectStart) "完美" else ""}路线，总尝试次数：$attempt")  
                             for (area in routes.keys.sorted()) {  

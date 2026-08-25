@@ -238,7 +238,21 @@ fun LabyrinthScreen(
                                 label = { Text(opt, style = MaterialTheme.typography.bodySmall) }  
                             )  
                         }  
-                    }  
+                    }
+                    // 区域2 第4格  
+                    Text("区域2第4格", style = MaterialTheme.typography.labelMedium)  
+                    FlowRow(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)  
+                    ) {  
+                        listOf("必须遗物", "必须商店", "两者都行").forEach { opt ->  
+                            FilterChip(  
+                                selected = uiState.secondBlockType == opt,  
+                                onClick = { viewModel.updateSecondBlockType(opt) },  
+                                label = { Text(opt, style = MaterialTheme.typography.bodySmall) }  
+                            )  
+                        }  
+                    }					
   
                     // 区域3 Boss 多选  
                     Text("区域3 Boss（可多选）", style = MaterialTheme.typography.labelMedium)  
