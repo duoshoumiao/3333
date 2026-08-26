@@ -58,8 +58,15 @@ object CryptoUtils {
         if (missingPadding != 0) {
             dataStr += "=".repeat(4 - missingPadding)
         }
-        val decoded = Base64.decode(dataStr, Base64.DEFAULT)
-        val key = decoded.copyOfRange(decoded.size - 32, decoded.size)
+        val decoded = try {  
+            Base64.decode(dataStr, Base64.DEFAULT)  
+        } catch (e: IllegalArgumentException) {  
+            throw ApiException("服务器返回非加密数据: ${String(data, Charsets.UTF_8).take(200)}", 500)  
+        }  
+        if (decoded.size < 32 || (decoded.size - 32) % 16 != 0) {  
+            throw ApiException("服务器返回非加密数据: ${String(data, Charsets.UTF_8).take(200)}", 500)  
+        }  
+        val key = decoded.copyOfRange(decoded.size - 32, decoded.size)  
         val encryptedData = decoded.copyOfRange(0, decoded.size - 32)
 
         val cipher = Cipher.getInstance("AES/CBC/NoPadding")
@@ -123,8 +130,20 @@ object CryptoUtils {
     }
 
     fun unpackWithIv(data: ByteArray, iv: ByteArray): Pair<Map<String, Any?>, ByteArray> {
-        val decoded = Base64.decode(String(data, Charsets.UTF_8), Base64.DEFAULT)
-        val key = decoded.copyOfRange(decoded.size - 32, decoded.size)
+        var dataStr = String(data, Charsets.UTF_8)  
+        val missingPadding = dataStr.length % 4  
+        if (missingPadding != 0) {  
+            dataStr += "=".repeat(4 - missingPadding)  
+        }  
+        val decoded = try {  
+            Base64.decode(dataStr, Base64.DEFAULT)  
+        } catch (e: IllegalArgumentException) {  
+            throw ApiException("服务器返回非加密数据: ${dataStr.take(200)}", 500)  
+        }  
+        if (decoded.size < 32 || (decoded.size - 32) % 16 != 0) {  
+            throw ApiException("服务器返回非加密数据: ${dataStr.take(200)}", 500)  
+        }  
+        val key = decoded.copyOfRange(decoded.size - 32, decoded.size)  
         val encryptedData = decoded.copyOfRange(0, decoded.size - 32)
 
         val cipher = Cipher.getInstance("AES/CBC/NoPadding")
