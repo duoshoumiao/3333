@@ -3,6 +3,7 @@ package com.pcrjjc.app.ui.settings
 import android.graphics.Bitmap  
 import android.graphics.drawable.BitmapDrawable  
 import android.net.Uri  
+import androidx.compose.foundation.Canvas  
 import androidx.compose.foundation.Image  
 import androidx.compose.foundation.gestures.detectTransformGestures  
 import androidx.compose.foundation.layout.*  
@@ -10,8 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*  
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
-import androidx.compose.ui.draw.clipToBounds  
 import androidx.compose.ui.geometry.Offset  
+import androidx.compose.ui.geometry.Size  
+import androidx.compose.ui.graphics.Color  
 import androidx.compose.ui.graphics.TransformOrigin  
 import androidx.compose.ui.graphics.asImageBitmap  
 import androidx.compose.ui.graphics.graphicsLayer  
@@ -24,7 +26,7 @@ import coil.imageLoader
 import coil.request.ImageRequest  
 import com.pcrjjc.app.util.TopBarBgStorage  
 import kotlinx.coroutines.launch  
-import kotlin.math.max  
+import kotlin.math.min  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -49,8 +51,10 @@ fun TopBarBgCropScreen(
     var userScale by remember { mutableStateOf(1f) }  
     var offset by remember { mutableStateOf(Offset.Zero) }  
   
-    // 关键：记录裁剪框在屏幕上的真实像素尺寸，用于反算裁剪区域  
-    var frameSize by remember { mutableStateOf(IntSize.Zero) }  
+    // 记录整个显示容器的真实像素尺寸（图片完整显示在这里）  
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }  
+  
+    val ratio = TopBarBgStorage.TARGET_WIDTH.toFloat() / TopBarBgStorage.TARGET_HEIGHT  
   
     Scaffold(  
         topBar = {  
@@ -60,8 +64,8 @@ fun TopBarBgCropScreen(
                 actions = {  
                     TextButton(onClick = {  
                         val bmp = srcBitmap ?: return@TextButton  
-                        if (frameSize.width == 0 || frameSize.height == 0) return@TextButton  
-                        val cropped = computeCrop(bmp, frameSize, userScale, offset)  
+                        if (containerSize.width == 0 || containerSize.height == 0) return@TextButton  
+                        val cropped = computeCrop(bmp, containerSize, ratio, userScale, offset)  
                         scope.launch {  
                             TopBarBgStorage.save(context, cropped)  
                             onDone()  
@@ -74,40 +78,54 @@ fun TopBarBgCropScreen(
         Box(  
             modifier = Modifier  
                 .fillMaxSize()  
-                .padding(padding),  
+                .padding(padding)  
+                .onSizeChanged { containerSize = it },  // 关键：拿到容器像素尺寸  
             contentAlignment = Alignment.Center  
         ) {  
             val bmp = srcBitmap  
             if (bmp != null) {  
-                val ratio = TopBarBgStorage.TARGET_WIDTH.toFloat() /  
-                        TopBarBgStorage.TARGET_HEIGHT  
-                // 裁剪框：全宽 + 顶栏比例定高，居中，超出部分裁掉  
-                Box(  
+                // 整张图完整显示（Fit），用户可拖动/缩放  
+                Image(  
+                    bitmap = bmp.asImageBitmap(),  
+                    contentDescription = null,  
+                    contentScale = ContentScale.Fit,  
                     modifier = Modifier  
-                        .fillMaxWidth()  
-                        .aspectRatio(ratio)  
-                        .onSizeChanged { frameSize = it }  
-                        .clipToBounds()  
-                ) {  
-                    Image(  
-                        bitmap = bmp.asImageBitmap(),  
-                        contentDescription = null,  
-                        contentScale = ContentScale.Crop, // cover 作为基准缩放  
-                        modifier = Modifier  
-                            .matchParentSize()  
-                            .graphicsLayer(  
-                                scaleX = userScale,  
-                                scaleY = userScale,  
-                                translationX = offset.x,  
-                                translationY = offset.y,  
-                                transformOrigin = TransformOrigin(0.5f, 0.5f)  
-                            )  
-                            .pointerInput(Unit) {  
-                                detectTransformGestures { _, pan, zoom, _ ->  
-                                    userScale = (userScale * zoom).coerceIn(1f, 5f)  
-                                    offset += pan  
-                                }  
+                        .fillMaxSize()  
+                        .graphicsLayer(  
+                            scaleX = userScale,  
+                            scaleY = userScale,  
+                            translationX = offset.x,  
+                            translationY = offset.y,  
+                            transformOrigin = TransformOrigin(0.5f, 0.5f)  
+                        )  
+                        .pointerInput(Unit) {  
+                            detectTransformGestures { _, pan, zoom, _ ->  
+                                userScale = (userScale * zoom).coerceIn(1f, 5f)  
+                                offset += pan  
                             }  
+                        }  
+                )  
+  
+                // 顶栏比例裁剪框 + 框外半透明遮罩（固定居中，全宽）  
+                Canvas(modifier = Modifier.fillMaxSize()) {  
+                    val frameW = size.width  
+                    val frameH = frameW / ratio  
+                    val top = (size.height - frameH) / 2f  
+                    val mask = Color(0x99000000)  
+                    // 上遮罩  
+                    drawRect(mask, size = Size(size.width, top))  
+                    // 下遮罩  
+                    drawRect(  
+                        mask,  
+                        topLeft = Offset(0f, top + frameH),  
+                        size = Size(size.width, size.height - top - frameH)  
+                    )  
+                    // 框边线  
+                    drawRect(  
+                        color = Color.White,  
+                        topLeft = Offset(0f, top),  
+                        size = Size(frameW, frameH),  
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)  
                     )  
                 }  
             }  
@@ -116,34 +134,48 @@ fun TopBarBgCropScreen(
 }  
   
 /**  
- * 依据裁剪框像素尺寸 frame、用户缩放 userScale、平移 offset，  
- * 反算出原图上对应的裁剪矩形，再缩放到目标固定规格。  
+ * 图片以 ContentScale.Fit 完整显示在 container 中（居中），  
+ * 再经 graphicsLayer 以 container 中心为原点做 userScale 缩放 + offset 平移。  
+ * 裁剪框固定居中、全宽、顶栏比例。  
  *  
- * 显示时：Image 用 ContentScale.Crop 铺满 frame（baseScale=cover），  
- * 再经 graphicsLayer 以 frame 中心为原点做 userScale 缩放 + offset 平移。  
- * 因此某原图像素 p 映射到 frame 坐标 f 满足：  
- *   f = frameCenter + (p - bmpCenter) * (baseScale * userScale) + offset  
- * 反解 f=0 与 f=frame 两条边即得裁剪矩形。  
+ * 某原图像素 p 映射到 container 坐标 f：  
+ *   f = containerCenter + (p - srcCenter) * (baseFit * userScale) + offset  
+ * 反解裁剪框四条边即得原图裁剪矩形。  
  */  
 private fun computeCrop(  
     src: Bitmap,  
-    frame: IntSize,  
+    container: IntSize,  
+    ratio: Float,  
     userScale: Float,  
     offset: Offset  
 ): Bitmap {  
-    val frameW = frame.width.toFloat()  
-    val frameH = frame.height.toFloat()  
-    val baseScale = max(frameW / src.width, frameH / src.height)  
-    val s = baseScale * userScale  
+    val cw = container.width.toFloat()  
+    val ch = container.height.toFloat()  
   
-    var left = src.width / 2f + (-frameW / 2f - offset.x) / s  
-    var top = src.height / 2f + (-frameH / 2f - offset.y) / s  
+    // 裁剪框在容器中的位置（居中、全宽）  
+    val frameW = cw  
+    val frameH = frameW / ratio  
+    val frameLeft = 0f  
+    val frameTop = (ch - frameH) / 2f  
+  
+    // Fit 基准缩放  
+    val baseFit = min(cw / src.width, ch / src.height)  
+    val s = baseFit * userScale  
+  
+    val srcCx = src.width / 2f  
+    val srcCy = src.height / 2f  
+    val contCx = cw / 2f  
+    val contCy = ch / 2f  
+  
+    // 反解：p = srcCenter + (f - containerCenter - offset) / s  
+    var left = srcCx + (frameLeft - contCx - offset.x) / s  
+    var top = srcCy + (frameTop - contCy - offset.y) / s  
     var cropW = frameW / s  
     var cropH = frameH / s  
   
-    // 边界修正，防止越界  
-    if (left < 0f) left = 0f  
-    if (top < 0f) top = 0f  
+    // 边界修正  
+    if (left < 0f) { cropW += left; left = 0f }  
+    if (top < 0f) { cropH += top; top = 0f }  
     if (left + cropW > src.width) cropW = src.width - left  
     if (top + cropH > src.height) cropH = src.height - top  
   
