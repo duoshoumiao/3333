@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope  
 import androidx.compose.material3.*  
 import androidx.compose.runtime.Composable  
+import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
 import androidx.compose.runtime.produceState  
 import androidx.compose.ui.Modifier  
 import androidx.compose.ui.graphics.Color  
+import androidx.compose.ui.graphics.ImageBitmap  
 import androidx.compose.ui.graphics.asImageBitmap  
 import androidx.compose.ui.layout.ContentScale  
 import androidx.compose.ui.platform.LocalContext  
