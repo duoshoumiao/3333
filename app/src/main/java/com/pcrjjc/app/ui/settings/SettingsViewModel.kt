@@ -16,6 +16,7 @@ import com.pcrjjc.app.domain.UpdateInfo
 import com.pcrjjc.app.service.RankMonitorService    
 import com.pcrjjc.app.util.CharaRoster   
 import com.pcrjjc.app.util.EmailSender 
+import com.pcrjjc.app.util.TopBarBgStorage
 import com.pcrjjc.app.util.IconStorage    
 import dagger.hilt.android.lifecycle.HiltViewModel    
 import dagger.hilt.android.qualifiers.ApplicationContext    
@@ -413,40 +414,45 @@ class SettingsViewModel @Inject constructor(
         }    
     }    
   
-    fun downloadAndInstall() {    
-        val info = _uiState.value.updateInfo ?: return    
-        viewModelScope.launch {    
-            _uiState.value = _uiState.value.copy(    
-                isDownloading = true,    
-                downloadProgress = 0f,    
-                updateMessage = "正在下载..."    
-            )    
-            try {    
-                val file = updateChecker.downloadApk(info.downloadUrl) { progress ->    
-                    _uiState.value = _uiState.value.copy(    
-                        downloadProgress = progress,    
-                        updateMessage = "正在下载... ${(progress * 100).toInt()}%"    
-                    )    
-                }    
-                if (file != null) {    
-                    _uiState.value = _uiState.value.copy(    
-                        isDownloading = false,    
-                        updateMessage = "下载完成，正在安装..."    
-                    )    
-                    updateChecker.installApk(file)    
-                } else {    
-                    _uiState.value = _uiState.value.copy(    
-                        isDownloading = false,    
-                        updateMessage = "下载失败，请重试"    
-                    )    
-                }    
-            } catch (e: Exception) {    
-                Log.e("SettingsVM", "Download failed", e)    
-                _uiState.value = _uiState.value.copy(    
-                    isDownloading = false,    
-                    updateMessage = "下载失败: ${e.message}"    
-                )    
-            }    
-        }    
-    }    
+    fun downloadAndInstall() {  
+        val info = _uiState.value.updateInfo ?: return  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(  
+                isDownloading = true,  
+                downloadProgress = 0f,  
+                updateMessage = "正在下载..."  
+            )  
+            try {  
+                val file = updateChecker.downloadApk(info.downloadUrl) { progress ->  
+                    _uiState.value = _uiState.value.copy(  
+                        downloadProgress = progress,  
+                        updateMessage = "正在下载... ${(progress * 100).toInt()}%"  
+                    )  
+                }  
+                if (file != null) {  
+                    _uiState.value = _uiState.value.copy(  
+                        isDownloading = false,  
+                        updateMessage = "下载完成，正在安装..."  
+                    )  
+                    updateChecker.installApk(file)  
+                } else {  
+                    _uiState.value = _uiState.value.copy(  
+                        isDownloading = false,  
+                        updateMessage = "下载失败，请重试"  
+                    )  
+                }  
+            } catch (e: Exception) {  
+                Log.e("SettingsVM", "Download failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isDownloading = false,  
+                    updateMessage = "下载失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }  
+  
+    // ========== 新增：清除自定义顶栏背景，恢复默认 ==========  
+    fun clearTopBarBg() {  
+        TopBarBgStorage.clear(context)  
+    }  
 }

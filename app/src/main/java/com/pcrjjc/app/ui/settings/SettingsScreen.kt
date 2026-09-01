@@ -39,13 +39,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp    
 import androidx.hilt.navigation.compose.hiltViewModel    
 import com.pcrjjc.app.BuildConfig    
+import androidx.activity.compose.rememberLauncherForActivityResult  
+import androidx.activity.result.PickVisualMediaRequest  
+import androidx.activity.result.contract.ActivityResultContracts  
+import androidx.compose.runtime.getValue  
+import com.pcrjjc.app.util.TopBarBgStorage
   
 @OptIn(ExperimentalMaterial3Api::class)    
 @Composable    
-fun SettingsScreen(    
-    viewModel: SettingsViewModel = hiltViewModel(),    
-    onNavigateBack: () -> Unit    
-) {    
+fun SettingsScreen(  
+    viewModel: SettingsViewModel = hiltViewModel(),  
+    onNavigateBack: () -> Unit,  
+    onNavigateToCrop: (String) -> Unit = {}  
+) {   
     val uiState by viewModel.uiState.collectAsState()    
   
     Scaffold(    
@@ -388,6 +394,46 @@ fun SettingsScreen(
                     uiState.emailTestMessage?.let { msg ->  
                         Spacer(modifier = Modifier.height(4.dp))  
                         Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                    }  
+                }  
+            }
+			// ========== 顶栏背景 Card ==========  
+            val pickImageLauncher = rememberLauncherForActivityResult(  
+                contract = ActivityResultContracts.PickVisualMedia()  
+            ) { uri ->  
+                if (uri != null) onNavigateToCrop(uri.toString())  
+            }  
+            Card(  
+                modifier = Modifier.fillMaxWidth(),  
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+            ) {  
+                Column(modifier = Modifier.padding(16.dp)) {  
+                    Text("顶栏背景", style = MaterialTheme.typography.titleMedium)  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text(  
+                        text = "自定义应用顶栏背景图，选图后可拖动/缩放框选裁剪",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(12.dp))  
+                    Row(  
+                        modifier = Modifier.fillMaxWidth(),  
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)  
+                    ) {  
+                        Button(  
+                            onClick = {  
+                                pickImageLauncher.launch(  
+                                    PickVisualMediaRequest(  
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly  
+                                    )  
+                                )  
+                            },  
+                            modifier = Modifier.weight(1f)  
+                        ) { Text("选择图片") }  
+                        OutlinedButton(  
+                            onClick = { viewModel.clearTopBarBg() },  
+                            modifier = Modifier.weight(1f)  
+                        ) { Text("恢复默认") }  
                     }  
                 }  
             }

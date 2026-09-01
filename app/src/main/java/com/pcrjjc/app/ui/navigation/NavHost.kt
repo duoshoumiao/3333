@@ -17,6 +17,7 @@ import com.pcrjjc.app.ui.query.QueryScreen
 import com.pcrjjc.app.ui.room.ChatScreen  
 import com.pcrjjc.app.ui.room.RoomScreen  
 import com.pcrjjc.app.ui.clanranking.ClanRankingScreen
+import com.pcrjjc.app.ui.settings.TopBarBgCropScreen
 import com.pcrjjc.app.ui.settings.SettingsScreen  
 import com.pcrjjc.app.ui.eqa.EqaScreen
 import com.pcrjjc.app.ui.labyrinth.LabyrinthScreen
@@ -44,6 +45,10 @@ sealed class Screen(val route: String) {
 	data object Eqa : Screen("eqa")
 	data object Labyrinth : Screen("labyrinth")
 	data object ExEquip : Screen("ex_equip")
+	data object TopBarBgCrop : Screen("topbar_crop/{uri}") {  
+        fun createRoute(uri: String) =  
+            "topbar_crop/${java.net.URLEncoder.encode(uri, "UTF-8")}"  
+    }
 	data object Chat : Screen("chat/{roomId}/{playerQq}/{playerName}/{roomName}/{hostQq}") {
         fun createRoute(roomId: String, playerQq: String, playerName: String, roomName: String, hostQq: String) =
             "chat/$roomId/$playerQq/${java.net.URLEncoder.encode(playerName, "UTF-8")}/${java.net.URLEncoder.encode(roomName, "UTF-8")}/$hostQq"
@@ -121,9 +126,14 @@ fun PcrJjcNavHost() {
             )      
         }      
   
-        composable(Screen.Settings.route) {      
-            SettingsScreen(onNavigateBack = { navController.popBackStack() })      
-        }      
+        composable(Screen.Settings.route) {  
+            SettingsScreen(  
+                onNavigateBack = { navController.popBackStack() },  
+                onNavigateToCrop = { uri ->  
+                    navController.navigate(Screen.TopBarBgCrop.createRoute(uri))  
+                }  
+            )  
+        }    
   
         composable(Screen.Account.route) {      
             AccountScreen(onNavigateBack = { navController.popBackStack() })      
@@ -179,6 +189,19 @@ fun PcrJjcNavHost() {
 		// EX状态管理路由  
         composable(Screen.ExEquip.route) {  
             ExEquipScreen(onNavigateBack = { navController.popBackStack() })  
+        }
+		// 顶栏背景裁剪路由  
+        composable(  
+            route = Screen.TopBarBgCrop.route,  
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })  
+        ) { backStackEntry ->  
+            val encoded = backStackEntry.arguments?.getString("uri") ?: ""  
+            val uri = android.net.Uri.parse(java.net.URLDecoder.decode(encoded, "UTF-8"))  
+            TopBarBgCropScreen(  
+                imageUri = uri,  
+                onDone = { navController.popBackStack() },  
+                onCancel = { navController.popBackStack() }  
+            )  
         }
 	}      
 }
