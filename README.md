@@ -4,10 +4,11 @@
 
 ## 覆盖清日常文件
 
-[httpserver.py](https://github.com/user-attachments/files/30182215/httpserver.py)
+[httpserver.py](https://github.com/user-attachments/files/32014016/httpserver.py)
 
 
-[command_relay.py](https://github.com/user-attachments/files/30182346/command_relay.py)
+[command_relay.py](https://github.com/user-attachments/files/32014036/command_relay.py)
+
 
 
 ## 房间插件
