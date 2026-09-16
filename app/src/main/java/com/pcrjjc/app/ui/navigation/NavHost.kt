@@ -22,6 +22,7 @@ import com.pcrjjc.app.ui.settings.SettingsScreen
 import com.pcrjjc.app.ui.eqa.EqaScreen
 import com.pcrjjc.app.ui.labyrinth.LabyrinthScreen
 import com.pcrjjc.app.ui.exequip.ExEquipScreen
+import com.pcrjjc.app.ui.autodef.AutoDefScreen
   
 sealed class Screen(val route: String) {      
     data object Home : Screen("home")      
@@ -45,6 +46,7 @@ sealed class Screen(val route: String) {
 	data object Eqa : Screen("eqa")
 	data object Labyrinth : Screen("labyrinth")
 	data object ExEquip : Screen("ex_equip")
+	data object AutoDef : Screen("auto_def")
 	data object TopBarBgCrop : Screen("topbar_crop/{uri}") {  
         fun createRoute(uri: String) =  
             "topbar_crop/${java.net.URLEncoder.encode(uri, "UTF-8")}"  
@@ -79,7 +81,8 @@ fun PcrJjcNavHost() {
                 onNavigateToClanRanking = { navController.navigate(Screen.ClanRanking.route) },  
                 onNavigateToEqa = { navController.navigate(Screen.Eqa.route) },  
                 onNavigateToLabyrinth = { navController.navigate(Screen.Labyrinth.route) },  
-                onNavigateToExEquip = { navController.navigate(Screen.ExEquip.route) }
+                onNavigateToExEquip = { navController.navigate(Screen.ExEquip.route) },  
+                onNavigateToAutoDef = { navController.navigate(Screen.AutoDef.route) }
             )  
         }  
   
@@ -189,6 +192,10 @@ fun PcrJjcNavHost() {
 		// EX状态管理路由  
         composable(Screen.ExEquip.route) {  
             ExEquipScreen(onNavigateBack = { navController.popBackStack() })  
+        }
+		// PJJC自动换防路由  
+        composable(Screen.AutoDef.route) {  
+            AutoDefScreen(onNavigateBack = { navController.popBackStack() })  
         }
 		// 顶栏背景裁剪路由  
         composable(  

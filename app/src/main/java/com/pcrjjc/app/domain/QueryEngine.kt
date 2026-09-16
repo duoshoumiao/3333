@@ -259,7 +259,32 @@ class QueryEngine {
         callLabyrinth(client, "/labyrinth/retire", mutableMapOf("enter_id" to enterId))  
     }
   
+    // ==================== PJJC 自动换防 ====================  
+    companion object {  
+        // TODO: 确认 ePartyType.GRAND_ARENA_DEF_1/2/3 对应的整数值（见 autopcr/model/enums.py）  
+        val GRAND_ARENA_DEF_NUMBERS = listOf(18, 19, 20)  
+    }  
+  
+    suspend fun grandArenaHistory(client: Any): Map<String, Any?> =  
+        callLabyrinth(client, "/grand_arena/history", mutableMapOf())  
+  
+    suspend fun grandArenaInfo(client: Any): Map<String, Any?> =  
+        callLabyrinth(client, "/grand_arena/get_info", mutableMapOf())  
+  
+    suspend fun deckUpdateList(client: Any, deckList: List<Map<String, Any?>>): Map<String, Any?> =  
+        callLabyrinth(client, "/deck/update_list", mutableMapOf("deck_list" to deckList))  
+  
+    /** 从 get_info 响应里读出3支防守队伍的 5 个 unit_id。字段名需按实际响应确认。 */  
     @Suppress("UNCHECKED_CAST")  
+    fun grandArenaDefenseDecks(info: Map<String, Any?>): List<List<Int>> {  
+        // TODO: 确认 get_info 返回防守队伍的真实字段（可能是 defense_deck_list / deck_list 等）  
+        val list = (info["defense_deck_list"] as? List<Map<String, Any?>>) ?: return emptyList()  
+        return list.map { deck ->  
+            (1..5).mapNotNull { j -> (deck["unit_id_$j"] as? Number)?.toInt() }  
+        }  
+    }
+		
+	@Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
         client: Any,  
         bind: PcrBind,  

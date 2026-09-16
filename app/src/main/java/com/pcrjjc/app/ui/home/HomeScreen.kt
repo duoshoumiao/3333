@@ -104,7 +104,8 @@ fun HomeScreen(
     onNavigateToClanRanking: () -> Unit,              // ← 加逗号  
     onNavigateToEqa: () -> Unit,  
     onNavigateToLabyrinth: () -> Unit,  
-    onNavigateToExEquip: () -> Unit  
+    onNavigateToExEquip: () -> Unit,  
+    onNavigateToAutoDef: () -> Unit
 ) {
     val jjcBinds by viewModel.jjcBinds.collectAsState()
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()
@@ -132,6 +133,7 @@ fun HomeScreen(
         FeatureEntry("半月刊", Icons.Default.DateRange, onNavigateToFortnightly),  
         FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) }, 		
         FeatureEntry("EX状态", Icons.Default.Save, onNavigateToExEquip),
+		FeatureEntry("PJJC自动换防", Icons.Default.Shield, onNavigateToAutoDef),
 		FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
         FeatureEntry("设置", Icons.Default.Settings, onNavigateToSettings)  
     )
