@@ -11,6 +11,8 @@ class QueryEngine {
   
     companion object {  
         private const val TAG = "QueryEngine"  
+        // TODO: 确认 ePartyType.GRAND_ARENA_DEF_1/2/3 对应的整数值  
+        val GRAND_ARENA_DEF_NUMBERS = listOf(18, 19, 20)  
     }  
   
     data class QueryTask(  
@@ -260,11 +262,6 @@ class QueryEngine {
     }
   
     // ==================== PJJC 自动换防 ====================  
-    companion object {  
-        // TODO: 确认 ePartyType.GRAND_ARENA_DEF_1/2/3 对应的整数值（见 autopcr/model/enums.py）  
-        val GRAND_ARENA_DEF_NUMBERS = listOf(18, 19, 20)  
-    }  
-  
     suspend fun grandArenaHistory(client: Any): Map<String, Any?> =  
         callLabyrinth(client, "/grand_arena/history", mutableMapOf())  
   
