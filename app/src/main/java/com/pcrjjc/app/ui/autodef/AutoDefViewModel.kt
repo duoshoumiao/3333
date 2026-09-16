@@ -109,7 +109,13 @@ class AutoDefViewModel @Inject constructor(
                         delay(CHECK_INTERVAL_MS)  
   
                         val history = queryEngine.grandArenaHistory(client)  
-                        val newAttacks = mutableListOf<String>()  
+                        // 会话失效（顶号）检测：响应含 server_error 或缺少 grand_arena_history_list  
+                        if (history.looksExpired()) {  
+                            appendLog("账号已被顶号/异常掉线，自动换防已停止")  
+                            _uiState.value = _uiState.value.copy(errorMessage = "顶号/异常掉线")  
+                            break  
+                        }
+						val newAttacks = mutableListOf<String>()  
                         history.historyList().forEach { h ->  
                             val logId = (h["log_id"] as? Number)?.toLong() ?: return@forEach  
                             if (logId !in knownLogIds) {  
@@ -208,4 +214,8 @@ class AutoDefViewModel @Inject constructor(
   
     private fun Map<String, Any?>.logIds(): List<Long> =  
         historyList().mapNotNull { (it["log_id"] as? Number)?.toLong() }  
+	
+    /** 顶号/会话失效判定：响应含 server_error，或缺少 grand_arena_history_list 关键字段 */  
+    private fun Map<String, Any?>.looksExpired(): Boolean =  
+        this.containsKey("server_error") || !this.containsKey("grand_arena_history_list")	
 }
