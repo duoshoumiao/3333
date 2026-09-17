@@ -103,8 +103,9 @@ class AutoDefViewModel @Inject constructor(
   
                     var shuffleCount = 0  
                     val fmt = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())  
-  
-                    // 主循环（对应 server.py 3260-3350）  
+                    var lastHistorySig = ""   // 上次已推送的历史记录指纹，用于去重
+					
+					// 主循环（对应 server.py 3260-3350）  
                     while (isActive) {  
                         delay(CHECK_INTERVAL_MS)  
   
@@ -116,7 +117,7 @@ class AutoDefViewModel @Inject constructor(
                             _uiState.value = _uiState.value.copy(errorMessage = "顶号/异常掉线")  
                             break  
                         }
-						// 每2秒显示一次历史记录  
+						// 历史记录：内容有变化才推送，无变化不刷屏  
                         val historyLines = history.historyList().map { h ->  
                             val isCh = (h["is_challenge"] as? Number)?.toInt()?.let { it != 0 }  
                                 ?: (h["is_challenge"] as? Boolean) ?: true  
@@ -127,10 +128,14 @@ class AutoDefViewModel @Inject constructor(
                             val timeStr = if (ts > 0) fmt.format(Date(ts * 1000)) else ""  
                             "$name($vid) $timeStr ${if (isCh) "主动挑战" else "被刺"}"  
                         }  
-                        if (historyLines.isEmpty()) {  
-                            appendLog("历史记录：暂无")  
-                        } else {  
-                            appendLog("历史记录（${historyLines.size}）：\n" + historyLines.joinToString("\n"))  
+                        val historySig = historyLines.joinToString("|")  
+                        if (historySig != lastHistorySig) {  
+                            lastHistorySig = historySig  
+                            if (historyLines.isEmpty()) {  
+                                appendLog("历史记录：暂无")  
+                            } else {  
+                                appendLog("历史记录（${historyLines.size}）：\n" + historyLines.joinToString("\n"))  
+                            }  
                         }
 						val newAttacks = mutableListOf<String>()  
                         history.historyList().forEach { h ->  
