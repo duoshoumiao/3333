@@ -109,6 +109,7 @@ class AutoDefViewModel @Inject constructor(
                         delay(CHECK_INTERVAL_MS)  
   
                         val history = queryEngine.grandArenaHistory(client)  
+						Log.d(TAG, "history size=${history.historyList().size}, raw=${history.historyList().firstOrNull()}")
                         // 会话失效（顶号）检测：响应含 server_error 或缺少 grand_arena_history_list  
                         if (history.looksExpired()) {  
                             appendLog("账号已被顶号/异常掉线，自动换防已停止")  
@@ -121,7 +122,8 @@ class AutoDefViewModel @Inject constructor(
                             if (logId !in knownLogIds) {  
                                 knownLogIds.add(logId)  
                                 // is_challenge == false 表示被别人刺（对应 server.py 3278）  
-                                val isChallenge = (h["is_challenge"] as? Boolean) ?: true  
+                                val isChallenge = (h["is_challenge"] as? Number)?.toInt()?.let { it != 0 }  
+                                    ?: (h["is_challenge"] as? Boolean) ?: true  
                                 if (!isChallenge) {  
                                     val opp = h["opponent_user"] as? Map<*, *>  
                                     val name = opp?.get("user_name")?.toString() ?: "?"  
