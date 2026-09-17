@@ -116,6 +116,22 @@ class AutoDefViewModel @Inject constructor(
                             _uiState.value = _uiState.value.copy(errorMessage = "顶号/异常掉线")  
                             break  
                         }
+						// 每2秒显示一次历史记录  
+                        val historyLines = history.historyList().map { h ->  
+                            val isCh = (h["is_challenge"] as? Number)?.toInt()?.let { it != 0 }  
+                                ?: (h["is_challenge"] as? Boolean) ?: true  
+                            val opp = h["opponent_user"] as? Map<*, *>  
+                            val name = opp?.get("user_name")?.toString() ?: "?"  
+                            val vid = (opp?.get("viewer_id") as? Number)?.toLong() ?: 0L  
+                            val ts = (h["versus_time"] as? Number)?.toLong() ?: 0L  
+                            val timeStr = if (ts > 0) fmt.format(Date(ts * 1000)) else ""  
+                            "$name($vid) $timeStr ${if (isCh) "主动挑战" else "被刺"}"  
+                        }  
+                        if (historyLines.isEmpty()) {  
+                            appendLog("历史记录：暂无")  
+                        } else {  
+                            appendLog("历史记录（${historyLines.size}）：\n" + historyLines.joinToString("\n"))  
+                        }
 						val newAttacks = mutableListOf<String>()  
                         history.historyList().forEach { h ->  
                             val logId = (h["log_id"] as? Number)?.toLong() ?: return@forEach  
