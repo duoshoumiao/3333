@@ -70,20 +70,77 @@ fun HistoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                items(histories) { history ->
-                    HistoryCard(history = history)
-                }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-            }
+       } else {  
+            val arenaHistories = histories.filter { it.item == 0 }        // 竞技场  
+            val princessHistories = histories.filter { it.item != 0 }     // 公主竞技场  
+  
+            Row(  
+                modifier = Modifier  
+                    .fillMaxSize()  
+                    .padding(paddingValues)  
+                    .padding(horizontal = 8.dp),  
+                horizontalArrangement = Arrangement.spacedBy(8.dp)  
+            ) {  
+                // 左栏：竞技场  
+                LazyColumn(  
+                    modifier = Modifier  
+                        .weight(1f)  
+                        .fillMaxSize(),  
+                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                ) {  
+                    item {  
+                        Text(  
+                            text = "竞技场",  
+                            style = MaterialTheme.typography.titleMedium,  
+                            modifier = Modifier.padding(vertical = 8.dp)  
+                        )  
+                    }  
+                    if (arenaHistories.isEmpty()) {  
+                        item {  
+                            Text(  
+                                text = "暂无记录",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.onSurfaceVariant  
+                            )  
+                        }  
+                    } else {  
+                        items(arenaHistories) { history ->  
+                            HistoryCard(history = history)  
+                        }  
+                    }  
+                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                }  
+  
+                // 右栏：公主竞技场  
+                LazyColumn(  
+                    modifier = Modifier  
+                        .weight(1f)  
+                        .fillMaxSize(),  
+                    verticalArrangement = Arrangement.spacedBy(8.dp)  
+                ) {  
+                    item {  
+                        Text(  
+                            text = "公主竞技场",  
+                            style = MaterialTheme.typography.titleMedium,  
+                            modifier = Modifier.padding(vertical = 8.dp)  
+                        )  
+                    }  
+                    if (princessHistories.isEmpty()) {  
+                        item {  
+                            Text(  
+                                text = "暂无记录",  
+                                style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.onSurfaceVariant  
+                            )  
+                        }  
+                    } else {  
+                        items(princessHistories) { history ->  
+                            HistoryCard(history = history)  
+                        }  
+                    }  
+                    item { Spacer(modifier = Modifier.height(8.dp)) }  
+                }  
+            }  
         }
     }
 }
