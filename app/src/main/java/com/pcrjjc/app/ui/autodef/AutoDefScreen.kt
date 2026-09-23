@@ -194,7 +194,7 @@ fun AutoDefScreen(
                 }  
             } else {  
                 item { Spacer(modifier = Modifier.height(8.dp)) }  
-                items(uiState.logs) { line ->  
+                items(uiState.logs.asReversed()) { line ->  
                     Card(  
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),  
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)  

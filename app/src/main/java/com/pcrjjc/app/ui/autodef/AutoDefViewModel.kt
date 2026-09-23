@@ -207,7 +207,7 @@ class AutoDefViewModel @Inject constructor(
         }  
   
         // 读取当前 3 支防守队伍单位（字段名需按实际响应确认，见文末说明）  
-        val decks = queryEngine.grandArenaDefenseDecks(info) // List<List<Int>> size=3  
+        val decks = queryEngine.grandArenaDefenseDecks(client) // List<List<Int>> size=3  
         if (decks.size < 3) {  
             appendLog("未能读取到3支防守队伍，换防跳过")  
             return true  

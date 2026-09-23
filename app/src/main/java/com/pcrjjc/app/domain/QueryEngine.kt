@@ -271,13 +271,17 @@ class QueryEngine {
     suspend fun deckUpdateList(client: Any, deckList: List<Map<String, Any?>>): Map<String, Any?> =  
         callLabyrinth(client, "/deck/update_list", mutableMapOf("deck_list" to deckList))  
   
-    /** 从 get_info 响应里读出3支防守队伍的 5 个 unit_id。字段名需按实际响应确认。 */  
+    suspend fun loadIndex(client: Any): Map<String, Any?> =  
+    callLabyrinth(client, "/load/index", mutableMapOf())
+	
+	/** 从 get_info 响应里读出3支防守队伍的 5 个 unit_id。字段名需按实际响应确认。 */  
     @Suppress("UNCHECKED_CAST")  
-	fun grandArenaDefenseDecks(info: Map<String, Any?>): List<List<Int>> {  
-		val list = (info["deck_list"] as? List<Map<String, Any?>>) ?: return emptyList()  
-		return GRAND_ARENA_DEF_NUMBERS.mapNotNull { dn ->  
-			val deck = list.firstOrNull { (it["deck_number"] as? Number)?.toInt() == dn }  
-				?: return@mapNotNull null  
+	suspend fun grandArenaDefenseDecks(client: Any): List<List<Int>> {  
+		val resp = loadIndex(client)  
+		val deckList = (resp["deck_list"] as? List<Map<String, Any?>>) ?: return emptyList()  
+		val byNumber = deckList.associateBy { (it["deck_number"] as? Number)?.toInt() }  
+		return GRAND_ARENA_DEF_NUMBERS.mapNotNull { num ->  
+			val deck = byNumber[num] ?: return@mapNotNull null  
 			(1..5).mapNotNull { j -> (deck["unit_id_$j"] as? Number)?.toInt() }  
 		}  
 	}
