@@ -210,7 +210,7 @@ class AutoDefViewModel @Inject constructor(
         val decks = queryEngine.grandArenaDefenseDecks(client) // List<List<Int>> size=3  
         if (decks.size < 3) {  
             appendLog("未能读取到3支防守队伍，换防跳过")  
-            return true  
+            return false  
         }  
   
         // 3队错排（对应 server.py 3224-3228）：位置全部改变  
