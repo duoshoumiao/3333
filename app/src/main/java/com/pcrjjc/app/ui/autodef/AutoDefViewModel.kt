@@ -209,9 +209,9 @@ class AutoDefViewModel @Inject constructor(
         // 读取当前 3 支防守队伍单位（字段名需按实际响应确认，见文末说明）  
         val decks = queryEngine.grandArenaDefenseDecks(client) // List<List<Int>> size=3  
         if (decks.size < 3) {  
-            appendLog("未能读取到3支防守队伍，换防跳过")  
-            return false  
-        }  
+			appendLog("未能读取到3支防守队伍（实际读到 ${decks.size} 支），换防跳过")  
+			return false  
+		}
   
         // 3队错排（对应 server.py 3224-3228）：位置全部改变  
         val order = listOf(listOf(1, 2, 0), listOf(2, 0, 1)).random()  
@@ -225,7 +225,11 @@ class AutoDefViewModel @Inject constructor(
             )  
         }.sortedBy { (it["deck_number"] as Number).toInt() }  
   
-        queryEngine.deckUpdateList(client, deckList)  
+        val updateResp = queryEngine.deckUpdateList(client, deckList)  
+		if (updateResp.containsKey("server_error")) {  
+			appendLog("换防请求被拒绝：${updateResp["server_error"]}")  
+			return false  
+		}
         appendLog("本轮 $roundTimes/$roundMax，今日 $dailyTimes/$dailyMax")  
         return true  
     }  

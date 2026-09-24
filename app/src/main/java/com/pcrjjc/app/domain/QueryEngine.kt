@@ -277,14 +277,23 @@ class QueryEngine {
 	/** 从 get_info 响应里读出3支防守队伍的 5 个 unit_id。字段名需按实际响应确认。 */  
     @Suppress("UNCHECKED_CAST")  
 	suspend fun grandArenaDefenseDecks(client: Any): List<List<Int>> {  
-		val resp = loadIndex(client)  
-		val deckList = (resp["deck_list"] as? List<Map<String, Any?>>) ?: return emptyList()  
-		val byNumber = deckList.associateBy { (it["deck_number"] as? Number)?.toInt() }  
-		return GRAND_ARENA_DEF_NUMBERS.mapNotNull { num ->  
-			val deck = byNumber[num] ?: return@mapNotNull null  
-			(1..5).mapNotNull { j -> (deck["unit_id_$j"] as? Number)?.toInt() }  
-		}  
-	}
+    val resp = loadIndex(client)  
+    val deckList = (resp["deck_list"] as? List<Map<String, Any?>>)  
+    if (deckList == null) {  
+        Log.w(TAG, "grandArenaDefenseDecks: /load/index 缺少 deck_list, keys=${resp.keys}")  
+        return emptyList()  
+    }  
+    val byNumber = deckList.associateBy { (it["deck_number"] as? Number)?.toInt() }  
+    Log.d(TAG, "grandArenaDefenseDecks: 可用 deck_number=${byNumber.keys}")  
+    return GRAND_ARENA_DEF_NUMBERS.mapNotNull { num ->  
+        val deck = byNumber[num]  
+        if (deck == null) {  
+            Log.w(TAG, "grandArenaDefenseDecks: 未匹配到 deck_number=$num")  
+            return@mapNotNull null  
+        }  
+        (1..5).mapNotNull { j -> (deck["unit_id_$j"] as? Number)?.toInt() }  
+    }  
+}
 		
 	@Suppress("UNCHECKED_CAST")  
     suspend fun queryProfile(  
