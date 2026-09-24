@@ -50,7 +50,6 @@ import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -105,8 +104,7 @@ fun HomeScreen(
     onNavigateToClanRanking: () -> Unit,              // ← 加逗号  
     onNavigateToEqa: () -> Unit,  
     onNavigateToLabyrinth: () -> Unit,  
-    onNavigateToExEquip: () -> Unit,  
-    onNavigateToAutoDef: () -> Unit
+    onNavigateToExEquip: () -> Unit
 ) {
     val jjcBinds by viewModel.jjcBinds.collectAsState()
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()
@@ -134,7 +132,6 @@ fun HomeScreen(
         FeatureEntry("半月刊", Icons.Default.DateRange, onNavigateToFortnightly),  
         FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) }, 		
         FeatureEntry("EX状态", Icons.Default.Save, onNavigateToExEquip),
-		FeatureEntry("PJJC自动换防", Icons.Default.Shield, onNavigateToAutoDef),
 		FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
         FeatureEntry("设置", Icons.Default.Settings, onNavigateToSettings)  
     )
