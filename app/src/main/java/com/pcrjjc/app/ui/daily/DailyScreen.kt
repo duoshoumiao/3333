@@ -2109,16 +2109,21 @@ private fun DailyConfigItemView(
                 var textValue by remember(config.currentValue) {  
                     mutableStateOf((config.currentValue ?: config.default ?: "").toString())  
                 }  
+                var wasFocused by remember { mutableStateOf(false) }  
                 OutlinedTextField(  
                     value = textValue,  
                     onValueChange = { textValue = it },  
                     modifier = Modifier  
                         .fillMaxWidth()  
-                        .heightIn(min = 100.dp, max = 200.dp),  
-                    singleLine = false,  
-                    minLines = 3,  
-                    maxLines = 8,  
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),  
+                        .onFocusChanged { focusState ->  
+                            // 从有焦点变为失焦时保存（模拟网页版点击输入框外自动保存）  
+                            if (wasFocused && !focusState.isFocused) {  
+                                onUpdateConfig(config.key, textValue)  
+                            }  
+                            wasFocused = focusState.isFocused  
+                        },  
+                    singleLine = true,  
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),  
                     keyboardActions = KeyboardActions(  
                         onDone = { onUpdateConfig(config.key, textValue) }  
                     )  
