@@ -279,11 +279,13 @@ fun DailyScreen(
                     OutlinedTextField(  
                         value = commandDialogText,  
                         onValueChange = { commandDialogText = it },  
-                        modifier = Modifier.fillMaxWidth(),  
+                        modifier = Modifier  
+                            .fillMaxWidth()  
+                            .heightIn(min = 120.dp, max = 240.dp),  
                         label = { Text("指令") },  
                         singleLine = false,  
-                        maxLines = 4  
-                    )  
+                        maxLines = 12  
+                    ) 
                 }  
             },  
             confirmButton = {  
@@ -2110,13 +2112,17 @@ private fun DailyConfigItemView(
                 OutlinedTextField(  
                     value = textValue,  
                     onValueChange = { textValue = it },  
-                    modifier = Modifier.fillMaxWidth(),  
-                    singleLine = true,  
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),  
+                    modifier = Modifier  
+                        .fillMaxWidth()  
+                        .heightIn(min = 100.dp, max = 200.dp),  
+                    singleLine = false,  
+                    minLines = 3,  
+                    maxLines = 8,  
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),  
                     keyboardActions = KeyboardActions(  
                         onDone = { onUpdateConfig(config.key, textValue) }  
                     )  
-                )  
+                )
             }  
   
 "int" -> {
