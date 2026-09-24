@@ -2116,6 +2116,7 @@ private fun DailyConfigItemView(
                     onValueChange = { textValue = it },  
                     modifier = Modifier  
                         .fillMaxWidth()  
+                        .heightIn(min = 100.dp, max = 200.dp)  
                         .onFocusChanged { focusState ->  
                             // 从有焦点变为失焦时保存（模拟网页版点击输入框外自动保存）  
                             if (wasFocused && !focusState.isFocused) {  
@@ -2123,12 +2124,14 @@ private fun DailyConfigItemView(
                             }  
                             wasFocused = focusState.isFocused  
                         },  
-                    singleLine = true,  
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),  
+                    singleLine = false,  
+                    minLines = 3,  
+                    maxLines = 8,  
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),  
                     keyboardActions = KeyboardActions(  
                         onDone = { onUpdateConfig(config.key, textValue) }  
                     )  
-                )
+                )  
             }  
   
 "int" -> {
