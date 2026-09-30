@@ -426,7 +426,8 @@ class FloatingWindowService : Service() {
                             Toast.makeText(this@FloatingWindowService, "未找到进攻阵容推荐", Toast.LENGTH_SHORT).show()  
                         }  
                     } else {  
-                        Toast.makeText(this@FloatingWindowService, serverResponse.message.ifEmpty { "未找到结果" }, Toast.LENGTH_SHORT).show()  
+                        val msg = serverResponse.message.takeIf { it.isNotEmpty() && !it.equals("success", true) } ?: "未查询到解法"  
+						Toast.makeText(this@FloatingWindowService, msg, Toast.LENGTH_SHORT).show()  
                     }  
                 }  
             } catch (e: Exception) {  
@@ -511,7 +512,14 @@ class FloatingWindowService : Service() {
 		compareBase64: String? = null  
 	) {
         val ctx: Context = this  
-        val panelWidth = dp(185)    // ★ 加这一行 
+        val panelWidth = dp(185)    // ★ 加这一行  
+  
+		// ★ 新增：把 "success" 这类状态串过滤掉，无解时显示中文提示  
+		val displayMessage = if (message.isNotEmpty() && !message.equals("success", ignoreCase = true)) {  
+			message  
+		} else {  
+			"未查询到解法"  
+		}
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
@@ -526,7 +534,7 @@ class FloatingWindowService : Service() {
             setPadding(dp(4), dp(4), dp(4), dp(4))  
         }  
         val titleText = TextView(ctx).apply {  
-            text = "⠿ $message"  
+            text = "⠿ $displayMessage"  
             setTextColor(Color.WHITE)  
             textSize = 13f  
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)  
@@ -645,7 +653,7 @@ class FloatingWindowService : Service() {
                 } else {  
                     // bitmap == null：优先显示服务器返回的 message（如"未查询到解法"）  
                     val errorText = TextView(ctx).apply {  
-                        text = if (message.isNotEmpty()) message else "图片解码失败"
+                        text = if (message.isNotEmpty() && !message.equals("success", ignoreCase = true)) message else "图片解码失败"
                         setTextColor(Color.RED)  
                         textSize = 13f  
                         gravity = Gravity.CENTER  
@@ -666,7 +674,7 @@ class FloatingWindowService : Service() {
         } else {  
             // 服务端没有返回结果图（未查询到解法）：直接显示 message  
             val hint = TextView(ctx).apply {  
-                text = message.ifEmpty { "未查询到解法" } 
+                text = displayMessage 
                 setTextColor(0xFFFFCC00.toInt())  
                 textSize = 13f  
                 gravity = Gravity.CENTER  
