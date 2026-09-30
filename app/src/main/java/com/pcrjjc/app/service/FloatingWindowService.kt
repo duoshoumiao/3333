@@ -26,6 +26,8 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView  
 import android.widget.LinearLayout  
 import android.widget.ProgressBar  
+import com.pcrjjc.app.util.ElementUnits  
+import android.widget.GridLayout
 import android.widget.ScrollView  
 import android.widget.TextView  
 import android.widget.Toast  
@@ -254,12 +256,19 @@ class FloatingWindowService : Service() {
 			setTextColor(Color.WHITE); textSize = 14f  
 			setPadding(dp(12), dp(8), dp(12), dp(8))  
 		}  
+		
+		val pickBtn = TextView(this).apply {  
+			text = "👆 点选组队"  
+			setTextColor(Color.WHITE); textSize = 14f  
+			setPadding(dp(12), dp(8), dp(12), dp(8))  
+		}
+		
 		val cancelBtn = TextView(this).apply {  
 			text = "取消"  
 			setTextColor(Color.LTGRAY); textSize = 13f  
 			setPadding(dp(12), dp(6), dp(12), dp(6))  
 		}  
-		menu.addView(screenshotBtn); menu.addView(textBtn); menu.addView(cancelBtn)  
+		menu.addView(screenshotBtn); menu.addView(textBtn); menu.addView(pickBtn); menu.addView(cancelBtn)
 	  
 		val params = WindowManager.LayoutParams(  
 			dp(160), WindowManager.LayoutParams.WRAP_CONTENT,  
@@ -284,6 +293,11 @@ class FloatingWindowService : Service() {
 		}  
 		cancelBtn.setOnClickListener { removeResultPanel() }  
 	}
+	
+	pickBtn.setOnClickListener {  
+			removeResultPanel()  
+			showUnitPickPanel()  
+		}
   
     /**  
      * 截图后显示框选覆盖层，让用户手动选择头像区域。  
@@ -467,7 +481,185 @@ class FloatingWindowService : Service() {
 			}  
 		}  
 	}
-	
+	@SuppressLint("ClickableViewAccessibility")  
+	private fun showUnitPickPanel() {  
+		val ctx: Context = this  
+		val selected = mutableListOf<Int>()  
+  
+		val root = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.VERTICAL  
+			setBackgroundColor(0xF0222222.toInt())  
+			setPadding(dp(8), dp(6), dp(8), dp(6))  
+		}  
+  
+		val titleText = TextView(ctx).apply {  
+			text = "点选 5 人防守队 (0/5)"  
+			setTextColor(Color.WHITE); textSize = 13f  
+			setPadding(dp(4), dp(2), dp(4), dp(4))  
+		}  
+		root.addView(titleText)  
+  
+		// 已选预览行  
+		val selectedRow = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.HORIZONTAL  
+			gravity = Gravity.CENTER  
+			setPadding(0, 0, 0, dp(4))  
+		}  
+		root.addView(selectedRow)  
+  
+		// 属性 Tab 行  
+		val tabRow = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.HORIZONTAL  
+			gravity = Gravity.CENTER  
+		}  
+		root.addView(tabRow)  
+  
+		// 头像网格（ScrollView 包裹）  
+		val screenH = resources.displayMetrics.heightPixels  
+		val gridScroll = ScrollView(ctx).apply {  
+			layoutParams = LinearLayout.LayoutParams(  
+				ViewGroup.LayoutParams.MATCH_PARENT, (screenH * 0.45).toInt())  
+		}  
+		val grid = GridLayout(ctx).apply { columnCount = 5 }  
+		gridScroll.addView(grid)  
+		root.addView(gridScroll)  
+  
+		fun refreshSelected() {  
+			titleText.text = "点选 5 人防守队 (${selected.size}/5)"  
+			selectedRow.removeAllViews()  
+			for (id in selected) {  
+				val iv = ImageView(ctx).apply {  
+					layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply {  
+						setMargins(dp(2), 0, dp(2), 0)  
+					}  
+					scaleType = ImageView.ScaleType.CENTER_CROP  
+					setBackgroundColor(0xFF90CAF9.toInt())  
+				}  
+				val path = IconStorage.getIconPath(ctx, id, 6)  
+					?: IconStorage.getIconPath(ctx, id, 3)  
+				val bmp = path?.let { BitmapFactory.decodeFile(it) }  
+				if (bmp != null) iv.setImageBitmap(Bitmap.createScaledBitmap(bmp, dp(40), dp(40), true))  
+				else setPlaceholderText(iv, id)  
+				iv.setOnClickListener {  
+					selected.remove(id)  
+					refreshSelected()  
+					gridScroll.post { /* 刷新高亮 */ }  
+				}  
+				selectedRow.addView(iv)  
+			}  
+		}  
+  
+		fun loadGrid(ids: List<Int>) {  
+			grid.removeAllViews()  
+			for (id in ids) {  
+				val iv = ImageView(ctx).apply {  
+					layoutParams = GridLayout.LayoutParams().apply {  
+						width = dp(48); height = dp(48)  
+						setMargins(dp(3), dp(3), dp(3), dp(3))  
+					}  
+					scaleType = ImageView.ScaleType.CENTER_CROP  
+				}  
+				fun refreshBg() {  
+					iv.setBackgroundColor(  
+						if (selected.contains(id)) 0xFF90CAF9.toInt() else 0xFF333333.toInt()  
+					)  
+				}  
+				refreshBg()  
+				val path = IconStorage.getIconPath(ctx, id, 6)  
+					?: IconStorage.getIconPath(ctx, id, 3)  
+				val bmp = path?.let { BitmapFactory.decodeFile(it) }  
+				if (bmp != null) iv.setImageBitmap(Bitmap.createScaledBitmap(bmp, dp(48), dp(48), true))  
+				else setPlaceholderText(iv, id)  
+				iv.setOnClickListener {  
+					if (selected.contains(id)) selected.remove(id)  
+					else if (selected.size < 5) selected.add(id)  
+					else { Toast.makeText(ctx, "最多选 5 人", Toast.LENGTH_SHORT).show(); return@setOnClickListener }  
+					refreshBg(); refreshSelected()  
+				}  
+				grid.addView(iv)  
+			}  
+		}  
+  
+		// 生成 Tab  
+		ElementUnits.TABS.forEachIndexed { index, (name, ids) ->  
+			val tab = TextView(ctx).apply {  
+				text = name  
+				textSize = 14f  
+				gravity = Gravity.CENTER  
+				setPadding(dp(14), dp(6), dp(14), dp(6))  
+			}  
+			tab.setOnClickListener {  
+				for (i in 0 until tabRow.childCount)  
+					tabRow.getChildAt(i).setBackgroundColor(0)  
+				tab.setBackgroundColor(0xFF3F51B5.toInt())  
+				loadGrid(ids)  
+			}  
+			tabRow.addView(tab)  
+			if (index == 0) { tab.setBackgroundColor(0xFF3F51B5.toInt()); loadGrid(ids) }  
+		}  
+  
+		// 底部按钮  
+		val btnRow = LinearLayout(ctx).apply {  
+			orientation = LinearLayout.HORIZONTAL  
+			gravity = Gravity.CENTER  
+			setPadding(0, dp(6), 0, 0)  
+		}  
+		val confirmBtn = TextView(ctx).apply {  
+			text = "查询"  
+			setTextColor(0xFF90CAF9.toInt()); textSize = 14f  
+			setPadding(dp(20), dp(6), dp(20), dp(6))  
+		}  
+		val cancelBtn2 = TextView(ctx).apply {  
+			text = "取消"  
+			setTextColor(Color.LTGRAY); textSize = 13f  
+			setPadding(dp(20), dp(6), dp(20), dp(6))  
+		}  
+		btnRow.addView(confirmBtn); btnRow.addView(cancelBtn2)  
+		root.addView(btnRow)  
+  
+		val params = WindowManager.LayoutParams(  
+			dp(280), WindowManager.LayoutParams.WRAP_CONTENT,  
+			WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,  
+			WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,  
+			PixelFormat.TRANSLUCENT  
+		).apply { gravity = Gravity.TOP or Gravity.START; x = dp(20); y = dp(60) }  
+  
+		windowManager.addView(root, params)  
+		resultPanel = root  
+  
+		confirmBtn.setOnClickListener {  
+			if (selected.size != 5) {  
+				Toast.makeText(ctx, "请选满 5 人", Toast.LENGTH_SHORT).show()  
+				return@setOnClickListener  
+			}  
+			removeResultPanel()  
+			onUnitIdsConfirmed(selected.toList())  
+		}  
+		cancelBtn2.setOnClickListener { removeResultPanel() }  
+	}  
+  
+	private fun onUnitIdsConfirmed(ids: List<Int>) {  
+		scope.launch {  
+			withContext(Dispatchers.Main) { showLoadingPanel() }  
+			val response = withContext(Dispatchers.IO) {  
+				arenaClient.queryByIds(ids, region = 2)  
+			}  
+			withContext(Dispatchers.Main) {  
+				removeResultPanel()  
+				if (response.code != 0) {  
+					Toast.makeText(this@FloatingWindowService,  
+						response.message.ifEmpty { "查询失败" }, Toast.LENGTH_SHORT).show()  
+					return@withContext  
+				}  
+				if (!response.image.isNullOrEmpty()) {  
+					showImageResultPanel(response.image, response.message)  
+				} else {  
+					Toast.makeText(this@FloatingWindowService,  
+						response.message.ifEmpty { "未查询到解法" }, Toast.LENGTH_SHORT).show()  
+				}  
+			}  
+		}  
+	}
 	// ======================== 加载面板 ========================  
   
     private fun showLoadingPanel() {  
