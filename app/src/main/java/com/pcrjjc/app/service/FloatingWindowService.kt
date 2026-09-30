@@ -408,7 +408,9 @@ class FloatingWindowService : Service() {
                     }  
   
                     // 优先展示服务器渲染的图片（PJJC 无冲配队图 / JJC 结果图）  
-                    if (!serverResponse.image.isNullOrEmpty()) {  
+                    if (!serverResponse.image.isNullOrEmpty()  
+						|| !serverResponse.highlightImage.isNullOrEmpty()  
+						|| !serverResponse.compareImage.isNullOrEmpty()) {
 						showImageResultPanel(  
 							serverResponse.image,  
 							serverResponse.message,  
@@ -627,21 +629,33 @@ class FloatingWindowService : Service() {
 		}  
 		
 		// 解码结果图并加入 contentLayout  
-        try {  
-            val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
-            val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
-            if (bitmap != null) {  
-                val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
-                val scaledHeight = (bitmap.height * scale).toInt()  
-                val imageView = ImageView(ctx).apply {  
-                    setImageBitmap(bitmap)  
-                    scaleType = ImageView.ScaleType.FIT_XY  
-                    layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
+        if (!imageBase64.isNullOrEmpty()) {  
+            try {  
+                val imageData = Base64.decode(imageBase64, Base64.DEFAULT)  
+                val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)  
+                if (bitmap != null) {  
+                    val scale = panelWidth.toFloat() / bitmap.width.toFloat()  
+                    val scaledHeight = (bitmap.height * scale).toInt()  
+                    val imageView = ImageView(ctx).apply {  
+                        setImageBitmap(bitmap)  
+                        scaleType = ImageView.ScaleType.FIT_XY  
+                        layoutParams = LinearLayout.LayoutParams(panelWidth, scaledHeight)  
+                    }  
+                    contentLayout.addView(imageView)  
+                } else {  
+                    // bitmap == null：优先显示服务器返回的 message（如"未查询到解法"）  
+                    val errorText = TextView(ctx).apply {  
+                        text = if (message.isNotEmpty()) message else "图片解码失败"  
+                        setTextColor(Color.RED)  
+                        textSize = 13f  
+                        gravity = Gravity.CENTER  
+                        setPadding(0, dp(16), 0, dp(16))  
+                    }  
+                    contentLayout.addView(errorText)  
                 }  
-                contentLayout.addView(imageView)  
-            } else {  
+            } catch (e: Exception) {  
                 val errorText = TextView(ctx).apply {  
-                    text = "图片解码失败"  
+                    text = "图片加载失败: ${e.message}"  
                     setTextColor(Color.RED)  
                     textSize = 13f  
                     gravity = Gravity.CENTER  
@@ -649,6 +663,16 @@ class FloatingWindowService : Service() {
                 }  
                 contentLayout.addView(errorText)  
             }  
+        } else {  
+            // 服务端没有返回结果图（未查询到解法）：直接显示 message  
+            val hint = TextView(ctx).apply {  
+                text = message.ifEmpty { "未查询到解法" }  
+                setTextColor(0xFFFFCC00.toInt())  
+                textSize = 13f  
+                gravity = Gravity.CENTER  
+                setPadding(0, dp(16), 0, dp(16))  
+            }  
+            contentLayout.addView(hint)  
         } catch (e: Exception) {  
             val errorText = TextView(ctx).apply {  
                 text = "图片加载失败: ${e.message}"  
