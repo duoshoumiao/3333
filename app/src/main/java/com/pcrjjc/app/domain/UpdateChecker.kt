@@ -6,6 +6,9 @@ import android.util.Log
 import androidx.core.content.FileProvider  
 import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.withContext  
+import kotlinx.coroutines.delay  
+import java.io.FileOutputStream  
+import java.io.IOException
 import okhttp3.OkHttpClient  
 import okhttp3.Request  
 import org.json.JSONObject  
@@ -24,12 +27,19 @@ class UpdateChecker(private val context: Context) {
         private const val TAG = "UpdateChecker"  
         private const val GITHUB_API_URL =  
             "https://api.github.com/repos/duoshoumiao/3333/releases/latest"  
-    }  
+        private const val MAX_RETRY = 5  
+        private val MIRROR_PREFIXES = listOf(  
+            "",                                          // 原始 URL 优先  
+            "https://mirror.ghproxy.com/",  
+            "https://ghproxy.net/"  
+        )
+	}  
   
     private val httpClient = OkHttpClient.Builder()  
         .connectTimeout(10, TimeUnit.SECONDS)  
-        .readTimeout(30, TimeUnit.SECONDS)  
-        .build()  
+        .readTimeout(60, TimeUnit.SECONDS)  
+        .retryOnConnectionFailure(true)  
+        .build()
   
     /**  
      * 检查是否有新版本。返回 UpdateInfo 如果有更新，null 如果已是最新。  
@@ -94,39 +104,54 @@ class UpdateChecker(private val context: Context) {
         downloadUrl: String,  
         onProgress: (Float) -> Unit  
     ): File? = withContext(Dispatchers.IO) {  
-        try {  
-            val request = Request.Builder().url(downloadUrl).build()  
-            val response = httpClient.newCall(request).execute()  
-            if (!response.isSuccessful) return@withContext null  
+        val downloadDir = File(context.getExternalFilesDir(null), "Download")  
+        if (!downloadDir.exists()) downloadDir.mkdirs()  
+        val file = File(downloadDir, "update.apk")  
   
-            val body = response.body ?: return@withContext null  
-            val contentLength = body.contentLength()  
+        var lastError: Exception? = null  
   
-            val downloadDir = File(context.getExternalFilesDir(null), "Download")  
-            if (!downloadDir.exists()) downloadDir.mkdirs()  
-            val file = File(downloadDir, "update.apk")  
+        for (attempt in 0 until MAX_RETRY) {  
+            val url = MIRROR_PREFIXES[attempt % MIRROR_PREFIXES.size] + downloadUrl  
+            try {  
+                val downloaded = if (file.exists()) file.length() else 0L  
+                val request = Request.Builder().url(url).apply {  
+                    if (downloaded > 0) header("Range", "bytes=$downloaded-")  
+                }.build()  
   
-            file.outputStream().use { output ->  
-                body.byteStream().use { input ->  
-                    val buffer = ByteArray(8192)  
-                    var bytesRead: Long = 0  
-                    var read: Int  
-                    while (input.read(buffer).also { read = it } != -1) {  
-                        output.write(buffer, 0, read)  
-                        bytesRead += read  
-                        if (contentLength > 0) {  
-                            onProgress(bytesRead.toFloat() / contentLength)  
+                val response = httpClient.newCall(request).execute()  
+                // 服务器不支持 Range 时返回 200，从头重新下载  
+                val append = downloaded > 0 && response.code == 206  
+                if (!response.isSuccessful) {  
+                    response.close()  
+                    throw IOException("HTTP ${response.code}")  
+                }  
+  
+                val body = response.body ?: throw IOException("empty body")  
+                val total = downloaded + body.contentLength()  
+  
+                FileOutputStream(file, append).use { output ->  
+                    body.byteStream().use { input ->  
+                        val buffer = ByteArray(8192)  
+                        var bytesRead = if (append) downloaded else 0L  
+                        var read: Int  
+                        while (input.read(buffer).also { read = it } != -1) {  
+                            output.write(buffer, 0, read)  
+                            bytesRead += read  
+                            if (total > 0) onProgress(bytesRead.toFloat() / total)  
                         }  
                     }  
                 }  
+                return@withContext file  
+            } catch (e: Exception) {  
+                lastError = e  
+                Log.w(TAG, "Download attempt ${attempt + 1} failed ($url): ${e.message}")  
+                delay(1500L)  
             }  
-  
-            file  
-        } catch (e: Exception) {  
-            Log.e(TAG, "Failed to download APK: ${e.message}", e)  
-            null  
         }  
-    }  
+  
+        Log.e(TAG, "Failed to download APK: ${lastError?.message}", lastError)  
+        null  
+    } 
   
     /**  
      * 触发系统 APK 安装界面  
