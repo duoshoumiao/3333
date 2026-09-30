@@ -505,7 +505,7 @@ class FloatingWindowService : Service() {
   
     @SuppressLint("ClickableViewAccessibility")  
     private fun showImageResultPanel(  
-		imageBase64: String,  
+		imageBase64: String?,  
 		message: String,  
 		highlightBase64: String? = null,  
 		compareBase64: String? = null  
