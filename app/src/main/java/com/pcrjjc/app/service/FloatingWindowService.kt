@@ -290,15 +290,14 @@ class FloatingWindowService : Service() {
 		textBtn.setOnClickListener {  
 			removeResultPanel()  
 			showTextInputPanel()  
-		}  
+		}
+        pickBtn.setOnClickListener {  
+			removeResultPanel()  
+			showUnitPickPanel()  
+		}		
 		cancelBtn.setOnClickListener { removeResultPanel() }  
 	}
 	
-	pickBtn.setOnClickListener {  
-			removeResultPanel()  
-			showUnitPickPanel()  
-		}
-  
     /**  
      * 截图后显示框选覆盖层，让用户手动选择头像区域。  
      */  
