@@ -673,18 +673,7 @@ class FloatingWindowService : Service() {
                 setPadding(0, dp(16), 0, dp(16))  
             }  
             contentLayout.addView(hint)  
-        } catch (e: Exception) {  
-            val errorText = TextView(ctx).apply {  
-                text = "图片加载失败: ${e.message}"  
-                setTextColor(Color.RED)  
-                textSize = 13f  
-                gravity = Gravity.CENTER  
-                setPadding(0, dp(16), 0, dp(16))  
-            }  
-            contentLayout.addView(errorText)  
-        }  
-  
-        // ★ 关键：把 contentLayout 加到 scrollView，再加到 root  
+        } 
         scrollView.addView(contentLayout)  
         root.addView(scrollView) 
   
