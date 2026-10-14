@@ -2,10 +2,13 @@ package com.pcrjjc.app.domain
   
 import com.pcrjjc.app.data.remote.AppPushClient  
 import android.app.NotificationManager  
+import android.app.PendingIntent        
 import android.content.Context  
+import android.content.Intent     
 import android.util.Log  
 import androidx.core.app.NotificationCompat  
 import com.pcrjjc.app.PcrJjcApp  
+import com.pcrjjc.app.MainActivity
 import com.pcrjjc.app.R  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.dao.HistoryDao  
@@ -290,12 +293,20 @@ suspend fun flushHistories() {
             NoticeType.PJJC -> "公主竞技场排名变动"  
             NoticeType.ONLINE -> "上线提醒"  
         }  
+        val intent = Intent(context, MainActivity::class.java).apply {  
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP  
+        }  
+        val pendingIntent = PendingIntent.getActivity(  
+            context, 0, intent,  
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE  
+        )  
         val notification = NotificationCompat.Builder(context, PcrJjcApp.RANK_CHANNEL_ID)  
             .setSmallIcon(R.drawable.ic_notification)  
             .setContentTitle(title)  
             .setContentText(message)  
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)  
             .setAutoCancel(true)  
+            .setContentIntent(pendingIntent)  
             .build()  
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
         nm.notify(notificationId++, notification)  

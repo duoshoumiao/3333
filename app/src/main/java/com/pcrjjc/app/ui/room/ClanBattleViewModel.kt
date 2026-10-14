@@ -1,13 +1,16 @@
 package com.pcrjjc.app.ui.room            
   
-import android.app.NotificationManager        
-import android.content.Context        
+import android.app.NotificationManager  
+import android.app.PendingIntent  
+import android.content.Context  
+import android.content.Intent        
 import android.util.Log            
 import androidx.core.app.NotificationCompat        
 import androidx.lifecycle.SavedStateHandle            
 import androidx.lifecycle.ViewModel            
 import androidx.lifecycle.viewModelScope            
 import com.pcrjjc.app.PcrJjcApp        
+import com.pcrjjc.app.MainActivity
 import com.pcrjjc.app.R        
 import com.pcrjjc.app.data.local.dao.AccountDao            
 import com.pcrjjc.app.data.local.entity.Account            
@@ -846,13 +849,21 @@ class ClanBattleViewModel @Inject constructor(
                             if (clearedSubs.isNotEmpty()) {  
                                 val bossNums = clearedSubs.joinToString("、") { "${it.bossOrder}王" }  
                                 val notifMsg = "你预约的${bossNums}已出现，快来出刀！"  
+                                val intent = Intent(appContext, MainActivity::class.java).apply {  
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP  
+                                }  
+                                val pendingIntent = PendingIntent.getActivity(  
+                                    appContext, 0, intent,  
+                                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE  
+                                )  
                                 val notification = NotificationCompat.Builder(appContext, PcrJjcApp.CLAN_BATTLE_CHANNEL_ID)  
                                     .setSmallIcon(R.drawable.ic_notification)  
                                     .setContentTitle("会战预约提醒")  
                                     .setContentText(notifMsg)  
                                     .setPriority(NotificationCompat.PRIORITY_DEFAULT)  
                                     .setAutoCancel(true)  
-                                    .build()  
+                                    .setContentIntent(pendingIntent)  
+                                    .build() 
                                 val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager  
                                 nm.notify(System.currentTimeMillis().toInt(), notification)  
                             }
