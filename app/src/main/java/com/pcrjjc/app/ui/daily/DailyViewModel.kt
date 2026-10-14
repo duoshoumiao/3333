@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Dispatchers  
+import kotlinx.coroutines.sync.Mutex  
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.launch  
@@ -216,6 +218,8 @@ class DailyViewModel @Inject constructor(
   
     private val cookieStore = mutableListOf<Cookie>()  
   
+    private val configSaveMutex = Mutex()  
+  
     private val httpClient = OkHttpClient.Builder()  
         .connectTimeout(30, TimeUnit.SECONDS)  
         .readTimeout(300, TimeUnit.SECONDS)  // 指令执行可能很久  
@@ -252,6 +256,8 @@ class DailyViewModel @Inject constructor(
   
     fun login() {  
         val state = _uiState.value  
+        if (state.isLoading) return  
+  
         val baseUrl = state.serverUrl  
         if (baseUrl.isNullOrBlank()) {  
             _uiState.value = state.copy(errorMessage = "请先在设置中配置清日常服务器地址")  
@@ -285,8 +291,8 @@ class DailyViewModel @Inject constructor(
                     }  
                 }  
                 Log.d(TAG, "Login success: $loginResult")  
-                saveCurrentAccount()   // ← 新增  
-				loadAccounts()  
+                saveCurrentAccount()  
+                loadAccounts()  
             } catch (e: Exception) {  
                 Log.e(TAG, "Login failed: ${e.message}", e)  
                 _uiState.value = _uiState.value.copy(  
@@ -1440,19 +1446,21 @@ class DailyViewModel @Inject constructor(
   
         viewModelScope.launch {  
             try {  
-                withContext(Dispatchers.IO) {  
-                    val json = JSONObject().apply {  
-                        put(key, value)  
-                    }  
-                    val request = Request.Builder()  
-                        .url("$baseUrl/daily/api/account/$acc/config")  
-                        .addHeader("X-App-Version", APP_VERSION)  
-                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
-                        .build()  
-                    httpClient.newCall(request).execute().use { resp ->  
-                        if (!resp.isSuccessful) {  
-                            val text = resp.body?.string() ?: ""  
-                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                configSaveMutex.withLock {  
+                    withContext(Dispatchers.IO) {  
+                        val json = JSONObject().apply {  
+                            put(key, value)  
+                        }  
+                        val request = Request.Builder()  
+                            .url("$baseUrl/daily/api/account/$acc/config")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                            .build()  
+                        httpClient.newCall(request).execute().use { resp ->  
+                            if (!resp.isSuccessful) {  
+                                val text = resp.body?.string() ?: ""  
+                                throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                            }  
                         }  
                     }  
                 }  
@@ -1479,19 +1487,21 @@ class DailyViewModel @Inject constructor(
   
         viewModelScope.launch {  
             try {  
-                withContext(Dispatchers.IO) {  
-                    val json = JSONObject().apply {  
-                        put(key, JSONArray(values))  
-                    }  
-                    val request = Request.Builder()  
-                        .url("$baseUrl/daily/api/account/$acc/config")  
-                        .addHeader("X-App-Version", APP_VERSION)  
-                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
-                        .build()  
-                    httpClient.newCall(request).execute().use { resp ->  
-                        if (!resp.isSuccessful) {  
-                            val text = resp.body?.string() ?: ""  
-                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                configSaveMutex.withLock {  
+                    withContext(Dispatchers.IO) {  
+                        val json = JSONObject().apply {  
+                            put(key, JSONArray(values))  
+                        }  
+                        val request = Request.Builder()  
+                            .url("$baseUrl/daily/api/account/$acc/config")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                            .build()  
+                        httpClient.newCall(request).execute().use { resp ->  
+                            if (!resp.isSuccessful) {  
+                                val text = resp.body?.string() ?: ""  
+                                throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                            }  
                         }  
                     }  
                 }  
@@ -1640,11 +1650,7 @@ class DailyViewModel @Inject constructor(
     }  
   
     fun updateDailyConfigList(configKey: String, values: List<Any?>) {  
-        val state = _uiState.value  
-        val baseUrl = state.serverUrl ?: return  
-        val acc = state.selectedAccount ?: return  
-  
-        _uiState.value = state.copy(isSavingDaily = true)  
+        saveDailyField(configKey, JSONArray(values))  
   
         // 乐观更新  
         _uiState.value = _uiState.value.copy(  
@@ -1654,35 +1660,6 @@ class DailyViewModel @Inject constructor(
                 })  
             }  
         )  
-  
-        viewModelScope.launch {  
-            try {  
-                withContext(Dispatchers.IO) {  
-                    val json = JSONObject().apply {  
-                        put(configKey, JSONArray(values))  
-                    }  
-                    val request = Request.Builder()  
-                        .url("$baseUrl/daily/api/account/$acc/config")  
-                        .addHeader("X-App-Version", APP_VERSION)  
-                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
-                        .build()  
-                    httpClient.newCall(request).execute().use { resp ->  
-                        if (!resp.isSuccessful) {  
-                            val text = resp.body?.string() ?: ""  
-                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
-                        }  
-                    }  
-                }  
-                _uiState.value = _uiState.value.copy(isSavingDaily = false, dailyError = null)  
-            } catch (e: Exception) {  
-                Log.e(TAG, "Save daily field list failed: ${e.message}", e)  
-                _uiState.value = _uiState.value.copy(  
-                    isSavingDaily = false,  
-                    dailyError = "保存失败: ${e.message}"  
-                )  
-                loadDailyConfig()  
-            }  
-        }  
     }  
   
     fun expandDailyModule(moduleKey: String?) {  
@@ -1701,19 +1678,21 @@ class DailyViewModel @Inject constructor(
   
         viewModelScope.launch {  
             try {  
-                withContext(Dispatchers.IO) {  
-                    val json = JSONObject().apply {  
-                        put(key, value)  
-                    }  
-                    val request = Request.Builder()  
-                        .url("$baseUrl/daily/api/account/$acc/config")  
-                        .addHeader("X-App-Version", APP_VERSION)  
-                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
-                        .build()  
-                    httpClient.newCall(request).execute().use { resp ->  
-                        if (!resp.isSuccessful) {  
-                            val text = resp.body?.string() ?: ""  
-                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                configSaveMutex.withLock {  
+                    withContext(Dispatchers.IO) {  
+                        val json = JSONObject().apply {  
+                            put(key, value)  
+                        }  
+                        val request = Request.Builder()  
+                            .url("$baseUrl/daily/api/account/$acc/config")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                            .build()  
+                        httpClient.newCall(request).execute().use { resp ->  
+                            if (!resp.isSuccessful) {  
+                                val text = resp.body?.string() ?: ""  
+                                throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                            }  
                         }  
                     }  
                 }  
@@ -1731,6 +1710,42 @@ class DailyViewModel @Inject constructor(
   
     fun clearDailyError() {  
         _uiState.value = _uiState.value.copy(dailyError = null)  
+    }
+	
+	private fun saveSectionField(sectionKey: String, key: String, value: Any) {  
+        val state = _uiState.value  
+        val baseUrl = state.serverUrl ?: return  
+        val acc = state.selectedAccount ?: return  
+  
+        updateSectionState(sectionKey, isSaving = true)  
+  
+        viewModelScope.launch {  
+            try {  
+                configSaveMutex.withLock {  
+                    withContext(Dispatchers.IO) {  
+                        val json = JSONObject().apply {  
+                            put(key, value)  
+                        }  
+                        val request = Request.Builder()  
+                            .url("$baseUrl/daily/api/account/$acc/config")  
+                            .addHeader("X-App-Version", APP_VERSION)  
+                            .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
+                            .build()  
+                        httpClient.newCall(request).execute().use { resp ->  
+                            if (!resp.isSuccessful) {  
+                                val text = resp.body?.string() ?: ""  
+                                throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
+                            }  
+                        }  
+                    }  
+                }  
+                updateSectionState(sectionKey, isSaving = false, clearError = true)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "Save $sectionKey config failed: ${e.message}", e)  
+                updateSectionState(sectionKey, isSaving = false, error = "保存失败: ${e.message}")  
+                loadSectionConfig(sectionKey)  
+            }  
+        }  
     }
 	
 	// ==================== 通用模块管理（工具/角色/规划/公会/危险） ====================  
@@ -1873,7 +1888,8 @@ class DailyViewModel @Inject constructor(
   
     /** 开关模块 */  
     fun toggleSectionModule(sectionKey: String, moduleKey: String, enabled: Boolean) {  
-        saveDailyField(moduleKey, enabled)  
+        saveSectionField(sectionKey, moduleKey, enabled)  
+  
         val updated = getModulesForSection(sectionKey).map {  
             if (it.key == moduleKey) it.copy(enabled = enabled) else it  
         }  
@@ -1882,22 +1898,19 @@ class DailyViewModel @Inject constructor(
   
     /** 更新模块配置（单值） */  
     fun updateSectionConfig(sectionKey: String, configKey: String, value: Any) {  
-        saveDailyField(configKey, value)  
+        saveSectionField(sectionKey, configKey, value)  
+  
         val updated = getModulesForSection(sectionKey).map { module ->  
             module.copy(configs = module.configs.map { cfg ->  
                 if (cfg.key == configKey) cfg.copy(currentValue = value) else cfg  
             })  
         }  
         updateSectionState(sectionKey, modules = updated)  
-    }  
+    }
   
     /** 更新模块配置（列表值） */  
     fun updateSectionConfigList(sectionKey: String, configKey: String, values: List<Any?>) {  
-        val state = _uiState.value  
-        val baseUrl = state.serverUrl ?: return  
-        val acc = state.selectedAccount ?: return  
-  
-        updateSectionState(sectionKey, isSaving = true)  
+        saveSectionField(sectionKey, configKey, JSONArray(values))  
   
         // 乐观更新  
         val updated = getModulesForSection(sectionKey).map { module ->  
@@ -1906,33 +1919,7 @@ class DailyViewModel @Inject constructor(
             })  
         }  
         updateSectionState(sectionKey, modules = updated)  
-  
-        viewModelScope.launch {  
-            try {  
-                withContext(Dispatchers.IO) {  
-                    val json = JSONObject().apply {  
-                        put(configKey, JSONArray(values))  
-                    }  
-                    val request = Request.Builder()  
-                        .url("$baseUrl/daily/api/account/$acc/config")  
-                        .addHeader("X-App-Version", APP_VERSION)  
-                        .put(json.toString().toRequestBody(JSON_MEDIA_TYPE))  
-                        .build()  
-                    httpClient.newCall(request).execute().use { resp ->  
-                        if (!resp.isSuccessful) {  
-                            val text = resp.body?.string() ?: ""  
-                            throw Exception(text.ifBlank { "保存失败 (${resp.code})" })  
-                        }  
-                    }  
-                }  
-                updateSectionState(sectionKey, isSaving = false, clearError = true)  
-            } catch (e: Exception) {  
-                Log.e(TAG, "Save $sectionKey config list failed: ${e.message}", e)  
-                updateSectionState(sectionKey, isSaving = false, error = "保存失败: ${e.message}")  
-                loadSectionConfig(sectionKey)  
-            }  
-        }  
-    }  
+    } 
   
     /** 展开/收起模块详情 */  
     fun expandSectionModule(sectionKey: String, moduleKey: String?) {  
@@ -2231,11 +2218,12 @@ class DailyViewModel @Inject constructor(
 	}  
 	  
 	fun selectSavedAccount(account: SavedDailyAccount) {  
-		_uiState.value = _uiState.value.copy(  
-			qqInput = account.qq,  
-			passwordInput = account.password  
-		)  
-	}  
+        _uiState.value = _uiState.value.copy(  
+            qqInput = account.qq,  
+            passwordInput = account.password  
+        )  
+        login()  
+    }
 	  
 	fun deleteSavedAccount(account: SavedDailyAccount) {  
 		viewModelScope.launch {  
