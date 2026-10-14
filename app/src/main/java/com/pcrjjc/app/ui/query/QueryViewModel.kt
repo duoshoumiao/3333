@@ -89,9 +89,10 @@ class QueryViewModel @Inject constructor(
   
             try {  
                 val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)  
-                var info: Map<String, Any?>? = null  
+                val info: Map<String, Any?>?  
+  
                 if (accounts.isEmpty()) {  
-                    // 无本地查询账号，改走服务器 pcrjjc2  
+                    // ★ 无本地查询账号，改走服务器 pcrjjc2  
                     info = AppPushClient(settingsDataStore.getPcrServerUrl())  
                         .queryProfile(bind.platform, bind.pcrid)  
                         ?.get("user_info") as? Map<String, Any?>  
@@ -101,14 +102,8 @@ class QueryViewModel @Inject constructor(
                     val client = clientManager.getClient(account)  
                     info = queryEngine.queryProfile(client, bind)?.userInfo  
                 }  
-                if (info == null) {  
-                    _uiState.value = _uiState.value.copy(  
-                        isLoading = false,  
-                        errorMessage = "查询失败"  
-                    )  
-                    return@launch  
-                }  
-                run {  
+  
+                if (info != null) {  
                     val arenaRank = (info["arena_rank"] as? Number)?.toInt() ?: 0  
                     val grandArenaRank = (info["grand_arena_rank"] as? Number)?.toInt() ?: 0  
                     val lastLoginTime = (info["last_login_time"] as? Number)?.toLong() ?: 0  
@@ -146,7 +141,7 @@ class QueryViewModel @Inject constructor(
                 }  
             } catch (e: Throwable) {  
                 try {  
-                    val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)
+                    val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)  
                     if (accounts.isNotEmpty()) {  
                         clientManager.clearClient(accounts.first().id)  
                     }  
