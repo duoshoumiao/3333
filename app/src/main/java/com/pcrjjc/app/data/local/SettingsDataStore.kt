@@ -174,11 +174,7 @@ class SettingsDataStore(private val context: Context) {
     suspend fun getServerIp(): String {  
         return context.dataStore.data.first()[KEY_SERVER_IP]?.ifBlank { null }  
             ?: "114.514.1.1"  
-    }  
-  
-    suspend fun getServerUrl(): String {  
-        return "http://${getServerIp()}:8077"  
-    }  
+    } 
   
     suspend fun getDailyServerUrl(): String {  
         return "http://${getServerIp()}:8040"  
