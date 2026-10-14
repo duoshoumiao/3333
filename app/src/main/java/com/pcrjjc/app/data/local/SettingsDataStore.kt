@@ -175,6 +175,10 @@ class SettingsDataStore(private val context: Context) {
         return context.dataStore.data.first()[KEY_SERVER_IP]?.ifBlank { null }  
             ?: "114.514.1.1"  
     } 
+	
+	suspend fun getServerUrl(): String {  
+        return "http://${getServerIp()}:8077"  
+    }
   
     suspend fun getDailyServerUrl(): String {  
         return "http://${getServerIp()}:8040"  
@@ -201,16 +205,6 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.edit { it[KEY_APP_USER_ID] = id }  
         return id  
     }	
-  
-    /**  
-     * pcrjjc2 批量查询服务器地址。  
-     * 未单独配置时默认复用竞技场查询服务器（server_ip:8077）。  
-     * pcrjjc2 部署在其他端口时请改这里或新增独立设置项。  
-     */  
-    suspend fun getPcrServerUrl(): String {  
-        val stored = context.dataStore.data.first()[KEY_PCR_SERVER_URL]  
-        return if (!stored.isNullOrBlank()) stored else getServerUrl()  
-    }  
   
     suspend fun setPcrServerUrl(url: String) {  
         context.dataStore.edit { it[KEY_PCR_SERVER_URL] = url }  
