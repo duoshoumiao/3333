@@ -56,6 +56,13 @@ class RankCheckWorker @AssistedInject constructor(
   
             if (accounts.isEmpty()) {  
                 Log.w(TAG, "No accounts configured, skipping rank check")  
+                if (settingsDataStore.shouldWarnNoConfig()) {  
+                    RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao, settingsDataStore)  
+                        .notifySystem(  
+                            "竞技场监控未启动：未配置监控账号，也未连接服务器。" +  
+                            "请在【监控账号管理】添加账号，或在【设置】填写服务器地址。"  
+                        )  
+                }  
                 return Result.success()  
             }
   

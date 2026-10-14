@@ -235,7 +235,12 @@ suspend fun flushHistories() {
         sendNotification(message, NoticeType.JJC)  
     }
   
-    private fun sendNotification(message: String, noticeType: NoticeType) {  
+    /** 配置缺失等系统级提醒（与排名变动通知区分文案） */  
+    fun notifySystem(message: String) {  
+        sendNotification(message, NoticeType.JJC)  
+    }
+	
+	private fun sendNotification(message: String, noticeType: NoticeType) {  
         val title = when (noticeType) {  
             NoticeType.JJC -> "竞技场排名变动"  
             NoticeType.PJJC -> "公主竞技场排名变动"  

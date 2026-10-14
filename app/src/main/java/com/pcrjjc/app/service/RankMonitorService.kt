@@ -129,6 +129,13 @@ class RankMonitorService : Service() {
                         }  
                     } else if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  
+                        // ★ 账号和服务器都没配置，每 24h 提醒一次  
+                        if (settingsDataStore.shouldWarnNoConfig()) {  
+                            rankMonitor.notifySystem(  
+                                "竞技场监控未启动：未配置监控账号，也未连接服务器。" +  
+                                "请在【监控账号管理】添加账号，或在【设置】填写服务器地址。"  
+                            )  
+                        }  
                     } else {
 coroutineScope {
                             accounts.map { account ->

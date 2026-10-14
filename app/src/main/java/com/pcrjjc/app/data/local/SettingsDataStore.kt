@@ -46,6 +46,7 @@ class SettingsDataStore(private val context: Context) {
         private val KEY_LAB_AREA3_BOSSES = stringPreferencesKey("lab_area3_bosses")  
         private val KEY_LAB_AREA5_BOSSES = stringPreferencesKey("lab_area5_bosses")
 		private val KEY_APP_USER_ID = longPreferencesKey("app_user_id")
+		private val KEY_NO_CONFIG_WARN_AT = longPreferencesKey("no_config_warn_at")
 		private val KEY_PCR_SERVER_URL = stringPreferencesKey("pcr_server_url")
     }  
   
@@ -204,6 +205,15 @@ class SettingsDataStore(private val context: Context) {
         val id = (1_000_000_000L..9_999_999_999L).random()  
         context.dataStore.edit { it[KEY_APP_USER_ID] = id }  
         return id  
+    }
+
+    /** 无账号无服务器提醒节流：距上次提醒超过 intervalMs 才返回 true 并记录时间 */  
+    suspend fun shouldWarnNoConfig(intervalMs: Long = 24 * 60 * 60 * 1000): Boolean {  
+        val prefs = context.dataStore.data.first()  
+        val last = prefs[KEY_NO_CONFIG_WARN_AT] ?: 0L  
+        if (System.currentTimeMillis() - last < intervalMs) return false  
+        context.dataStore.edit { it[KEY_NO_CONFIG_WARN_AT] = System.currentTimeMillis() }  
+        return true  
     }	
   
     suspend fun setPcrServerUrl(url: String) {  
