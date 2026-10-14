@@ -45,6 +45,8 @@ class SettingsDataStore(private val context: Context) {
 		private val KEY_LAB_SECOND = stringPreferencesKey("lab_second_block_type")
         private val KEY_LAB_AREA3_BOSSES = stringPreferencesKey("lab_area3_bosses")  
         private val KEY_LAB_AREA5_BOSSES = stringPreferencesKey("lab_area5_bosses")
+		private val KEY_APP_USER_ID = longPreferencesKey("app_user_id")
+		private val KEY_PCR_SERVER_URL = stringPreferencesKey("pcr_server_url")
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->    
@@ -188,9 +190,37 @@ class SettingsDataStore(private val context: Context) {
   
     suspend fun getEqaServerUrl(): String {  
         return "http://${getServerIp()}:8067"  
+    }
+
+    /** pcrjjc2 服务端地址：固定 8089 端口 */  
+    suspend fun getPcrServerUrl(): String {  
+        return "http://${getServerIp()}:8089"  
+    }  
+  
+    /** App 在服务端的身份 id，首次调用时生成并持久化 */  
+    suspend fun getAppUserId(): Long {  
+        val prefs = context.dataStore.data.first()  
+        prefs[KEY_APP_USER_ID]?.let { return it }  
+        val id = (1_000_000_000L..9_999_999_999L).random()  
+        context.dataStore.edit { it[KEY_APP_USER_ID] = id }  
+        return id  
     }	
   
-    // ==================== 清日常账号保存 ====================    
+    /**  
+     * pcrjjc2 批量查询服务器地址。  
+     * 未单独配置时默认复用竞技场查询服务器（server_ip:8077）。  
+     * pcrjjc2 部署在其他端口时请改这里或新增独立设置项。  
+     */  
+    suspend fun getPcrServerUrl(): String {  
+        val stored = context.dataStore.data.first()[KEY_PCR_SERVER_URL]  
+        return if (!stored.isNullOrBlank()) stored else getServerUrl()  
+    }  
+  
+    suspend fun setPcrServerUrl(url: String) {  
+        context.dataStore.edit { it[KEY_PCR_SERVER_URL] = url }  
+    }
+	
+	// ==================== 清日常账号保存 ====================    
   
     /**    
      * 获取已保存的清日常账号列表。    

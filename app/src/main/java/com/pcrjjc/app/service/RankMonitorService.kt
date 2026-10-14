@@ -28,6 +28,8 @@ import com.pcrjjc.app.domain.CaptchaRequest
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
+import com.pcrjjc.app.data.remote.RemotePcrClient
+import com.pcrjjc.app.data.remote.AppPushClient
 import dagger.hilt.android.AndroidEntryPoint  
 import kotlinx.coroutines.CoroutineScope  
 import kotlinx.coroutines.Dispatchers  
@@ -111,9 +113,23 @@ class RankMonitorService : Service() {
             while (isActive) {  
                 try {  
                     val accounts = accountDao.getNonMasterAccountsSync()  
-                    if (accounts.isEmpty()) {  
+                    val pcrServerUrl = settingsDataStore.getPcrServerUrl()  
+  
+                    if (accounts.isEmpty() && pcrServerUrl.isNotBlank()) {  
+                        // ★ 无本地监控账号：注册绑定到服务器 pcrjjc2，长轮询收推送  
+                        try {  
+                            val pushClient = AppPushClient(pcrServerUrl)  
+                            val uid = settingsDataStore.getAppUserId()  
+                            pushClient.register(uid, bindDao.getAllBindsSync())  
+                            for (m in pushClient.poll(uid, intervalSeconds)) {  
+                                rankMonitor.notifyRemote(m)  
+                            }  
+                        } catch (e: Exception) {  
+                            Log.e(TAG, "Remote push failed: ${e.message}", e)  
+                        }  
+                    } else if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  
-                    } else {  
+                    } else {
 coroutineScope {
                             accounts.map { account ->
                                 async {
@@ -148,8 +164,8 @@ coroutineScope {
                                 }  
                             }.awaitAll()  
                         }  
-                        rankMonitor.flushHistories()  
                     }  
+                    rankMonitor.flushHistories()
                 } catch (e: Exception) {  
                     Log.e(TAG, "Polling cycle failed: ${e.message}", e)  
                 }  

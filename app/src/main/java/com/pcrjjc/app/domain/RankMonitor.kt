@@ -230,6 +230,10 @@ suspend fun flushHistories() {
             sendNotification(message, noticeType)
         }
     }
+	/** 服务端 pcrjjc2 推送下来的成品文本，直接发通知 */  
+    fun notifyRemote(message: String) {  
+        sendNotification(message, NoticeType.JJC)  
+    }
   
     private fun sendNotification(message: String, noticeType: NoticeType) {  
         val title = when (noticeType) {  

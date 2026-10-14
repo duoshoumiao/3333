@@ -13,6 +13,8 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.domain.RankMonitor  
 import com.pcrjjc.app.data.local.SettingsDataStore
+import com.pcrjjc.app.data.remote.AppPushClient
+import com.pcrjjc.app.data.remote.RemotePcrClient
 import dagger.assisted.Assisted  
 import dagger.assisted.AssistedInject  
   
@@ -37,11 +39,25 @@ class RankCheckWorker @AssistedInject constructor(
         Log.i(TAG, "Starting rank check...")  
   
         try {  
-            val accounts = accountDao.getNonMasterAccountsSync()
+            val accounts = accountDao.getNonMasterAccountsSync()  
+            val pcrServerUrl = settingsDataStore.getPcrServerUrl()  
+  
+            if (accounts.isEmpty() && pcrServerUrl.isNotBlank()) {  
+                // ★ 无本地监控账号：注册绑定并拉取一次服务端推送  
+                val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao, settingsDataStore)  
+                val pushClient = AppPushClient(pcrServerUrl)  
+                val uid = settingsDataStore.getAppUserId()  
+                pushClient.register(uid, bindDao.getAllBindsSync())  
+                for (m in pushClient.poll(uid, 10)) {  
+                    rankMonitor.notifyRemote(m)  
+                }  
+                return Result.success()  
+            }  
+  
             if (accounts.isEmpty()) {  
                 Log.w(TAG, "No accounts configured, skipping rank check")  
                 return Result.success()  
-            }  
+            }
   
             val queryEngine = QueryEngine()  
             val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao, settingsDataStore)  
@@ -63,7 +79,25 @@ class RankCheckWorker @AssistedInject constructor(
                     Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
                     clientManager.clearClient(account.id)  
                 }  
-            }  
+            }
+            
+            // ★ 没有监控账号的平台，改用服务器 pcrjjc2 批量查询代替本地查询  
+            if (pcrServerUrl.isNotBlank()) {  
+                val accountPlatforms = accounts.map { it.platform }.toSet()  
+                val remoteBinds = bindDao.getAllBindsSync()  
+                    .filter { it.platform !in accountPlatforms }  
+                    .groupBy { it.platform }  
+                for ((platform, binds) in remoteBinds) {  
+                    try {  
+                        Log.i(TAG, "Platform $platform has no local account, querying via pcrjjc2 server")  
+                        RemotePcrClient(pcrServerUrl).queryAll(binds) { result ->  
+                            rankMonitor.processResult(result)  
+                        }  
+                    } catch (e: Exception) {  
+                        Log.e(TAG, "Remote query failed for platform $platform: ${e.message}", e)  
+                    }  
+                }  
+            }			
   
             rankMonitor.flushHistories()  
   
