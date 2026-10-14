@@ -1,5 +1,6 @@
 package com.pcrjjc.app.domain  
   
+import com.pcrjjc.app.data.remote.AppPushClient  
 import android.app.NotificationManager  
 import android.content.Context  
 import android.util.Log  
@@ -230,9 +231,27 @@ suspend fun flushHistories() {
             sendNotification(message, noticeType)
         }
     }
-	/** 服务端 pcrjjc2 推送下来的成品文本，直接发通知 */  
-    fun notifyRemote(message: String) {  
-        sendNotification(message, NoticeType.JJC)  
+	/** 服务端 pcrjjc2 推送下来的结构化通知：发通知并写入击剑记录 */  
+    suspend fun notifyRemote(notice: AppPushClient.RemoteNotice) {  
+        val noticeType = when (notice.item) {  
+            1 -> NoticeType.PJJC  
+            2 -> NoticeType.ONLINE  
+            else -> NoticeType.JJC  
+        }  
+        sendNotification(notice.msg, noticeType)  
+  
+        // 击剑记录（上线提醒也记录，item=2 与本地 0=jjc/1=pjjc 区分）  
+        historyDao.insertAll(listOf(  
+            JjcHistory(  
+                pcrid = notice.pcrid,  
+                name = notice.name,  
+                platform = notice.platform,  
+                date = if (notice.date > 0) notice.date else System.currentTimeMillis() / 1000,  
+                item = notice.item,  
+                before = notice.before,  
+                after = notice.after  
+            )  
+        ))  
     }
   
     /** 配置缺失等系统级提醒（与排名变动通知区分文案） */  

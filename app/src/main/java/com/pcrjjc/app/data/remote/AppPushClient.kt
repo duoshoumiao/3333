@@ -35,7 +35,7 @@ class AppPushClient(private val serverUrl: String) {
                     put("pjjc_notice", it.pjjcNotice)  
                     put("up_notice", it.upNotice)  
                     put("online_notice", it.onlineNotice)  
-                }) 
+                })
             }  
             val body = JSONObject()  
                 .put("user_id", userId)  
@@ -54,8 +54,20 @@ class AppPushClient(private val serverUrl: String) {
             }  
         }  
   
-    /** 长轮询，返回服务端推送文本列表；超时/出错返回空列表 */  
-    suspend fun poll(userId: Long, timeout: Long = 30): List<String> =  
+    /** 服务端推送的一条消息，对应 push_to_app 的 payload */  
+    data class RemoteNotice(  
+        val msg: String,  
+        val pcrid: Long,  
+        val name: String,  
+        val platform: Int,  
+        val item: Int,       // 0=jjc 1=pjjc 2=online（与服务端 NoticeType 一致）  
+        val before: Int,  
+        val after: Int,  
+        val date: Long  
+    )  
+  
+    /** 长轮询，返回结构化推送列表；超时/出错返回空列表 */  
+    suspend fun poll(userId: Long, timeout: Long = 30): List<RemoteNotice> =  
         withContext(Dispatchers.IO) {  
             try {  
                 client.newCall(  
@@ -66,12 +78,24 @@ class AppPushClient(private val serverUrl: String) {
                     if (!resp.isSuccessful) return@withContext emptyList()  
                     val arr = JSONObject(resp.body!!.string()).optJSONArray("msgs")  
                         ?: return@withContext emptyList()  
-                    (0 until arr.length()).map { arr.getString(it) }  
+                    (0 until arr.length()).mapNotNull { i ->  
+                        val o = arr.optJSONObject(i) ?: return@mapNotNull null  
+                        RemoteNotice(  
+                            msg = o.optString("msg"),  
+                            pcrid = o.optLong("pcrid"),  
+                            name = o.optString("name"),  
+                            platform = o.optInt("platform"),  
+                            item = o.optInt("item"),  
+                            before = o.optInt("before"),  
+                            after = o.optInt("after"),  
+                            date = o.optLong("date")  
+                        )  
+                    }  
                 }  
             } catch (e: Exception) {  
                 emptyList()  
             }  
-        }  
+        } 
     /** 即时查询：返回 /profile/get_profile 的完整 res（含 user_info），失败返回 null */  
     suspend fun queryProfile(platform: Int, pcrid: Long): Map<String, Any?>? =  
         withContext(Dispatchers.IO) {  
