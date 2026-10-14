@@ -2178,11 +2178,15 @@ class DailyViewModel @Inject constructor(
                     expandedDangerModuleKey = null					
                 )    
             }  
-            DailyPhase.ACCOUNTS -> {  
-                autoDefPollJob?.cancel()  // ← 新增  
-				cookieStore.clear()  
-                _uiState.value = DailyUiState(serverUrl = state.serverUrl)  
-            }  
+            DailyPhase.ACCOUNTS -> {    
+                autoDefPollJob?.cancel()  
+				cookieStore.clear()    
+                _uiState.value = DailyUiState(    
+                    serverUrl = state.serverUrl,    
+                    savedAccounts = state.savedAccounts    
+                )  
+                loadSavedAccounts()  
+            }
             DailyPhase.LOGIN -> { /* 由 Screen 层处理导航返回 */ }  
         }  
     }  
