@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap  
 import android.graphics.BitmapFactory  
 import java.io.File  
+import org.json.JSONArray
   
 /**  
  * 本地图标文件存储管理  
@@ -51,5 +52,33 @@ object IconStorage {
     fun getCachedCount(context: Context): Int {  
         val dir = getIconDir(context)  
         return dir.listFiles()?.size ?: 0  
+    }
+    private const val KNOWN_CHARAS_FILE = "avatar_charas.json"  
+  
+    /**  
+     * 加载已下载过的角色ID清单（avatar_charas.json）  
+     */  
+    fun loadKnownCharaIds(context: Context): MutableSet<Int> {  
+        val file = File(context.filesDir, KNOWN_CHARAS_FILE)  
+        if (!file.exists()) return mutableSetOf()  
+        return try {  
+            val arr = JSONArray(file.readText())  
+            MutableSet(arr.length()) { i -> arr.getInt(i) }  
+        } catch (e: Exception) {  
+            mutableSetOf()  
+        }  
     }  
+  
+    /**  
+     * 保存已下载过的角色ID清单  
+     */  
+    fun saveKnownCharaIds(context: Context, ids: Set<Int>) {  
+        try {  
+            val arr = JSONArray()  
+            ids.forEach { arr.put(it) }  
+            File(context.filesDir, KNOWN_CHARAS_FILE).writeText(arr.toString())  
+        } catch (e: Exception) {  
+            // 清单写入失败不影响本次下载结果  
+        }  
+    }	
 }

@@ -283,31 +283,62 @@ class SettingsViewModel @Inject constructor(
                         .readTimeout(10, TimeUnit.SECONDS)    
                         .build()    
   
-                    val baseUrl = "https://redive.estertion.win/icon/unit/"    
-                    val stars = listOf(6, 3)    
+                    val baseUrl = "https://redive.estertion.win/icon/unit/"   
   
-                    val roster = CharaRoster.fetchRoster(client, context)    
-                    val charaIds: List<Int> = if (roster != null && roster.isNotEmpty()) {    
-                        _uiState.value = _uiState.value.copy(    
-                            avatarDownloadMessage = "花名册包含 ${roster.size} 个角色，正在检查缺失头像...",    
-                            rosterCount = roster.size    
-                        )    
-                        roster    
-                    } else {    
-                        _uiState.value = _uiState.value.copy(    
-                            avatarDownloadMessage = "花名册获取失败，使用默认范围..."    
-                        )    
-                        (1001..1899).toList()    
-                    }    
+                    val roster = CharaRoster.fetchRoster(client, context)      
+                    if (roster != null && roster.isNotEmpty()) {      
+                        _uiState.value = _uiState.value.copy(      
+                            avatarDownloadMessage = "花名册包含 ${roster.size} 个角色，正在获取服务端头像列表...",      
+                            rosterCount = roster.size      
+                        )      
+                    } else {      
+                        _uiState.value = _uiState.value.copy(      
+                            avatarDownloadMessage = "花名册获取失败，继续获取服务端头像列表..."      
+                        )      
+                    }   
   
-                    val toDownload = mutableListOf<Pair<Int, Int>>()    
-                    for (baseId in charaIds) {    
-                        for (star in stars) {    
-                            if (!IconStorage.hasIcon(context, baseId, star)) {    
-                                toDownload.add(baseId to star)    
-                            }    
-                        }    
-                    }    
+                    // 获取服务端实际存在的头像文件名列表（目录索引页），避免请求不存在的头像  
+                    _uiState.value = _uiState.value.copy(  
+                        avatarDownloadMessage = "正在获取服务端头像列表..."  
+                    )  
+                    val iconIds = try {  
+                        client.newCall(  
+                            Request.Builder().url(baseUrl).build()  
+                        ).execute().use { resp ->  
+                            if (!resp.isSuccessful) emptySet<String>()  
+                            else {  
+                                val html = resp.body?.string() ?: ""  
+                                Regex("""(\d{6})\.webp""").findAll(html)  
+                                    .map { it.groupValues[1] }  
+                                    .toSet()  
+                            }  
+                        }  
+                    } catch (e: Exception) {  
+                        emptySet()  
+                    }  
+  
+                    if (iconIds.isEmpty()) {  
+                        _uiState.value = _uiState.value.copy(  
+                            isDownloadingAvatars = false,  
+                            avatarDownloadMessage = "服务端头像列表获取失败"  
+                        )  
+                        return@withContext  
+                    }  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        avatarDownloadMessage = "服务端共 ${iconIds.size} 个头像，正在对比本地缺失..."  
+                    )  
+  
+                    // 头像ID为6位：前4位角色ID + 第5位星级 + 第6位固定"1"  
+                    // 只下载服务端列表里存在、且本地缺失的头像  
+                    val toDownload = mutableListOf<Pair<Int, Int>>()  
+                    for (iconId in iconIds) {  
+                        val baseId = iconId.substring(0, 4).toInt()  
+                        val star = iconId[4].digitToInt()  
+                        if (!IconStorage.hasIcon(context, baseId, star)) {  
+                            toDownload.add(baseId to star)  
+                        }  
+                    }  
   
                     if (toDownload.isEmpty()) {    
                         _uiState.value = _uiState.value.copy(    
