@@ -308,7 +308,7 @@ class SettingsViewModel @Inject constructor(
                             if (!resp.isSuccessful) emptySet<String>()  
                             else {  
                                 val html = resp.body?.string() ?: ""  
-                                Regex("""(\d{6})\.webp""").findAll(html)  
+                                Regex("""(\d{4}[136]1)\.webp""").findAll(html)  
                                     .map { it.groupValues[1] }  
                                     .toSet()  
                             }  
