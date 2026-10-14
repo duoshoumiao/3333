@@ -31,7 +31,11 @@ class AppPushClient(private val serverUrl: String) {
                     put("platform", it.platform)  
                     put("pcrid", it.pcrid)  
                     put("name", it.name ?: "")  
-                })  
+                    put("jjc_notice", it.jjcNotice)  
+                    put("pjjc_notice", it.pjjcNotice)  
+                    put("up_notice", it.upNotice)  
+                    put("online_notice", it.onlineNotice)  
+                }) 
             }  
             val body = JSONObject()  
                 .put("user_id", userId)  
