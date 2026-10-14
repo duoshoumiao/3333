@@ -55,13 +55,13 @@ class AppPushClient(private val serverUrl: String) {
             }  
         }  
   
-    /** 服务端推送的一条消息，对应 push_to_app 的 payload */  
+    /** 服务端推送的一条消息，对应 push_to_app 的 payload dict */  
     data class RemoteNotice(  
         val msg: String,  
         val pcrid: Long,  
         val name: String,  
         val platform: Int,  
-        val item: Int,       // 0=jjc 1=pjjc 2=online（与服务端 NoticeType 一致）  
+        val item: Int,       // 0=jjc 1=pjjc 2=online（对应服务端 NoticeType）  
         val before: Int,  
         val after: Int,  
         val date: Long  
@@ -126,7 +126,31 @@ class AppPushClient(private val serverUrl: String) {
             }  
         }  
   
-    private fun jsonToMap(obj: JSONObject): Map<String, Any?> {  
+    /** 批量即时查询：返回每个 pcrid 的完整 res 列表（含 user_info），失败返回空列表 */  
+    suspend fun queryProfiles(platform: Int, pcrids: List<Long>): List<Map<String, Any?>> =  
+        withContext(Dispatchers.IO) {  
+            if (pcrids.isEmpty()) return@withContext emptyList()  
+            val pcridArr = JSONArray()  
+            pcrids.forEach { pcridArr.put(it) }  
+            val body = JSONObject()  
+                .put("platform", platform)  
+                .put("pcrids", pcridArr)  
+                .toString().toRequestBody("application/json".toMediaType())  
+            try {  
+                client.newCall(  
+                    Request.Builder().url("$serverUrl/app/query").post(body).build()  
+                ).execute().use { resp ->  
+                    if (!resp.isSuccessful) return@withContext emptyList()  
+                    val arr = JSONObject(resp.body!!.string()).optJSONArray("results")  
+                        ?: return@withContext emptyList()  
+                    (0 until arr.length()).map { jsonToMap(arr.getJSONObject(it)) }  
+                }  
+            } catch (e: Exception) {  
+                emptyList()  
+            }  
+        }
+	
+	private fun jsonToMap(obj: JSONObject): Map<String, Any?> {  
         val map = mutableMapOf<String, Any?>()  
         for (key in obj.keys()) map[key] = jsonElem(obj, key)  
         return map  

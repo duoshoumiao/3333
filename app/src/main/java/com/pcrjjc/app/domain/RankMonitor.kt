@@ -231,7 +231,7 @@ suspend fun flushHistories() {
             sendNotification(message, noticeType)
         }
     }
-	/** 服务端 pcrjjc2 推送下来的结构化通知：发通知并写入击剑记录 */  
+	/** 服务端 pcrjjc2 推送下来的结构化通知：发通知、写入击剑记录、刷新排名缓存 */  
     suspend fun notifyRemote(notice: AppPushClient.RemoteNotice) {  
         val noticeType = when (notice.item) {  
             1 -> NoticeType.PJJC  
@@ -240,18 +240,43 @@ suspend fun flushHistories() {
         }  
         sendNotification(notice.msg, noticeType)  
   
-        // 击剑记录（上线提醒也记录，item=2 与本地 0=jjc/1=pjjc 区分）  
-        historyDao.insertAll(listOf(  
-            JjcHistory(  
+        if (notice.pcrid <= 0) return  
+  
+        // 刷新 rank_cache，让卡片排名更新。  
+        // 推送只带变动的那一项，另一项用内存/数据库里的旧值兜底  
+        val cacheKey = Pair(notice.pcrid, notice.platform)  
+        val mem = cache[cacheKey]  
+        val dbCache = rankCacheDao.get(notice.pcrid, notice.platform)  
+        val oldArena = mem?.get(0) ?: dbCache?.arenaRank ?: 0  
+        val oldGrand = mem?.get(1) ?: dbCache?.grandArenaRank ?: 0  
+        val oldLogin = mem?.get(2) ?: dbCache?.lastLoginTime ?: 0  
+        val newArena = if (notice.item == 0) notice.after else oldArena  
+        val newGrand = if (notice.item == 1) notice.after else oldGrand  
+        rankCacheDao.upsert(  
+            RankCache(  
                 pcrid = notice.pcrid,  
-                name = notice.name,  
                 platform = notice.platform,  
-                date = if (notice.date > 0) notice.date else System.currentTimeMillis() / 1000,  
-                item = notice.item,  
-                before = notice.before,  
-                after = notice.after  
+                arenaRank = newArena,  
+                grandArenaRank = newGrand,  
+                lastLoginTime = oldLogin  
             )  
-        ))  
+        )  
+        cache[cacheKey] = intArrayOf(newArena, newGrand, oldLogin)  
+  
+        // 击剑记录（item=2 上线提醒不记录）  
+        if (notice.item in 0..1) {  
+            historyDao.insertAll(listOf(  
+                JjcHistory(  
+                    pcrid = notice.pcrid,  
+                    name = notice.name,  
+                    platform = notice.platform,  
+                    date = if (notice.date > 0) notice.date else System.currentTimeMillis() / 1000,  
+                    item = notice.item,  
+                    before = notice.before,  
+                    after = notice.after  
+                )  
+            ))  
+        }  
     }
   
     /** 配置缺失等系统级提醒（与排名变动通知区分文案） */  

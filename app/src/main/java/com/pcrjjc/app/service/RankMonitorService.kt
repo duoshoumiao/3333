@@ -116,16 +116,25 @@ class RankMonitorService : Service() {
                     val pcrServerUrl = settingsDataStore.getPcrServerUrl()  
   
                     if (accounts.isEmpty() && pcrServerUrl.isNotBlank()) {  
-                        // ★ 无本地监控账号：注册绑定到服务器 pcrjjc2，长轮询收推送  
+                        // ★ 无本地监控账号：用服务器 pcrjjc2 查询，本地做对比/推送/记录  
                         try {  
                             val pushClient = AppPushClient(pcrServerUrl)  
-                            val uid = settingsDataStore.getAppUserId()  
-                            pushClient.register(uid, bindDao.getAllBindsSync())  
-                            for (m in pushClient.poll(uid, intervalSeconds)) {  
-                                rankMonitor.notifyRemote(m)  
+                            val bindsByPlatform = bindDao.getAllBindsSync().groupBy { it.platform }  
+                            for ((platform, binds) in bindsByPlatform) {  
+                                val results = pushClient.queryProfiles(  
+                                    platform, binds.map { it.pcrid }  
+                                ).mapNotNull { res ->  
+                                    val info = res["user_info"] as? Map<String, Any?>  
+                                        ?: return@mapNotNull null  
+                                    val vid = (info["viewer_id"] as? Number)?.toLong()  
+                                    val bind = binds.firstOrNull { it.pcrid == vid }  
+                                        ?: return@mapNotNull null  
+                                    QueryEngine.QueryResult(bind, info, res)  
+                                }  
+                                rankMonitor.processResults(results)  
                             }  
                         } catch (e: Exception) {  
-                            Log.e(TAG, "Remote push failed: ${e.message}", e)  
+                            Log.e(TAG, "Remote query failed: ${e.message}", e)  
                         }  
                     } else if (accounts.isEmpty()) {  
                         Log.w(TAG, "No accounts configured, waiting...")  

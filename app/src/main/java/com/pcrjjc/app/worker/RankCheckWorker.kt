@@ -43,16 +43,31 @@ class RankCheckWorker @AssistedInject constructor(
             val pcrServerUrl = settingsDataStore.getPcrServerUrl()  
   
             if (accounts.isEmpty() && pcrServerUrl.isNotBlank()) {  
-                // ★ 无本地监控账号：注册绑定并拉取一次服务端推送  
+                // ★ 无本地监控账号：用服务器 pcrjjc2 查询，本地做对比/推送/记录  
                 val rankMonitor = RankMonitor(applicationContext, historyDao, bindDao, rankCacheDao, settingsDataStore)  
+                rankMonitor.initCacheFromDb()  // Worker 每次新建实例，必须先从 DB 恢复基准  
                 val pushClient = AppPushClient(pcrServerUrl)  
-                val uid = settingsDataStore.getAppUserId()  
-                pushClient.register(uid, bindDao.getAllBindsSync())  
-                for (m in pushClient.poll(uid, 10)) {  
-                    rankMonitor.notifyRemote(m)  
+                val bindsByPlatform = bindDao.getAllBindsSync().groupBy { it.platform }  
+                for ((platform, binds) in bindsByPlatform) {  
+                    try {  
+                        val results = pushClient.queryProfiles(  
+                            platform, binds.map { it.pcrid }  
+                        ).mapNotNull { res ->  
+                            val info = res["user_info"] as? Map<String, Any?>  
+                                ?: return@mapNotNull null  
+                            val vid = (info["viewer_id"] as? Number)?.toLong()  
+                            val bind = binds.firstOrNull { it.pcrid == vid }  
+                                ?: return@mapNotNull null  
+                            QueryEngine.QueryResult(bind, info, res)  
+                        }  
+                        rankMonitor.processResults(results)  
+                    } catch (e: Exception) {  
+                        Log.e(TAG, "Remote query failed for platform $platform: ${e.message}", e)  
+                    }  
                 }  
+                rankMonitor.flushHistories()  
                 return Result.success()  
-            }  
+            }
   
             if (accounts.isEmpty()) {  
                 Log.w(TAG, "No accounts configured, skipping rank check")  
