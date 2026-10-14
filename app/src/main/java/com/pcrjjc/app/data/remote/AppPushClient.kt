@@ -1,5 +1,6 @@
 package com.pcrjjc.app.data.remote  
-  
+ 
+import com.pcrjjc.app.data.remote.AppPushClient 
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.withContext  
@@ -66,7 +67,8 @@ class AppPushClient(private val serverUrl: String) {
         val date: Long  
     )  
   
-    /** 长轮询，返回结构化推送列表；超时/出错返回空列表 */  
+    /** 长轮询，返回结构化推送列表；超时/出错返回空列表。  
+     * 兼容旧协议：元素是纯字符串时包装成只有 msg 的 RemoteNotice */  
     suspend fun poll(userId: Long, timeout: Long = 30): List<RemoteNotice> =  
         withContext(Dispatchers.IO) {  
             try {  
@@ -79,23 +81,30 @@ class AppPushClient(private val serverUrl: String) {
                     val arr = JSONObject(resp.body!!.string()).optJSONArray("msgs")  
                         ?: return@withContext emptyList()  
                     (0 until arr.length()).mapNotNull { i ->  
-                        val o = arr.optJSONObject(i) ?: return@mapNotNull null  
-                        RemoteNotice(  
-                            msg = o.optString("msg"),  
-                            pcrid = o.optLong("pcrid"),  
-                            name = o.optString("name"),  
-                            platform = o.optInt("platform"),  
-                            item = o.optInt("item"),  
-                            before = o.optInt("before"),  
-                            after = o.optInt("after"),  
-                            date = o.optLong("date")  
-                        )  
+                        when (val e = arr.opt(i)) {  
+                            is JSONObject -> RemoteNotice(  
+                                msg = e.optString("msg"),  
+                                pcrid = e.optLong("pcrid"),  
+                                name = e.optString("name"),  
+                                platform = e.optInt("platform"),  
+                                item = e.optInt("item"),  
+                                before = e.optInt("before"),  
+                                after = e.optInt("after"),  
+                                date = e.optLong("date")  
+                            )  
+                            is String -> RemoteNotice(  
+                                msg = e, pcrid = 0, name = "", platform = 0,  
+                                item = 0, before = 0, after = 0, date = 0  
+                            )  
+                            else -> null  
+                        }  
                     }  
                 }  
             } catch (e: Exception) {  
                 emptyList()  
             }  
-        } 
+        }
+		
     /** 即时查询：返回 /profile/get_profile 的完整 res（含 user_info），失败返回 null */  
     suspend fun queryProfile(platform: Int, pcrid: Long): Map<String, Any?>? =  
         withContext(Dispatchers.IO) {  
