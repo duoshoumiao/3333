@@ -10,6 +10,8 @@ import com.pcrjjc.app.data.remote.BiliAuth
 import com.pcrjjc.app.data.remote.PcrClient  
 import com.pcrjjc.app.data.remote.TwPcrClient  
 import com.pcrjjc.app.domain.QueryEngine  
+import com.pcrjjc.app.data.local.SettingsDataStore  
+import com.pcrjjc.app.data.remote.AppPushClient
 import com.pcrjjc.app.util.KnightRankCalculator  
 import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.lifecycle.HiltViewModel  
@@ -67,7 +69,8 @@ data class DetailUiState(
 class DetailViewModel @Inject constructor(  
     savedStateHandle: SavedStateHandle,  
     private val bindDao: BindDao,  
-    private val accountDao: AccountDao  
+    private val accountDao: AccountDao,  
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {  
   
     private val bindId: Int = savedStateHandle["bindId"] ?: 0  
@@ -95,40 +98,40 @@ class DetailViewModel @Inject constructor(
   
                 _uiState.value = _uiState.value.copy(bind = bind)  
   
-                val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)
+                val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)  
+                var info: Map<String, Any?>? = null  
+                var fullRes: Map<String, Any?> = emptyMap()  
                 if (accounts.isEmpty()) {  
-                    _uiState.value = _uiState.value.copy(  
-                        isLoading = false,  
-                        errorMessage = "未配置查询账号"  
-                    )  
-                    return@launch  
+                    // 无本地查询账号，改走服务器 pcrjjc2  
+                    fullRes = AppPushClient(settingsDataStore.getPcrServerUrl())  
+                        .queryProfile(bind.platform, bind.pcrid) ?: emptyMap()  
+                    info = fullRes["user_info"] as? Map<String, Any?>  
+                } else {  
+                    val account = accounts.first()  
+                    val queryEngine = QueryEngine()  
+                    val client: Any = when (bind.platform) {  
+                        Platform.TW_SERVER.id -> {  
+                            val twPlatform = (account.viewerId.toLong() / 1000000000).toInt()  
+                            val twClient = TwPcrClient(  
+                                account.account, account.password,  
+                                account.viewerId, twPlatform  
+                            )  
+                            twClient.login()  
+                            twClient  
+                        }  
+                        else -> {  
+                            val biliAuth = BiliAuth(account.account, account.password, account.platform)  
+                            val pcrClient = PcrClient(biliAuth)  
+                            pcrClient.login()  
+                            pcrClient  
+                        }  
+                    }  
+                    val result = queryEngine.queryProfile(client, bind)  
+                    info = result?.userInfo  
+                    fullRes = result?.fullResponse ?: emptyMap()  
                 }  
   
-                val account = accounts.first()  
-                val queryEngine = QueryEngine()  
-  
-                val client: Any = when (bind.platform) {  
-                    Platform.TW_SERVER.id -> {  
-                        val twPlatform = (account.viewerId.toLong() / 1000000000).toInt()  
-                        val twClient = TwPcrClient(  
-                            account.account, account.password,  
-                            account.viewerId, twPlatform  
-                        )  
-                        twClient.login()  
-                        twClient  
-                    }  
-                    else -> {  
-                        val biliAuth = BiliAuth(account.account, account.password, account.platform)  
-                        val pcrClient = PcrClient(biliAuth)  
-                        pcrClient.login()  
-                        pcrClient  
-                    }  
-                }  
-  
-                val result = queryEngine.queryProfile(client, bind)  
-                if (result != null) {  
-                    val info = result.userInfo  
-                    val fullRes = result.fullResponse  
+                if (info != null) {  
   
                     // clan_name 在 fullResponse 顶层，不在 user_info 内  
                     val clanName = fullRes["clan_name"]?.toString() ?: ""  

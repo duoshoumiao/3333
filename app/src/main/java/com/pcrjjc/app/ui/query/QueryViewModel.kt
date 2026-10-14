@@ -10,6 +10,8 @@ import com.pcrjjc.app.data.local.dao.RankCacheDao
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
+import com.pcrjjc.app.data.local.SettingsDataStore  
+import com.pcrjjc.app.data.remote.AppPushClient
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Dispatchers  
 import kotlinx.coroutines.flow.MutableStateFlow  
@@ -39,7 +41,8 @@ class QueryViewModel @Inject constructor(
     private val accountDao: AccountDao,  
     private val historyDao: HistoryDao,  
     private val rankCacheDao: RankCacheDao,  
-    private val clientManager: ClientManager  
+    private val clientManager: ClientManager,  
+    private val settingsDataStore: SettingsDataStore 
 ) : ViewModel() {  
   
     private val bindId: Int = savedStateHandle["bindId"] ?: 0  
@@ -85,23 +88,27 @@ class QueryViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)  
   
             try {  
-                val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)
+                val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)  
+                var info: Map<String, Any?>? = null  
                 if (accounts.isEmpty()) {  
+                    // 无本地查询账号，改走服务器 pcrjjc2  
+                    info = AppPushClient(settingsDataStore.getPcrServerUrl())  
+                        .queryProfile(bind.platform, bind.pcrid)  
+                        ?.get("user_info") as? Map<String, Any?>  
+                } else {  
+                    val account = accounts.first()  
+                    val queryEngine = QueryEngine()  
+                    val client = clientManager.getClient(account)  
+                    info = queryEngine.queryProfile(client, bind)?.userInfo  
+                }  
+                if (info == null) {  
                     _uiState.value = _uiState.value.copy(  
                         isLoading = false,  
-                        errorMessage = "未配置查询账号，请先在监控账号管理中添加"  
+                        errorMessage = "查询失败"  
                     )  
                     return@launch  
                 }  
-  
-                val account = accounts.first()  
-                val queryEngine = QueryEngine()  
-  
-                val client = clientManager.getClient(account)  
-  
-                val result = queryEngine.queryProfile(client, bind)  
-                if (result != null) {  
-                    val info = result.userInfo  
+                run {  
                     val arenaRank = (info["arena_rank"] as? Number)?.toInt() ?: 0  
                     val grandArenaRank = (info["grand_arena_rank"] as? Number)?.toInt() ?: 0  
                     val lastLoginTime = (info["last_login_time"] as? Number)?.toLong() ?: 0  

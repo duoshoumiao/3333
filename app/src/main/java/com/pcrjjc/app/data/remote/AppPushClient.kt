@@ -68,4 +68,46 @@ class AppPushClient(private val serverUrl: String) {
                 emptyList()  
             }  
         }  
+    /** 即时查询：返回 /profile/get_profile 的完整 res（含 user_info），失败返回 null */  
+    suspend fun queryProfile(platform: Int, pcrid: Long): Map<String, Any?>? =  
+        withContext(Dispatchers.IO) {  
+            val body = JSONObject()  
+                .put("platform", platform)  
+                .put("pcrids", JSONArray().put(pcrid))  
+                .toString().toRequestBody("application/json".toMediaType())  
+            try {  
+                client.newCall(  
+                    Request.Builder().url("$serverUrl/app/query").post(body).build()  
+                ).execute().use { resp ->  
+                    if (!resp.isSuccessful) return@withContext null  
+                    val arr = JSONObject(resp.body!!.string()).optJSONArray("results")  
+                    if (arr == null || arr.length() == 0) return@withContext null  
+                    jsonToMap(arr.getJSONObject(0))  
+                }  
+            } catch (e: Exception) {  
+                null  
+            }  
+        }  
+  
+    private fun jsonToMap(obj: JSONObject): Map<String, Any?> {  
+        val map = mutableMapOf<String, Any?>()  
+        for (key in obj.keys()) map[key] = jsonElem(obj, key)  
+        return map  
+    }  
+  
+    private fun jsonElem(obj: JSONObject, key: String): Any? {  
+        if (obj.isNull(key)) return null  
+        return when (val v = obj.get(key)) {  
+            is JSONObject -> jsonToMap(v)  
+            is JSONArray -> (0 until v.length()).map { arrElem(v, it) }  
+            else -> v  
+        }  
+    }  
+  
+    private fun arrElem(arr: JSONArray, i: Int): Any? = when (val v = arr.opt(i)) {  
+        is JSONObject -> jsonToMap(v)  
+        is JSONArray -> (0 until v.length()).map { arrElem(v, it) }  
+        JSONObject.NULL -> null  
+        else -> v  
+    }
 }
