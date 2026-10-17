@@ -41,11 +41,7 @@ class SupportEngine {
     )  
   
     data class SupportData(  
-        // serial_id -> (持有者unitId, 槽位号) ，普通EX  
-        val exWearer: Map<Long, Pair<Long, Int>>,  
-        // serial_id -> (持有者unitId, 槽位号) ，会战EX  
-        val cbExWearer: Map<Long, Pair<Long, Int>>,
-		val dungeon: List<SupportSlot>,  
+        val dungeon: List<SupportSlot>,  
         val clanBattle: List<SupportSlot>,  
         val friend: List<SupportSlot>,  
         // serial_id -> 装备详情（EX背包）  
@@ -53,7 +49,10 @@ class SupportEngine {
         // unit_id -> (普通EX槽, 会战EX槽)，含未挂支援的角色  
         val unitExSlots: Map<Long, Pair<List<Pair<Int, Long>>, List<Pair<Int, Long>>>>,  
         // 会战EX限制 serial_id 列表  
-        val cbExRestriction: Set<Long>  
+        val cbExRestriction: Set<Long>,  
+        // serial_id -> (unitId, slotNum)，装备正被谁穿（普通EX/会战EX分开统计）  
+        val exWearer: Map<Long, Pair<Long, Int>> = emptyMap(),  
+        val cbExWearer: Map<Long, Pair<Long, Int>> = emptyMap()  
     )  
   
     // ---------- 读取 ----------  
@@ -61,7 +60,7 @@ class SupportEngine {
         val setting = client.callApi("/support_unit/get_setting", mutableMapOf())  
         val loadIndex = client.callApi("/load/index", mutableMapOf("carrier" to "OPPO"))  
   
-        // 1. 解析支援位（保留 unit_id=0 的空槽，否则空位无法点击进入更换）  
+        // 1. 解析支援位（保留 unit_id=0 的空槽，界面上显示可点击占位框）  
         fun parseSupports(key: String): List<SupportSlot> {  
             val list = setting[key] as? List<Map<String, Any?>> ?: return emptyList()  
             return list.mapNotNull { s ->  
@@ -74,12 +73,10 @@ class SupportEngine {
             }  
         }  
   
-        // 补齐空支援位：服务器可能不返回 unit_id=0 的条目，强制每个 position 都有槽  
+        // 补齐空支援位：服务器可能不返回 unit_id=0 的条目  
         fun fillMissing(parsed: List<SupportSlot>, positions: Set<Int>): List<SupportSlot> {  
             val existing = parsed.associateBy { it.position }.toMutableMap()  
-            positions.forEach { p ->  
-                existing.putIfAbsent(p, SupportSlot(position = p, unitId = 0L))  
-            }  
+            positions.forEach { p -> existing.putIfAbsent(p, SupportSlot(position = p, unitId = 0L)) }  
             return existing.values.sortedBy { it.position }  
         }  
   
@@ -96,18 +93,7 @@ class SupportEngine {
         val unitList = loadIndex["unit_list"] as? List<Map<String, Any?>> ?: emptyList()  
         val unitExSlots = LinkedHashMap<Long, Pair<List<Pair<Int, Long>>, List<Pair<Int, Long>>>>()  
         for (unit in unitList) {  
-            // serial -> 持有者反查表（用于显示"装备在谁身上"）  
-			val exWearer = HashMap<Long, Pair<Long, Int>>()  
-			val cbExWearer = HashMap<Long, Pair<Long, Int>>()  
-			for ((uid, slots) in unitExSlots) {  
-				slots.first.forEach { (slot, serial) ->  
-					if (serial != 0L) exWearer[serial] = uid to slot  
-				}  
-				slots.second.forEach { (slot, serial) ->  
-					if (serial != 0L) cbExWearer[serial] = uid to slot  
-				}  
-			}
-			val unitId = (unit["id"] as? Number)?.toLong() ?: continue  
+            val unitId = (unit["id"] as? Number)?.toLong() ?: continue  
             fun slotsOf(field: String) =  
                 (unit[field] as? List<Map<String, Any?>> ?: emptyList()).map { s ->  
                     ((s["slot"] as? Number)?.toInt() ?: 0) to  
@@ -117,7 +103,7 @@ class SupportEngine {
         }  
   
         // 3. EX背包 serial_id -> 详情  
-        // /load/index 里字段名是 user_ex_equip，不是 ex_equips  
+        // ⚠ /load/index 里字段名是 user_ex_equip，不是 ex_equips  
         val exInventory = HashMap<Long, ExEquipItem>()  
         val exList = (loadIndex["user_ex_equip"] as? List<Map<String, Any?>>) ?: emptyList()  
         for (ex in exList) {  
@@ -139,6 +125,18 @@ class SupportEngine {
             (r["serial_id"] as? Number)?.toLong()?.let { cbRestriction.add(it) }  
         }  
   
+        // 5. serial_id -> (unitId, slotNum) 反查：这件EX正穿在谁的哪个槽  
+        val exWearer = HashMap<Long, Pair<Long, Int>>()  
+        val cbExWearer = HashMap<Long, Pair<Long, Int>>()  
+        for ((unitId, pair) in unitExSlots) {  
+            pair.first.forEach { (slot, serial) ->  
+                if (serial != 0L) exWearer[serial] = unitId to slot  
+            }  
+            pair.second.forEach { (slot, serial) ->  
+                if (serial != 0L) cbExWearer[serial] = unitId to slot  
+            }  
+        }  
+  
         // 给每个支援位附上该角色的EX槽信息  
         fun attach(slot: SupportSlot) = slot.copy(  
             exSlots = unitExSlots[slot.unitId]?.first ?: emptyList(),  
@@ -151,13 +149,15 @@ class SupportEngine {
             friend = friend.map { attach(it) },  
             exInventory = exInventory,  
             unitExSlots = unitExSlots,  
-            cbExRestriction = cbRestriction  
+            cbExRestriction = cbRestriction,  
+            exWearer = exWearer,  
+            cbExWearer = cbExWearer  
         )  
     }  
   
     // ---------- 更换支援角色 ----------  
-    // 对照 PPPPPP requests.py SupportUnitChangeSettingRequest：字段为 action  
-    // action: 1=挂上支援, 2=撤下支援  
+    // PPPPPP requests.py SupportUnitChangeSettingRequest:  
+    //   support_type(1=公会 2=好友), position, action(1=挂上 2=撤下), unit_id  
     suspend fun changeSupport(  
         client: PcrClient,  
         supportType: Int,   // 1=公会支援(地下城/会战), 2=好友支援  
