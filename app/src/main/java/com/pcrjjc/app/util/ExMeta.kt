@@ -22,7 +22,7 @@ object ExMeta {
     var starPt: Map<Int, Map<Int, Int>> = emptyMap()     // rarity -> star -> total_point  
     var equips: Map<Int, ExInfo> = emptyMap()  
     // group_id -> (status类型(eParamType值) -> 各档位数值 [value_1..value_5])  
-    var subStatus: Map<Int, Map<Int, List<Int>>> = emptyMap()  
+    var subStatusTable: Map<Int, Map<Int, List<Int>>> = emptyMap()  
     // ex_equipment_id -> group_id（彩装才有词条组）  
     var subStatusGroup: Map<Int, Int> = emptyMap()  
   
@@ -47,12 +47,15 @@ object ExMeta {
     //   14=ENERGY_RECOVERY_RATE 15=HP_RECOVERY_RATE  
     //   16=ENERGY_REDUCE_RATE 17=ACCURACY  
     private val SUB_STATUS = mapOf(  
-        1 to Pair("hp", "HP"), 2 to Pair("atk", "物攻"),  
-        3 to Pair("def_", "物防"), 4 to Pair("magic_str", "魔攻"),  
+        1 to Pair("hp", "HP"),  
+        2 to Pair("atk", "物攻"),  
+        3 to Pair("def_", "物防"),  
+        4 to Pair("magic_str", "魔攻"),  
         5 to Pair("magic_def", "魔防"),  
         6 to Pair("physical_critical", "物理暴击"),  
         7 to Pair("magic_critical", "魔法暴击"),  
-        8 to Pair("dodge", "回避"), 9 to Pair("life_steal", "HP吸收"),  
+        8 to Pair("dodge", "回避"),  
+        9 to Pair("life_steal", "HP吸收"),  
         10 to Pair("wave_hp_recovery", "HP自回"),  
         11 to Pair("wave_energy_recovery", "TP自回"),  
         12 to Pair("physical_penetrate", "物理防御贯穿"),  
@@ -80,15 +83,15 @@ object ExMeta {
             val us = mutableMapOf<Int, List<Int>>()  
             obj.getJSONObject("unit_slots").keys().forEach { k ->  
                 val a = obj.getJSONObject("unit_slots").getJSONArray(k)  
-                us.put(k.toInt(), List(a.length()) { a.getInt(it) })  
+                us[k.toInt()] = List(a.length()) { i -> a.getInt(i) }  
             }  
             unitSlots = us  
             val sp = mutableMapOf<Int, Map<Int, Int>>()  
             obj.getJSONObject("star_pt").keys().forEach { r ->  
                 val o = obj.getJSONObject("star_pt").getJSONObject(r)  
                 val m = mutableMapOf<Int, Int>()  
-                o.keys().forEach { s -> m.put(s.toInt(), o.getInt(s)) }  
-                sp.put(r.toInt(), m)  
+                o.keys().forEach { s -> m[s.toInt()] = o.getInt(s) }  
+                sp[r.toInt()] = m  
             }  
             starPt = sp  
             val eq = mutableMapOf<Int, ExInfo>()  
@@ -99,13 +102,13 @@ object ExMeta {
                     val ao = o.getJSONObject("attrs")  
                     ao.keys().forEach { a ->  
                         val arr = ao.getJSONArray(a)  
-                        attrs.put(a, arr.getDouble(0) to arr.getDouble(1))  
+                        attrs[a] = arr.getDouble(0) to arr.getDouble(1)  
                     }  
                 }  
-                eq.put(k.toInt(), ExInfo(  
+                eq[k.toInt()] = ExInfo(  
                     o.optString("name"), o.getInt("category"), o.getInt("rarity"),  
                     o.optInt("cb", 0), o.optInt("max_star", 0), attrs  
-                ))  
+                )  
             }  
             equips = eq  
             // 词条数值表：group_id -> status -> [value_1..value_5]  
@@ -116,17 +119,17 @@ object ExMeta {
                     val gm = mutableMapOf<Int, List<Int>>()  
                     go.keys().forEach { st ->  
                         val arr = go.getJSONArray(st)  
-                        gm.put(st.toInt(), List(arr.length()) { arr.getInt(it) })  
+                        gm[st.toInt()] = List(arr.length()) { i -> arr.getInt(i) }  
                     }  
-                    ss.put(gid.toInt(), gm)  
+                    ss[gid.toInt()] = gm  
                 }  
             }  
-            subStatus = ss  
+            subStatusTable = ss  
             // ex_equipment_id -> group_id  
             val sg = mutableMapOf<Int, Int>()  
             if (obj.has("sub_status_group")) {  
                 obj.getJSONObject("sub_status_group").keys().forEach { k ->  
-                    sg.put(k.toInt(), obj.getJSONObject("sub_status_group").getInt(k))  
+                    sg[k.toInt()] = obj.getJSONObject("sub_status_group").getInt(k)  
                 }  
             }  
             subStatusGroup = sg  
@@ -168,21 +171,21 @@ object ExMeta {
      * - 数值 = ex_equipment_sub_status[group][status].value_{step}，不是 step 本身  
      * - 同类型词条数值先累加（对齐 database.py:2114 的 Counter）  
      * - 百分比型属性显示 "名xN.NN%"（值/100），其余固定值型显示 "名xN"  
-     * @param subStatus 每项 Pair(status=eParamType值, step=档位)  
+     * @param subs 每项 Pair(status=eParamType值, step=档位)  
      */  
-    fun subStatusStr(exEquipId: Int, subStatus: List<Pair<Int, Int>>): String {  
-        if (subStatus.isEmpty()) return ""  
+    fun subStatusStr(exEquipId: Int, subs: List<Pair<Int, Int>>): String {  
+        if (subs.isEmpty()) return ""  
         val group = subStatusGroup.get(exEquipId) ?: return ""  
-        val table = subStatus.get(group) ?: return ""  
+        val table = subStatusTable.get(group) ?: return ""  
         // Counter 累加同类型词条  
         val sums = TreeMap<Int, Int>()  
-        for (item in subStatus) {  
+        for (item in subs) {  
             val st = item.first  
             val step = item.second  
             val values = table.get(st)  
             val v = if (values != null && step >= 1 && step <= values.size)  
                 values.get(step - 1) else 0  
-            sums.put(st, (sums.get(st) ?: 0) + v)  
+            sums[st] = (sums.get(st) ?: 0) + v  
         }  
         val parts = mutableListOf<String>()  
         for (entry in sums.entries) {  
