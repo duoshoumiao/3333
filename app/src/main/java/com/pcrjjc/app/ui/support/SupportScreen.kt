@@ -508,9 +508,47 @@ private fun EditSupportPanel(
                                         color = if (selected)  
                                             MaterialTheme.colorScheme.primary  
                                         else MaterialTheme.colorScheme.onSurfaceVariant  
+                                    ) 
+                                    candidates.take(30).forEach { ex ->  
+                                val selected =  
+                                    (pickedSerials[slotNum] ?: curSerial) == ex.serialId  
+                                // 反查持有者（会战Tab查会战表，普通Tab查普通表）  
+                                val wearerMap = if (isCb) data?.cbExWearer else data?.exWearer  
+                                val wearer = wearerMap?.get(ex.serialId)  
+                                val wearerName = wearer?.let { (uid, _) ->  
+                                    nameMap[(uid / 100).toInt()]?.firstOrNull() ?: "$uid"  
+                                }  
+                                Column(  
+                                    horizontalAlignment = Alignment.CenterHorizontally,  
+                                    modifier = Modifier  
+                                        .clickable {  
+                                            pickedSerials = pickedSerials.toMutableMap()  
+                                                .apply { put(slotNum, ex.serialId) }  
+                                        }  
+                                        .padding(2.dp)  
+                                ) {  
+                                    ExEquipIcon(ex.exEquipId, size = 36)  
+                                    Text(  
+                                        "★${ex.rank}+${ex.enhancementPt}",  
+                                        style = MaterialTheme.typography.labelSmall  
+                                    )  
+                                    // 持有者：在自己身上=已穿，在别人身上=显示名字，空闲=空  
+                                    Text(  
+                                        when {  
+                                            wearer == null -> "空闲"  
+                                            wearer.first == pickedUnit -> "已穿"  
+                                            else -> wearerName ?: ""  
+                                        },  
+                                        style = MaterialTheme.typography.labelSmall,  
+                                        color = when {  
+                                            selected -> MaterialTheme.colorScheme.primary  
+                                            wearer != null && wearer.first != pickedUnit ->  
+                                                MaterialTheme.colorScheme.error  
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant  
+                                        }  
                                     )  
                                 }  
-                            }  
+                            } 
                         }  
                     }  
                 }  

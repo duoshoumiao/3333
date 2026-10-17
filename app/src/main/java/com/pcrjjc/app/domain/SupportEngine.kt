@@ -41,7 +41,11 @@ class SupportEngine {
     )  
   
     data class SupportData(  
-        val dungeon: List<SupportSlot>,  
+        // serial_id -> (持有者unitId, 槽位号) ，普通EX  
+        val exWearer: Map<Long, Pair<Long, Int>>,  
+        // serial_id -> (持有者unitId, 槽位号) ，会战EX  
+        val cbExWearer: Map<Long, Pair<Long, Int>>,
+		val dungeon: List<SupportSlot>,  
         val clanBattle: List<SupportSlot>,  
         val friend: List<SupportSlot>,  
         // serial_id -> 装备详情（EX背包）  
@@ -92,7 +96,18 @@ class SupportEngine {
         val unitList = loadIndex["unit_list"] as? List<Map<String, Any?>> ?: emptyList()  
         val unitExSlots = LinkedHashMap<Long, Pair<List<Pair<Int, Long>>, List<Pair<Int, Long>>>>()  
         for (unit in unitList) {  
-            val unitId = (unit["id"] as? Number)?.toLong() ?: continue  
+            // serial -> 持有者反查表（用于显示"装备在谁身上"）  
+			val exWearer = HashMap<Long, Pair<Long, Int>>()  
+			val cbExWearer = HashMap<Long, Pair<Long, Int>>()  
+			for ((uid, slots) in unitExSlots) {  
+				slots.first.forEach { (slot, serial) ->  
+					if (serial != 0L) exWearer[serial] = uid to slot  
+				}  
+				slots.second.forEach { (slot, serial) ->  
+					if (serial != 0L) cbExWearer[serial] = uid to slot  
+				}  
+			}
+			val unitId = (unit["id"] as? Number)?.toLong() ?: continue  
             fun slotsOf(field: String) =  
                 (unit[field] as? List<Map<String, Any?>> ?: emptyList()).map { s ->  
                     ((s["slot"] as? Number)?.toInt() ?: 0) to  

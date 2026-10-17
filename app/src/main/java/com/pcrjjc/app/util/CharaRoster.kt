@@ -5,18 +5,20 @@ import android.util.Log
 import okhttp3.OkHttpClient  
 import okhttp3.Request  
 import org.json.JSONArray  
+import org.json.JSONObject  
 import java.io.File  
   
 /**  
  * 花名册工具类  
  * 从 LandosolRoster 获取真实角色 ID 列表，替代硬编码 1001..1899  
  * 缓存在本地 {filesDir}/chara_roster.json  
+ * 角色名字映射(baseId -> 别名列表)缓存在 {filesDir}/chara_roster_names.json  
  */  
 object CharaRoster {  
   
     private const val TAG = "CharaRoster"  
     private const val ROSTER_FILE = "chara_roster.json"  
-	private const val ROSTER_NAME_FILE = "chara_roster_names.json"
+    private const val ROSTER_NAME_FILE = "chara_roster_names.json"  
     private const val ROSTER_URL =  
         "https://raw.githubusercontent.com/Ice9Coffee/LandosolRoster/master/_pcr_data.py"  
     private const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L // 24 小时  
@@ -80,19 +82,28 @@ object CharaRoster {
         forceRefresh: Boolean = false  
     ): Map<Int, List<String>>? {  
         if (!forceRefresh) {  
-            loadNameCache(context)?.let { return it }  
+            loadNameCache(context)?.let {  
+                if (it.isNotEmpty()) return it  
+            }  
         }  
         return try {  
             val request = Request.Builder().url(ROSTER_URL).build()  
             client.newCall(request).execute().use { resp ->  
-                if (!resp.isSuccessful) return loadNameCache(context, ignoreExpiry = true)  
+                if (!resp.isSuccessful) {  
+                    Log.w(TAG, "名字表下载失败: HTTP ${resp.code}")  
+                    return loadNameCache(context, ignoreExpiry = true)  
+                }  
                 val body = resp.body?.string()  
                     ?: return loadNameCache(context, ignoreExpiry = true)  
                 val map = parseCharaNameMap(body)  
                 if (map.isNotEmpty()) {  
                     saveNameCache(context, map)  
+                    Log.d(TAG, "名字表更新成功，共 ${map.size} 个角色")  
                     map  
-                } else loadNameCache(context, ignoreExpiry = true)  
+                } else {  
+                    Log.w(TAG, "名字表解析结果为空")  
+                    loadNameCache(context, ignoreExpiry = true)  
+                }  
             }  
         } catch (e: Exception) {  
             Log.e(TAG, "花名册名字获取异常: ${e.message}", e)  
@@ -105,9 +116,9 @@ object CharaRoster {
      */  
     fun getCachedNameMap(context: Context): Map<Int, List<String>>? {  
         return loadNameCache(context, ignoreExpiry = true)  
-    }
-	
-	/**  
+    }  
+  
+    /**  
      * 获取本地缓存的角色数量（不触发网络请求）  
      */  
     fun getCachedRosterCount(context: Context): Int {  
@@ -149,49 +160,63 @@ object CharaRoster {
     }  
   
     /**  
-     * 解析 CHARA_NAME 字典中的 int key  
-     * 匹配形如:  1001: ['xxx', ...] 或 1001:['xxx', ...]  
+     * 定位 CHARA_NAME = { ... } 字典体（大括号配对，返回花括号内的内容）  
      */  
-    private fun parseCharaNameKeys(text: String): List<Int> {  
-        val result = mutableListOf<Int>()  
-        // 找到 CHARA_NAME = { 之后的内容  
-        val startIdx = text.indexOf("CHARA_NAME")  
-        if (startIdx == -1) return result  
-        val sub = text.substring(startIdx)  
-  
-        // 逐行匹配 key  
-        val keyRegex = Regex("""^\s*(\d{4,})\s*:\s*\[""")  
-        for (line in sub.lines()) {  
-            val m = keyRegex.find(line)  
-            if (m != null) {  
-                m.groupValues[1].toIntOrNull()?.let { result.add(it) }  
+    private fun extractCharaNameBody(text: String): String? {  
+        val start = text.indexOf("CHARA_NAME")  
+        if (start == -1) return null  
+        val braceStart = text.indexOf('{', start)  
+        if (braceStart == -1) return null  
+        var depth = 0  
+        var end = text.length  
+        for (i in braceStart until text.length) {  
+            when (text[i]) {  
+                '{' -> depth++  
+                '}' -> {  
+                    depth--  
+                    if (depth == 0) { end = i; break }  
+                }  
             }  
         }  
-        return result  
+        if (end <= braceStart + 1) return null  
+        return text.substring(braceStart + 1, end)  
+    }  
+  
+    /**  
+     * 解析 CHARA_NAME 字典中的 int key  
+     * 匹配形如:  1001: ["xxx", ...] 或 1001:["xxx", ...]  
+     */  
+    private fun parseCharaNameKeys(text: String): List<Int> {  
+        val body = extractCharaNameBody(text) ?: return emptyList()  
+        val entryRegex = Regex("""(\d{4,})\s*:\s*\[""")  
+        return entryRegex.findAll(body)  
+            .mapNotNull { it.groupValues[1].toIntOrNull() }  
+            .toList()  
     }  
   
     /**  
      * 解析 CHARA_NAME 字典为 baseId -> 名字列表  
-     * 形如:  1001: ['日和', 'ヒヨリ', 'hiyori'],  
+     * 真实格式（双引号、多别名、条目可能跨行、有 # 注释行）:  
+     *   1001: ["日和", "ヒヨリ", "Hiyori", "日和莉", "猫拳", "东山", "🐱👊"],  
+     *   #1408: ["爱梅斯(枪手)", ...],   <- 注释行必须跳过  
      */  
     internal fun parseCharaNameMap(text: String): Map<Int, List<String>> {  
         val result = LinkedHashMap<Int, List<String>>()  
-        val start = text.indexOf("CHARA_NAME")  
-        if (start == -1) return result  
-        val braceStart = text.indexOf('{', start)  
-        if (braceStart == -1) return result  
-        var depth = 0  
-        var end = text.length  
-        loop@ for (i in braceStart until text.length) {  
-            when (text[i]) {  
-                '{' -> depth++  
-                '}' -> { depth--; if (depth == 0) { end = i; break@loop } }  
-            }  
-        }  
-        val body = text.substring(braceStart + 1, end)  
+        val body = extractCharaNameBody(text) ?: return result  
+  
+        // 条目正则：id: [ ... ]，非贪婪匹配到本条目的 ]，跨行兼容  
         val entryRegex = Regex("""(\d{4,})\s*:\s*\[(.*?)]""", RegexOption.DOT_MATCHES_ALL)  
+        // 字符串正则：兼容单双引号  
         val strRegex = Regex("""'([^']*)'|"([^"]*)"""")  
+  
+        // 为避免注释行 #1408: [...] 被误当成条目，  
+        // 先逐条定位 entryRegex 的匹配起点，并检查其前是否紧跟非空白的 '#' 注释符  
         for (m in entryRegex.findAll(body)) {  
+            // 该匹配所在行的行首（跳过空白后）若是 '#' 则为注释条目，跳过  
+            val lineStart = body.lastIndexOf('\n', m.range.first).let { if (it < 0) 0 else it + 1 }  
+            val linePrefix = body.substring(lineStart, m.range.first)  
+            if (linePrefix.trimStart().startsWith("#")) continue  
+  
             val id = m.groupValues[1].toIntOrNull() ?: continue  
             val names = strRegex.findAll(m.groupValues[2])  
                 .map { it.groupValues[1].ifEmpty { it.groupValues[2] } }  
@@ -199,11 +224,11 @@ object CharaRoster {
                 .toList()  
             if (names.isNotEmpty()) result[id] = names  
         }  
-        Log.d(TAG, "parseCharaNameMap 解析到 ${result.size} 个角色")  
+        Log.d(TAG, "parseCharaNameMap 解析到 ${result.size} 个角色名字")  
         return result  
-    }
-	
-	/**  
+    }  
+  
+    /**  
      * 从本地缓存加载花名册  
      * @param ignoreExpiry 是否忽略过期时间（fallback 场景）  
      */  
@@ -235,7 +260,7 @@ object CharaRoster {
             if (age > CACHE_MAX_AGE_MS) return null  
         }  
         return try {  
-            val obj = org.json.JSONObject(file.readText())  
+            val obj = JSONObject(file.readText())  
             val map = mutableMapOf<Int, List<String>>()  
             obj.keys().forEach { k ->  
                 val arr = obj.getJSONArray(k)  
@@ -243,6 +268,7 @@ object CharaRoster {
             }  
             map  
         } catch (e: Exception) {  
+            Log.w(TAG, "名字缓存读取失败: ${e.message}")  
             null  
         }  
     }  
@@ -250,7 +276,7 @@ object CharaRoster {
     private fun saveNameCache(context: Context, map: Map<Int, List<String>>) {  
         val file = File(context.filesDir, ROSTER_NAME_FILE)  
         try {  
-            val obj = org.json.JSONObject()  
+            val obj = JSONObject()  
             map.forEach { (k, v) ->  
                 val arr = JSONArray()  
                 v.forEach { arr.put(it) }  
@@ -260,9 +286,9 @@ object CharaRoster {
         } catch (e: Exception) {  
             Log.w(TAG, "名字缓存写入失败: ${e.message}")  
         }  
-    }
-	
-	/**  
+    }  
+  
+    /**  
      * 保存花名册到本地缓存  
      */  
     private fun saveCache(context: Context, ids: List<Int>) {  
