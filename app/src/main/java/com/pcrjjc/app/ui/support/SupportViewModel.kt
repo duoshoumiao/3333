@@ -12,6 +12,10 @@ import com.pcrjjc.app.domain.SupportEngine.SupportData
 import com.pcrjjc.app.domain.SupportEngine.SupportSlot  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Dispatchers  
+import android.app.Application  
+import com.pcrjjc.app.util.CharaRoster  
+import okhttp3.OkHttpClient  
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.flow.asStateFlow  
@@ -28,11 +32,14 @@ data class SupportUiState(
     val editingSlot: Pair<Int, Int>? = null,  
     val editingUnitId: Long? = null,  
     val message: String? = null,  
+	// baseId -> 名字列表（花名册）  
+    val nameMap: Map<Int, List<String>> = emptyMap(),
     val error: String? = null  
 )  
   
 @HiltViewModel  
 class SupportViewModel @Inject constructor(  
+    private val app: Application,  
     private val accountDao: AccountDao,  
     private val clientManager: ClientManager  
 ) : ViewModel() {  
@@ -56,7 +63,27 @@ class SupportViewModel @Inject constructor(
                 )  
             } catch (e: Exception) {  
                 Log.e(TAG, "load accounts failed", e)  
-            }  
+            }
+            // 加载花名册名字映射（用于角色搜索）  
+            try {  
+                val cached = CharaRoster.getCachedNameMap(app)  
+                if (cached != null) {  
+                    _uiState.value = _uiState.value.copy(nameMap = cached)  
+                } else {  
+                    val http = OkHttpClient.Builder()  
+                        .connectTimeout(15, TimeUnit.SECONDS)  
+                        .readTimeout(15, TimeUnit.SECONDS)  
+                        .build()  
+                    val map = withContext(Dispatchers.IO) {  
+                        CharaRoster.fetchNameMap(http, app)  
+                    }  
+                    if (map != null) {  
+                        _uiState.value = _uiState.value.copy(nameMap = map)  
+                    }  
+                }  
+            } catch (e: Exception) {  
+                Log.w(TAG, "load nameMap failed", e)  
+            }			
         }  
     }  
   

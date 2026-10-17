@@ -16,6 +16,7 @@ object CharaRoster {
   
     private const val TAG = "CharaRoster"  
     private const val ROSTER_FILE = "chara_roster.json"  
+	private const val ROSTER_NAME_FILE = "chara_roster_names.json"
     private const val ROSTER_URL =  
         "https://raw.githubusercontent.com/Ice9Coffee/LandosolRoster/master/_pcr_data.py"  
     private const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L // 24 小时  
@@ -70,6 +71,43 @@ object CharaRoster {
     }  
   
     /**  
+     * 获取 baseId -> 名字列表 的映射（用于搜索）  
+     * 优先本地缓存，否则拉网络解析  
+     */  
+    fun fetchNameMap(  
+        client: OkHttpClient,  
+        context: Context,  
+        forceRefresh: Boolean = false  
+    ): Map<Int, List<String>>? {  
+        if (!forceRefresh) {  
+            loadNameCache(context)?.let { return it }  
+        }  
+        return try {  
+            val request = Request.Builder().url(ROSTER_URL).build()  
+            client.newCall(request).execute().use { resp ->  
+                if (!resp.isSuccessful) return loadNameCache(context, ignoreExpiry = true)  
+                val body = resp.body?.string()  
+                    ?: return loadNameCache(context, ignoreExpiry = true)  
+                val map = parseCharaNameMap(body)  
+                if (map.isNotEmpty()) {  
+                    saveNameCache(context, map)  
+                    map  
+                } else loadNameCache(context, ignoreExpiry = true)  
+            }  
+        } catch (e: Exception) {  
+            Log.e(TAG, "花名册名字获取异常: ${e.message}", e)  
+            loadNameCache(context, ignoreExpiry = true)  
+        }  
+    }  
+  
+    /**  
+     * 同步获取已缓存的名字映射（不触发网络），无缓存返回 null  
+     */  
+    fun getCachedNameMap(context: Context): Map<Int, List<String>>? {  
+        return loadNameCache(context, ignoreExpiry = true)  
+    }
+	
+	/**  
      * 获取本地缓存的角色数量（不触发网络请求）  
      */  
     fun getCachedRosterCount(context: Context): Int {  
@@ -133,6 +171,44 @@ object CharaRoster {
     }  
   
     /**  
+     * 解析 CHARA_NAME 字典为 baseId -> 名字列表  
+     * 形如:  1001: ['日和', 'ヒヨリ', 'hiyori'],  
+     */  
+    internal fun parseCharaNameMap(text: String): Map<Int, List<String>> {  
+        val result = mutableMapOf<Int, List<String>>()  
+        val startIdx = text.indexOf("CHARA_NAME")  
+        if (startIdx == -1) return result  
+        val sub = text.substring(startIdx)  
+        // 每个条目可能占多行，以 "数字: [" 开头、"], 或 ]" 结尾聚合  
+        val entryStart = Regex("""^\s*(\d{4,})\s*:\s*\[""")  
+        val strRegex = Regex("""'([^']*)'|"([^"]*)"""")  
+        var curId = -1  
+        val curNames = mutableListOf<String>()  
+        fun flush() {  
+            if (curId > 0) result[curId] = curNames.toList()  
+            curNames.clear()  
+        }  
+        for (line in sub.lines()) {  
+            val m = entryStart.find(line)  
+            if (m != null) {  
+                flush()  
+                curId = m.groupValues[1].toInt()  
+            }  
+            if (curId > 0) {  
+                strRegex.findAll(line).forEach { s ->  
+                    val v = s.groupValues[1].ifEmpty { s.groupValues[2] }  
+                    if (v.isNotBlank()) curNames.add(v)  
+                }  
+                if (line.contains("]")) flush()  
+            }  
+            // 字典结束（遇到下一个顶层变量）  
+            if (curId < 0 && line.matches(Regex("""^[A-Za-z_]+\s*="""))) break  
+        }  
+        flush()  
+        return result  
+    }
+	
+	/**  
      * 从本地缓存加载花名册  
      * @param ignoreExpiry 是否忽略过期时间（fallback 场景）  
      */  
@@ -153,7 +229,45 @@ object CharaRoster {
         }  
     }  
   
-    /**  
+    private fun loadNameCache(  
+        context: Context,  
+        ignoreExpiry: Boolean = false  
+    ): Map<Int, List<String>>? {  
+        val file = File(context.filesDir, ROSTER_NAME_FILE)  
+        if (!file.exists()) return null  
+        if (!ignoreExpiry) {  
+            val age = System.currentTimeMillis() - file.lastModified()  
+            if (age > CACHE_MAX_AGE_MS) return null  
+        }  
+        return try {  
+            val obj = org.json.JSONObject(file.readText())  
+            val map = mutableMapOf<Int, List<String>>()  
+            obj.keys().forEach { k ->  
+                val arr = obj.getJSONArray(k)  
+                map[k.toInt()] = List(arr.length()) { arr.getString(it) }  
+            }  
+            map  
+        } catch (e: Exception) {  
+            null  
+        }  
+    }  
+  
+    private fun saveNameCache(context: Context, map: Map<Int, List<String>>) {  
+        val file = File(context.filesDir, ROSTER_NAME_FILE)  
+        try {  
+            val obj = org.json.JSONObject()  
+            map.forEach { (k, v) ->  
+                val arr = JSONArray()  
+                v.forEach { arr.put(it) }  
+                obj.put(k.toString(), arr)  
+            }  
+            file.writeText(obj.toString())  
+        } catch (e: Exception) {  
+            Log.w(TAG, "名字缓存写入失败: ${e.message}")  
+        }  
+    }
+	
+	/**  
      * 保存花名册到本地缓存  
      */  
     private fun saveCache(context: Context, ids: List<Int>) {  

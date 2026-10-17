@@ -56,6 +56,8 @@ import com.pcrjjc.app.domain.SupportEngine.SupportSlot
 import com.pcrjjc.app.ui.detail.UnitIcon  
 import com.pcrjjc.app.util.ExIconStorage  
 import java.io.File  
+import androidx.compose.material3.OutlinedTextField  
+import androidx.compose.material.icons.filled.Search
   
 /** EX装备图标：优先本地缓存，无缓存回退网络URL */  
 @Composable  
@@ -146,7 +148,8 @@ fun SupportScreen(
                 EditSupportPanel(  
                     viewModel = viewModel,  
                     data = data,  
-                    editingUnitId = uiState.editingUnitId ?: 0L  
+                    editingUnitId = uiState.editingUnitId ?: 0L,  
+                    nameMap = uiState.nameMap  
                 )  
             } else if (data != null) {  
                 // ===== 三类支援展示 =====  
@@ -238,7 +241,8 @@ private fun SupportGroup(
 private fun EditSupportPanel(  
     viewModel: SupportViewModel,  
     data: SupportData?,  
-    editingUnitId: Long  
+    editingUnitId: Long,  
+    nameMap: Map<Int, List<String>>  
 ) {  
     var tabIndex by remember { mutableIntStateOf(0) }  
     var pickedUnit by remember { mutableStateOf(editingUnitId) }  
@@ -255,7 +259,37 @@ private fun EditSupportPanel(
             Text("更换支援角色", style = MaterialTheme.typography.titleMedium)  
             Spacer(modifier = Modifier.height(8.dp))  
   
-            // 拥有角色网格（本地缓存头像）  
+            // ===== 花名册角色搜索 =====  
+            var searchQuery by remember { mutableStateOf("") }  
+            OutlinedTextField(  
+                value = searchQuery,  
+                onValueChange = { searchQuery = it },  
+                modifier = Modifier.fillMaxWidth(),  
+                placeholder = { Text("输入角色名/昵称搜索") },  
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },  
+                singleLine = true  
+            )  
+            Spacer(modifier = Modifier.height(8.dp))  
+  
+            // 拥有角色网格（本地缓存头像），按花名册名字过滤  
+            val allUnitIds = data?.unitExSlots?.keys?.toList() ?: emptyList()  
+            val unitIds = if (searchQuery.isBlank()) {  
+                allUnitIds  
+            } else {  
+                val q = searchQuery.trim()  
+                allUnitIds.filter { uid ->  
+                    // unitId 前4位为 baseId（unit_id/100）  
+                    val baseId = (uid / 100).toInt()  
+                    uiStateNameMap[baseId]?.any { it.contains(q, ignoreCase = true) } == true  
+                            || uid.toString().contains(q)  
+                }  
+            }  
+            if (searchQuery.isNotBlank() && unitIds.isEmpty()) {  
+                Text("未找到匹配角色", style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)  
+            }
+			
+			// 拥有角色网格（本地缓存头像）  
             val unitIds = data?.unitExSlots?.keys?.toList() ?: emptyList()  
             LazyVerticalGrid(  
                 columns = GridCells.Fixed(6),  
