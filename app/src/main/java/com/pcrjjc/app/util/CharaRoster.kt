@@ -175,36 +175,34 @@ object CharaRoster {
      * 形如:  1001: ['日和', 'ヒヨリ', 'hiyori'],  
      */  
     internal fun parseCharaNameMap(text: String): Map<Int, List<String>> {  
-        val result = mutableMapOf<Int, List<String>>()  
-        val startIdx = text.indexOf("CHARA_NAME")  
-        if (startIdx == -1) return result  
-        val sub = text.substring(startIdx)  
-        // 每个条目可能占多行，以 "数字: [" 开头、"], 或 ]" 结尾聚合  
-        val entryStart = Regex("""^\s*(\d{4,})\s*:\s*\[""")  
+        val result = LinkedHashMap<Int, List<String>>()  
+        val start = text.indexOf("CHARA_NAME")  
+        if (start == -1) return result  
+        // 定位 "CHARA_NAME = {" 的起始大括号  
+        val braceStart = text.indexOf('{', start)  
+        if (braceStart == -1) return result  
+        // 大括号配对，找到字典真正结束位置  
+        var depth = 0  
+        var end = braceStart  
+        loop@ for (i in braceStart until text.length) {  
+            when (text[i]) {  
+                '{' -> depth++  
+                '}' -> { depth--; if (depth == 0) { end = i; break@loop } }  
+            }  
+        }  
+        val body = text.substring(braceStart + 1, end)  
+        // 条目形如:  1001: ["日和", "ヒヨリ", "Hiyori", "日和莉", "猫拳", ...],  
+        val entryRegex = Regex("""(\d{4,})\s*:\s*\[(.*?)]""", RegexOption.DOT_MATCHES_ALL)  
         val strRegex = Regex("""'([^']*)'|"([^"]*)"""")  
-        var curId = -1  
-        val curNames = mutableListOf<String>()  
-        fun flush() {  
-            if (curId > 0) result[curId] = curNames.toList()  
-            curNames.clear()  
+        for (m in entryRegex.findAll(body)) {  
+            val id = m.groupValues[1].toIntOrNull() ?: continue  
+            val names = strRegex.findAll(m.groupValues[2])  
+                .map { it.groupValues[1].ifEmpty { it.groupValues[2] } }  
+                .filter { it.isNotBlank() }  
+                .toList()  
+            if (names.isNotEmpty()) result[id] = names  
         }  
-        for (line in sub.lines()) {  
-            val m = entryStart.find(line)  
-            if (m != null) {  
-                flush()  
-                curId = m.groupValues[1].toInt()  
-            }  
-            if (curId > 0) {  
-                strRegex.findAll(line).forEach { s ->  
-                    val v = s.groupValues[1].ifEmpty { s.groupValues[2] }  
-                    if (v.isNotBlank()) curNames.add(v)  
-                }  
-                if (line.contains("]")) flush()  
-            }  
-            // 字典结束（遇到下一个顶层变量）  
-            if (curId < 0 && line.matches(Regex("""^[A-Za-z_]+\s*="""))) break  
-        }  
-        flush()  
+        Log.d(TAG, "parseCharaNameMap 解析到 ${result.size} 个角色名字")  
         return result  
     }
 	

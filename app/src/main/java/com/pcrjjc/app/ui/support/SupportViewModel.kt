@@ -1,5 +1,6 @@
 package com.pcrjjc.app.ui.support  
   
+import android.app.Application  
 import android.util.Log  
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
@@ -10,17 +11,16 @@ import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.SupportEngine  
 import com.pcrjjc.app.domain.SupportEngine.SupportData  
 import com.pcrjjc.app.domain.SupportEngine.SupportSlot  
+import com.pcrjjc.app.util.CharaRoster  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Dispatchers  
-import android.app.Application  
-import com.pcrjjc.app.util.CharaRoster  
-import okhttp3.OkHttpClient  
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.MutableStateFlow  
 import kotlinx.coroutines.flow.StateFlow  
 import kotlinx.coroutines.flow.asStateFlow  
 import kotlinx.coroutines.launch  
 import kotlinx.coroutines.withContext  
+import okhttp3.OkHttpClient  
+import java.util.concurrent.TimeUnit  
 import javax.inject.Inject  
   
 data class SupportUiState(  
@@ -32,8 +32,8 @@ data class SupportUiState(
     val editingSlot: Pair<Int, Int>? = null,  
     val editingUnitId: Long? = null,  
     val message: String? = null,  
-	// baseId -> 名字列表（花名册）  
-    val nameMap: Map<Int, List<String>> = emptyMap(),
+    // baseId -> 名字列表（花名册）  
+    val nameMap: Map<Int, List<String>> = emptyMap(),  
     val error: String? = null  
 )  
   
@@ -63,27 +63,27 @@ class SupportViewModel @Inject constructor(
                 )  
             } catch (e: Exception) {  
                 Log.e(TAG, "load accounts failed", e)  
-            }
-            // 加载花名册名字映射（用于角色搜索）  
+            }  
+            // 加载花名册名字映射（用于角色搜索）：缓存为空则强制拉取  
             try {  
-                val cached = CharaRoster.getCachedNameMap(app)  
-                if (cached != null) {  
-                    _uiState.value = _uiState.value.copy(nameMap = cached)  
-                } else {  
+                var map = CharaRoster.getCachedNameMap(app)  
+                Log.i(TAG, "cached nameMap size = ${map?.size ?: 0}")  
+                if (map.isNullOrEmpty()) {  
                     val http = OkHttpClient.Builder()  
                         .connectTimeout(15, TimeUnit.SECONDS)  
                         .readTimeout(15, TimeUnit.SECONDS)  
                         .build()  
-                    val map = withContext(Dispatchers.IO) {  
+                    map = withContext(Dispatchers.IO) {  
                         CharaRoster.fetchNameMap(http, app)  
                     }  
-                    if (map != null) {  
-                        _uiState.value = _uiState.value.copy(nameMap = map)  
-                    }  
+                }  
+                Log.i(TAG, "nameMap size = ${map?.size ?: 0}")  
+                if (!map.isNullOrEmpty()) {  
+                    _uiState.value = _uiState.value.copy(nameMap = map)  
                 }  
             } catch (e: Exception) {  
                 Log.w(TAG, "load nameMap failed", e)  
-            }			
+            }  
         }  
     }  
   
@@ -133,7 +133,18 @@ class SupportViewModel @Inject constructor(
         val c = client ?: return  
         val (supportType, position) = _uiState.value.editingSlot ?: return  
         runTask {  
-            engine.changeSupport(c, supportType, position, unitId)  
+            // 同一角色若已挂在其他支援位，先撤下（action=2）再挂（action=1）  
+            val data = _uiState.value.data  
+            if (data != null) {  
+                val occupied = (data.dungeon + data.clanBattle + data.friend)  
+                    .firstOrNull { it.unitId == unitId &&  
+                            !(it.position == position) }  
+                if (occupied != null) {  
+                    val occupiedType = if (occupied in data.friend) 2 else 1  
+                    engine.changeSupport(c, occupiedType, occupied.position, unitId, action = 2)  
+                }  
+            }  
+            engine.changeSupport(c, supportType, position, unitId, action = 1)  
             "已更换支援角色"  
         }  
     }  
