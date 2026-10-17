@@ -161,30 +161,39 @@ object ExMeta {
     }  
   
     /**  
-     * 副词条展示串，完整对齐 database.py get_ex_equip_sub_status_str（2117-2132行）：  
+     * 副词条展示串，对齐 PPPPPP database.py get_ex_equip_sub_status_str（2117-2132行）：  
      * - 数值 = ex_equipment_sub_status[group][status].value_{step}，不是 step 本身  
-     * - 同类型词条数值先累加（Counter）  
-     * - 百分比型属性(hp/atk/magic_str/def_/magic_def/双暴)显示 "名xN.NN%"（值/100）  
-     *   其余固定值型显示 "名xN"  
-     * @param subStatus 每项 (status=eParamType值, step=档位)  
+     * - 同类型词条数值先累加  
+     * - 百分比型属性显示 "名xN.NN%"（值/100），其余显示 "名xN"  
+     * @param subStatus 每项 Pair(status=eParamType值, step=档位)  
      */  
     fun subStatusStr(exEquipId: Int, subStatus: List<Pair<Int, Int>>): String {  
         if (subStatus.isEmpty()) return ""  
-        val group = subStatusGroup[exEquipId] ?: return ""  
-        val table = subStatus[group] ?: return ""  
-        // 同类型词条数值累加（对齐 database.py:2114 Counter）  
-        val sums = sortedMapOf<Int, Int>()  
-        for ((st, step) in subStatus) {  
-            val v = table[st]?.getOrNull(step - 1) ?: 0  
-            sums[st] = (sums[st] ?: 0) + v  
+        val group = subStatusGroup.get(exEquipId) ?: return ""  
+        val table = subStatus.get(group) ?: return ""  
+        // Counter 累加同类型词条（对齐 database.py:2114）  
+        val sums = java.util.TreeMap<Int, Int>()  
+        for (pair in subStatus) {  
+            val st = pair.first  
+            val step = pair.second  
+            val values = table.get(st)  
+            val v = if (values != null && step >= 1 && step <= values.size)  
+                values.get(step - 1) else 0  
+            sums.put(st, (sums.get(st) ?: 0) + v)  
         }  
-        return sums.entries.joinToString("/", prefix = " 词条:") { entry ->  
-            val pair = SUB_STATUS[entry.key] ?: ("?" to "未知属性${entry.key}")  
-            if (pair.first in PERCENT_ATTRS) {  
-                "${pair.second}x${"%.2f".format(entry.value / 100.0)}%"  
+        val parts = mutableListOf<String>()  
+        for (entry in sums.entries) {  
+            val st = entry.key  
+            val total = entry.value  
+            val pair = SUB_STATUS.get(st)  
+            val field = pair?.first ?: "?"  
+            val name = pair?.second ?: "未知属性$st"  
+            if (PERCENT_ATTRS.contains(field)) {  
+                parts.add("${name}x${"%.2f".format(total / 100.0)}%")  
             } else {  
-                "${pair.second}x${entry.value}"  
+                parts.add("${name}x$total")  
             }  
         }  
+        return parts.joinToString("/", prefix = " 词条:")  
     }  
 }
