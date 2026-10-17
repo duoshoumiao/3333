@@ -18,7 +18,6 @@ import com.pcrjjc.app.util.CharaRoster
 import com.pcrjjc.app.util.EmailSender 
 import com.pcrjjc.app.util.TopBarBgStorage
 import com.pcrjjc.app.util.IconStorage    
-import com.pcrjjc.app.util.ExIconStorage
 import dagger.hilt.android.lifecycle.HiltViewModel    
 import dagger.hilt.android.qualifiers.ApplicationContext    
 import kotlinx.coroutines.Dispatchers    
@@ -61,11 +60,7 @@ data class SettingsUiState(
     val emailPushEnabled: Boolean = false,             // 邮箱推送开关  
     val emailSaved: Boolean = false,                   // 邮箱配置已保存  
     val isTestingEmail: Boolean = false,               // 正在测试邮件  
-    val emailTestMessage: String? = null,               // 测试结果消息
-	val cachedExIconCount: Int = 0,  
-    val isDownloadingExIcons: Boolean = false,  
-    val exIconDownloadProgress: Float = 0f,  
-    val exIconDownloadMessage: String? = null
+    val emailTestMessage: String? = null
 )    
   
 @HiltViewModel    
@@ -89,14 +84,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {    
             val count = IconStorage.getCachedCount(context)    
             val rosterCount = CharaRoster.getCachedRosterCount(context)    
-            _uiState.value = _uiState.value.copy(    
-                cachedAvatarCount = count,    
-                rosterCount = rosterCount    
-            )    
-        _uiState.value = _uiState.value.copy(  
+            _uiState.value = _uiState.value.copy(  
                 cachedAvatarCount = count,  
-                rosterCount = rosterCount,  
-                cachedExIconCount = ExIconStorage.getCachedCount(context)  
+                rosterCount = rosterCount  
             )
 		}    
         viewModelScope.launch {    

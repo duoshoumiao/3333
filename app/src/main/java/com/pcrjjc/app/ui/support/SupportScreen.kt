@@ -62,30 +62,25 @@ import com.pcrjjc.app.domain.SupportEngine
 import com.pcrjjc.app.domain.SupportEngine.SupportData  
 import com.pcrjjc.app.domain.SupportEngine.SupportSlot  
 import com.pcrjjc.app.ui.detail.UnitIcon  
-import com.pcrjjc.app.util.ExIconStorage  
-import com.pcrjjc.app.util.ExMeta  
-import java.io.File  
+import com.pcrjjc.app.util.ExMeta 
   
 /**  
- * EX装备图标：三级回退  
- * 1. 本地缓存 {filesDir}/icons/ex/icon_icon_extra_equip_{id}.png  
- * 2. 内置 assets/ex_icons/icon_icon_extra_equip_{id}.png  
- * 3. 加载失败显示 "?" 占位（不再静默空白）  
+ * EX装备图标：直接读取内置 assets/ex_icons/icon_icon_extra_equip_{id}.png  
+ * 加载失败显示 "?" 占位  
  */  
 @Composable  
 fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {  
     val context = LocalContext.current  
-    val localPath = ExIconStorage.getIconPath(context, exEquipId)  
     val assetUri = "file:///android_asset/ex_icons/icon_icon_extra_equip_${exEquipId}.png"  
   
     SubcomposeAsyncImage(  
         model = ImageRequest.Builder(context)  
-            .data(if (localPath != null) File(localPath) else assetUri)  
+            .data(assetUri)  
             .crossfade(true)  
             .diskCachePolicy(CachePolicy.ENABLED)  
             .listener(  
                 onError = { _, r ->  
-                    Log.w("ExIcon", "ex=$exEquipId local=$localPath err=${r.throwable}")  
+                    Log.w("ExIcon", "ex=$exEquipId err=${r.throwable}")  
                 }  
             )  
             .build(),  
@@ -103,33 +98,18 @@ fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {
             )  
         },  
         error = {  
-            if (localPath != null) {  
-                // 本地文件存在但解码失败时，回退内置 assets  
-                AsyncImage(  
-                    model = ImageRequest.Builder(context)  
-                        .data(assetUri)  
-                        .crossfade(true)  
-                        .build(),  
-                    contentDescription = "EX装备 $exEquipId",  
-                    modifier = Modifier  
-                        .size(size.dp)  
-                        .clip(RoundedCornerShape(6.dp)),  
-                    contentScale = ContentScale.Crop  
-                )  
-            } else {  
-                Box(  
-                    modifier = Modifier  
-                        .size(size.dp)  
-                        .clip(RoundedCornerShape(6.dp))  
-                        .background(MaterialTheme.colorScheme.surfaceVariant),  
-                    contentAlignment = Alignment.Center  
-                ) {  
-                    Text("?", style = MaterialTheme.typography.labelSmall)  
-                }  
+            Box(  
+                modifier = Modifier  
+                    .size(size.dp)  
+                    .clip(RoundedCornerShape(6.dp))  
+                    .background(MaterialTheme.colorScheme.surfaceVariant),  
+                contentAlignment = Alignment.Center  
+            ) {  
+                Text("?", style = MaterialTheme.typography.labelSmall)  
             }  
         }  
     )  
-}  
+} 
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
