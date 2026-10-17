@@ -158,6 +158,18 @@ class TwPcrClient(
             noerr = false  
         )  
     }
+	suspend fun getFriendList(): List<Map<String, Any?>> {  
+        val resp = callApi("/friend/friend_list", mutableMapOf())  
+        @Suppress("UNCHECKED_CAST")  
+        return (resp["friend_list"] as? List<Map<String, Any?>>) ?: emptyList()  
+    }  
+  
+    suspend fun removeFriend(targetViewerId: Long) {  
+        callApi(  
+            "/friend/remove",  
+            mutableMapOf("target_viewer_id" to targetViewerId)  
+        )  
+    }
 	suspend fun login() {  
         callApi("/check/check_agreement", mutableMapOf())  
         callApi("/check/game_start", mutableMapOf())  

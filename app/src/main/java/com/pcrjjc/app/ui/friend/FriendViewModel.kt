@@ -22,8 +22,11 @@ data class FriendUiState(
     val selectedAccount: Account? = null,  
     val targetUid: String = "",  
     val isLoading: Boolean = false,  
-    val message: String? = null,  
-    val error: String? = null  
+    val message: String? = null,    
+    val error: String? = null,  
+    // 好友管理  
+    val friendList: List<Map<String, Any?>> = emptyList(),  
+    val isLoadingFriends: Boolean = false  
 )  
   
 @HiltViewModel  
@@ -53,9 +56,10 @@ class FriendViewModel @Inject constructor(
         }  
     }  
   
-    fun selectAccount(account: Account) {  
-        _uiState.value = _uiState.value.copy(selectedAccount = account, error = null, message = null)  
-    }  
+    fun selectAccount(account: Account) {    
+        _uiState.value = _uiState.value.copy(selectedAccount = account, error = null, message = null)    
+        loadFriendList()  
+    } 
   
     fun updateTargetUid(value: String) {  
         _uiState.value = _uiState.value.copy(targetUid = value, error = null, message = null)  
@@ -93,7 +97,8 @@ class FriendViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     message = "已成功发送好友申请"  
-                )  
+                )
+                loadFriendList()				
             } catch (e: Exception) {  
                 Log.e(TAG, "sendFriendRequest failed", e)  
                 val msg = e.message ?: ""  
@@ -110,6 +115,68 @@ class FriendViewModel @Inject constructor(
         }  
     }  
   
-    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }  
+    /** 拉取当前选中账号的好友列表 */  
+    fun loadFriendList() {  
+        val account = _uiState.value.selectedAccount ?: return  
+        if (_uiState.value.isLoadingFriends) return  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(isLoadingFriends = true)  
+            try {  
+                val client = withContext(Dispatchers.IO) {  
+                    clientManager.getClient(account, forceRelogin = false)  
+                }  
+                val list = withContext(Dispatchers.IO) {  
+                    when (client) {  
+                        is PcrClient -> client.getFriendList()  
+                        is TwPcrClient -> client.getFriendList()  
+                        else -> emptyList()  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(friendList = list, isLoadingFriends = false)  
+            } catch (e: Exception) {  
+                Log.e(TAG, "loadFriendList failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingFriends = false,  
+                    error = "获取好友列表失败: ${e.message ?: e.javaClass.simpleName}"  
+                )  
+            }  
+        }  
+    }  
+  
+    /** 用当前账号删除指定 UID 的好友（对应 PPPPPP friend/remove） */  
+    fun removeFriend(viewerId: Long) {  
+        val account = _uiState.value.selectedAccount ?: return  
+        if (_uiState.value.isLoadingFriends) return  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(isLoadingFriends = true, error = null, message = null)  
+            try {  
+                val client = withContext(Dispatchers.IO) {  
+                    clientManager.getClient(account, forceRelogin = false)  
+                }  
+                withContext(Dispatchers.IO) {  
+                    when (client) {  
+                        is PcrClient -> client.removeFriend(viewerId)  
+                        is TwPcrClient -> client.removeFriend(viewerId)  
+                        else -> throw Exception("暂不支持该平台的账号")  
+                    }  
+                }  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingFriends = false,  
+                    message = "已删除好友 $viewerId",  
+                    friendList = _uiState.value.friendList.filter {  
+                        (it["viewer_id"] as? Number)?.toLong() != viewerId  
+                    }  
+                )  
+            } catch (e: Exception) {  
+                Log.e(TAG, "removeFriend failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isLoadingFriends = false,  
+                    error = "删除好友失败: ${e.message ?: e.javaClass.simpleName}"  
+                )  
+            }  
+        }  
+    }
+	
+	fun clearError() { _uiState.value = _uiState.value.copy(error = null) }  
     fun clearMessage() { _uiState.value = _uiState.value.copy(message = null) }  
 }

@@ -279,6 +279,27 @@ class PcrClient(
         )  
     }
 	
+	/**  
+     * 获取好友列表（对应 PPPPPP friend/friend_list，FriendFriendListRequest）  
+     * 返回 friend_list 元素为 Map，字段见 PPPPPP common.py FriendInfo  
+     */  
+    suspend fun getFriendList(): List<Map<String, Any?>> {  
+        val resp = callApi("/friend/friend_list", mutableMapOf(), noerr = false)  
+        @Suppress("UNCHECKED_CAST")  
+        return (resp["friend_list"] as? List<Map<String, Any?>>) ?: emptyList()  
+    }  
+  
+    /**  
+     * 删除好友（对应 PPPPPP friend/remove，FriendRemoveRequest）  
+     */  
+    suspend fun removeFriend(targetViewerId: Long) {  
+        callApi(  
+            "/friend/remove",  
+            mutableMapOf("target_viewer_id" to targetViewerId),  
+            noerr = false  
+        )  
+    }
+	
 	@Suppress("UNCHECKED_CAST")  
     private fun parseJsonToMap(json: String): Map<String, Any?> {  
         try {  

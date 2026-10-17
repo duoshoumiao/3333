@@ -24,7 +24,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Text  
-import androidx.compose.material3.TopAppBar  
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog  
+import androidx.compose.material3.Card  
+import androidx.compose.material3.HorizontalDivider  
+import androidx.compose.material3.OutlinedButton  
+import androidx.compose.material3.TextButton  
+import androidx.compose.runtime.mutableStateOf  
+import androidx.compose.runtime.remember  
+import androidx.compose.runtime.setValue  
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.collectAsState  
 import androidx.compose.runtime.getValue  
@@ -40,7 +48,9 @@ fun FriendScreen(
     viewModel: FriendViewModel = hiltViewModel(),  
     onNavigateBack: () -> Unit  
 ) {  
-    val uiState by viewModel.uiState.collectAsState()  
+    val uiState by viewModel.uiState.collectAsState() 
+    // 待删除的好友 UID（非 null 时弹确认框）  
+    var pendingRemoveUid by remember { mutableStateOf<Long?>(null) }	
   
     Scaffold(  
         topBar = {  
@@ -117,7 +127,78 @@ fun FriendScreen(
             uiState.message?.let {  
                 Text(it, color = MaterialTheme.colorScheme.primary,  
                     style = MaterialTheme.typography.bodySmall)  
+            }
+            // ===== 好友管理 =====  
+            HorizontalDivider()  
+            Row(  
+                modifier = Modifier.fillMaxWidth(),  
+                verticalAlignment = Alignment.CenterVertically  
+            ) {  
+                Text(  
+                    "好友管理（${uiState.friendList.size}）",  
+                    style = MaterialTheme.typography.titleMedium,  
+                    modifier = Modifier.weight(1f)  
+                )  
+                OutlinedButton(  
+                    onClick = { viewModel.loadFriendList() },  
+                    enabled = !uiState.isLoadingFriends  
+                ) { Text("刷新") }  
             }  
+  
+            if (uiState.isLoadingFriends) {  
+                CircularProgressIndicator(  
+                    modifier = Modifier.align(Alignment.CenterHorizontally)  
+                )  
+            } else if (uiState.friendList.isEmpty()) {  
+                Text(  
+                    "暂无好友（点上方刷新获取列表）",  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
+            } else {  
+                uiState.friendList.forEach { friend ->  
+                    val vid = (friend["viewer_id"] as? Number)?.toLong() ?: 0L  
+                    val name = friend["name"] as? String ?: ""  
+                    val level = (friend["level"] as? Number)?.toInt() ?: 0  
+                    Card(modifier = Modifier.fillMaxWidth()) {  
+                        Row(  
+                            modifier = Modifier  
+                                .fillMaxWidth()  
+                                .padding(horizontal = 12.dp, vertical = 8.dp),  
+                            verticalAlignment = Alignment.CenterVertically  
+                        ) {  
+                            Column(modifier = Modifier.weight(1f)) {  
+                                Text(name.ifBlank { "UID: $vid" })  
+                                Text(  
+                                    "Lv.$level  UID: $vid",  
+                                    style = MaterialTheme.typography.bodySmall,  
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                )  
+                            }  
+                            OutlinedButton(onClick = { pendingRemoveUid = vid }) {  
+                                Text("删除", color = MaterialTheme.colorScheme.error)  
+                            }  
+                        }  
+                    }  
+                }  
+            }			
         }  
-    }  
+    }
+    // 删除好友确认弹窗  
+        pendingRemoveUid?.let { uid ->  
+            AlertDialog(  
+                onDismissRequest = { pendingRemoveUid = null },  
+                title = { Text("删除好友") },  
+                text = { Text("确定删除好友 UID: $uid 吗？") },  
+                confirmButton = {  
+                    TextButton(onClick = {  
+                        viewModel.removeFriend(uid)  
+                        pendingRemoveUid = null  
+                    }) { Text("确定", color = MaterialTheme.colorScheme.error) }  
+                },  
+                dismissButton = {  
+                    TextButton(onClick = { pendingRemoveUid = null }) { Text("取消") }  
+                }  
+            )  
+        }	
 }
