@@ -66,21 +66,22 @@ import java.io.File
 fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {  
     val context = LocalContext.current  
     val localPath = ExIconStorage.getIconPath(context, exEquipId)  
+    android.util.Log.d("ExIcon", "ex=$exEquipId localPath=$localPath")  
     AsyncImage(  
         model = ImageRequest.Builder(context)  
-            .data(  
-                if (localPath != null) File(localPath)  
-                else "https://你的下载源/icon_icon_extra_equip_${exEquipId}.png"  
-            )  
+            .data(if (localPath != null) File(localPath) else null)  
             .crossfade(true)  
+            .listener(  
+                onError = { _, r ->  
+                    android.util.Log.w("ExIcon", "load fail ex=$exEquipId ${r.throwable}")  
+                }  
+            )  
             .build(),  
         contentDescription = "EX装备 $exEquipId",  
-        modifier = modifier  
-            .size(size.dp)  
-            .clip(RoundedCornerShape(6.dp)),  
+        modifier = modifier.size(size.dp).clip(RoundedCornerShape(6.dp)),  
         contentScale = ContentScale.Crop  
     )  
-}  
+}
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
