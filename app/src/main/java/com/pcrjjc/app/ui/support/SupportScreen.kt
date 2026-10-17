@@ -458,7 +458,7 @@ private fun EditSupportPanel(
                                     )  
                                     Text(  
                                         ExMeta.attrStr(ex.exEquipId, star) +  
-                                                ExMeta.subStatusStr(ex.subStatus),  
+                                                ExMeta.subStatusStr(ex.exEquipId, ex.subStatus),  
                                         style = MaterialTheme.typography.labelSmall,  
                                         color = MaterialTheme.colorScheme.onSurfaceVariant  
                                     )  
@@ -607,7 +607,7 @@ private fun EditSupportPanel(
                                         // 彩装副词条 sub_status（对齐 get_ex_equip_sub_status_str）  
                                         if (ex.subStatus.isNotEmpty()) {  
                                             Text(  
-                                                ExMeta.subStatusStr(ex.subStatus),  
+                                                ExMeta.subStatusStr(ex.exEquipId, ex.subStatus),  
                                                 style = MaterialTheme.typography.labelSmall,  
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant  
                                             )  

@@ -7,7 +7,8 @@ import java.math.RoundingMode
   
 /**  
  * EX装备元数据（assets/ex_meta.json，由 PPPPPP _export_ex_meta.py 导出）  
- * 对应 db.unit_ex_equipment_slot + db.ex_equipment_data + ex_equipment_sub_status(_group)  
+ * 对应 db.unit_ex_equipment_slot + db.ex_equipment_data  
+ *        + db.ex_equipment_sub_status(_group)（彩装词条数值）  
  */  
 object ExMeta {  
     data class ExInfo(  
@@ -16,12 +17,12 @@ object ExMeta {
         val attrs: Map<String, Pair<Double, Double>>  // 属性 -> (default, max)  
     )  
   
-    var unitSlots: Map<Int, List<Int>> = emptyMap()          // unitId -> 3槽类别  
-    var starPt: Map<Int, Map<Int, Int>> = emptyMap()         // rarity -> star -> total_point  
+    var unitSlots: Map<Int, List<Int>> = emptyMap()      // unitId -> 3槽类别  
+    var starPt: Map<Int, Map<Int, Int>> = emptyMap()     // rarity -> star -> total_point  
     var equips: Map<Int, ExInfo> = emptyMap()  
-    // group_id -> (status类型 -> 各档位数值 value_1..value_N)  
+    // group_id -> (status类型(eParamType值) -> 各档位数值 [value_1..value_5])  
     var subStatus: Map<Int, Map<Int, List<Int>>> = emptyMap()  
-    // ex_equipment_id -> group_id  
+    // ex_equipment_id -> group_id（彩装才有词条组）  
     var subStatusGroup: Map<Int, Int> = emptyMap()  
   
     // 基础属性 key -> 中文名（对应 UnitAttribute 字段，custom.py:17-33）  
@@ -36,20 +37,33 @@ object ExMeta {
         "energy_reduce_rate" to "TP减耗", "accuracy" to "命中"  
     )  
   
-    // sub_status.status -> (字段名, 中文名)  
-    // status 是 eParamType 枚举值（enums.py:724-742），勿用声明顺序猜  
+    // sub_status.status -> (UnitAttribute字段名, 中文名)  
+    // status 是 eParamType 枚举值（enums.py:724-742）：  
+    //   1=HP 2=ATK 3=DEF 4=MAGIC_ATK 5=MAGIC_DEF  
+    //   6=PHYSICAL_CRITICAL 7=MAGIC_CRITICAL 8=DODGE 9=LIFE_STEAL  
+    //   10=WAVE_HP_RECOVERY 11=WAVE_ENERGY_RECOVERY  
+    //   12=PHYSICAL_PENETRATE 13=MAGIC_PENETRATE  
+    //   14=ENERGY_RECOVERY_RATE 15=HP_RECOVERY_RATE  
+    //   16=ENERGY_REDUCE_RATE 17=ACCURACY  
     private val SUB_STATUS = mapOf(  
         1 to ("hp" to "HP"), 2 to ("atk" to "物攻"),  
-        3 to ("def_" to "物防"), 4 to ("magic_str" to "魔攻"), 5 to ("magic_def" to "魔防"),  
-        6 to ("physical_critical" to "物理暴击"), 7 to ("magic_critical" to "魔法暴击"),  
+        3 to ("def_" to "物防"), 4 to ("magic_str" to "魔攻"),  
+        5 to ("magic_def" to "魔防"),  
+        6 to ("physical_critical" to "物理暴击"),  
+        7 to ("magic_critical" to "魔法暴击"),  
         8 to ("dodge" to "回避"), 9 to ("life_steal" to "HP吸收"),  
-        10 to ("wave_hp_recovery" to "HP自回"), 11 to ("wave_energy_recovery" to "TP自回"),  
-        12 to ("physical_penetrate" to "物理防御贯穿"), 13 to ("magic_penetrate" to "魔法防御贯穿"),  
-        14 to ("energy_recovery_rate" to "TP上升"), 15 to ("hp_recovery_rate" to "回复量上升"),  
-        16 to ("energy_reduce_rate" to "TP减耗"), 17 to ("accuracy" to "命中")  
+        10 to ("wave_hp_recovery" to "HP自回"),  
+        11 to ("wave_energy_recovery" to "TP自回"),  
+        12 to ("physical_penetrate" to "物理防御贯穿"),  
+        13 to ("magic_penetrate" to "魔法防御贯穿"),  
+        14 to ("energy_recovery_rate" to "TP上升"),  
+        15 to ("hp_recovery_rate" to "回复量上升"),  
+        16 to ("energy_reduce_rate" to "TP减耗"),  
+        17 to ("accuracy" to "命中")  
     )  
   
-    // is_present 表（custom.py:75-93）：这些属性是百分比型，存储值=实际%×100  
+    // UnitAttribute.is_present 为 true 的字段（custom.py:75-93）：  
+    // 百分比型属性，存储值 = 实际百分比 x 100，显示 "{名}x{值/100:.2f}%"  
     private val PERCENT_ATTRS = setOf(  
         "hp", "atk", "magic_str", "def_", "magic_def",  
         "physical_critical", "magic_critical"  
@@ -93,7 +107,7 @@ object ExMeta {
                 )  
             }  
             equips = eq  
-            // 词条数值表：group_id -> status -> [value_1..]  
+            // 词条数值表：group_id -> status -> [value_1..value_5]  
             val ss = mutableMapOf<Int, Map<Int, List<Int>>>()  
             if (obj.has("sub_status")) {  
                 obj.getJSONObject("sub_status").keys().forEach { gid ->  
@@ -107,7 +121,7 @@ object ExMeta {
                 }  
             }  
             subStatus = ss  
-            // ex_id -> group_id  
+            // ex_equipment_id -> group_id  
             val sg = mutableMapOf<Int, Int>()  
             if (obj.has("sub_status_group")) {  
                 obj.getJSONObject("sub_status_group").keys().forEach { k ->  
@@ -132,7 +146,7 @@ object ExMeta {
   
     /**  
      * 对应 ExEquipmentDatum.get_unit_attribute：min + (max-min)*star/maxStar，  
-     * 显示时 ROUND_HALF_UP 取整（对齐 UnitAttribute.round()）  
+     * 显示按 ROUND_HALF_UP 取整（对齐 UnitAttribute.round()）  
      */  
     fun attrStr(exEquipId: Int, star: Int): String {  
         val info = equips[exEquipId] ?: return ""  
@@ -148,8 +162,8 @@ object ExMeta {
   
     /**  
      * 副词条展示串，完整对齐 database.py get_ex_equip_sub_status_str（2117-2132行）：  
-     * - 数值 = sub_status[group][status].value_{step}，不是 step 本身  
-     * - 同类型词条数值先累加  
+     * - 数值 = ex_equipment_sub_status[group][status].value_{step}，不是 step 本身  
+     * - 同类型词条数值先累加（Counter）  
      * - 百分比型属性(hp/atk/magic_str/def_/magic_def/双暴)显示 "名xN.NN%"（值/100）  
      *   其余固定值型显示 "名xN"  
      * @param subStatus 每项 (status=eParamType值, step=档位)  
@@ -158,18 +172,18 @@ object ExMeta {
         if (subStatus.isEmpty()) return ""  
         val group = subStatusGroup[exEquipId] ?: return ""  
         val table = subStatus[group] ?: return ""  
-        // Counter 累加同类型词条（对齐 database.py:2114）  
+        // 同类型词条数值累加（对齐 database.py:2114 Counter）  
         val sums = sortedMapOf<Int, Int>()  
         for ((st, step) in subStatus) {  
             val v = table[st]?.getOrNull(step - 1) ?: 0  
             sums[st] = (sums[st] ?: 0) + v  
         }  
-        return sums.entries.joinToString("/", prefix = " 词条:") { (st, total) ->  
-            val (field, name) = SUB_STATUS[st] ?: ("?" to "未知属性$st")  
-            if (field in PERCENT_ATTRS) {  
-                "${name}x${total / 100.0}%"   // 对齐 f"{name}x{count:.2f}%"  
+        return sums.entries.joinToString("/", prefix = " 词条:") { entry ->  
+            val pair = SUB_STATUS[entry.key] ?: ("?" to "未知属性${entry.key}")  
+            if (pair.first in PERCENT_ATTRS) {  
+                "${pair.second}x${"%.2f".format(entry.value / 100.0)}%"  
             } else {  
-                "${name}x$total"  
+                "${pair.second}x${entry.value}"  
             }  
         }  
     }  
