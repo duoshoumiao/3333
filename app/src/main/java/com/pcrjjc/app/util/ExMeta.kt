@@ -29,6 +29,16 @@ object ExMeta {
         "energy_reduce_rate" to "TP减耗", "accuracy" to "命中"  
     )  
   
+    // 副词条 sub_status 的属性类型编号 -> 中文名  
+    // 对应 PPPPPP db.ex_equipment_sub_status 的属性字段顺序  
+    private val SUB_STATUS_CH = mapOf(  
+        1 to "HP", 2 to "物攻", 3 to "物防", 4 to "魔攻", 5 to "魔防",  
+        6 to "物理暴击", 7 to "魔法暴击", 8 to "回避",  
+        9 to "HP吸收", 10 to "命中", 11 to "HP自回", 12 to "TP自回",  
+        13 to "回复上升", 14 to "TP上升", 15 to "TP减耗",  
+        16 to "物穿", 17 to "魔穿"  
+    )  
+  
     @Synchronized  
     fun load(context: Context) {  
         if (equips.isNotEmpty()) return  
@@ -92,5 +102,19 @@ object ExMeta {
             if (v != 0.0) parts += "$ch${v.toInt()}"  
         }  
         return parts.joinToString("/")  
+    }  
+  
+    /**  
+     * 副词条展示串，对应 PPPPPP db.get_ex_equip_sub_status_str。  
+     * sub_status 每项为 (status=属性类型, step=词条档位)。  
+     * 注：词条实际数值存在 db.ex_equipment_sub_status 的 step_value 表中，  
+     * 当前 ex_meta.json 未导出该表，故显示 属性名+档位（如 "物攻+5"）；  
+     * 后续若要精确数值，需在 _export_ex_meta.py 中导出 sub_status 表再查值。  
+     */  
+    fun subStatusStr(subStatus: List<Pair<Int, Int>>): String {  
+        if (subStatus.isEmpty()) return ""  
+        return subStatus.joinToString("/", prefix = " 词条:") { (st, step) ->  
+            "${SUB_STATUS_CH[st] ?: "属性$st"}+$step"  
+        }  
     }  
 }

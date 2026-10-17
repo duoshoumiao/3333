@@ -127,32 +127,68 @@ class SupportViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(editingSlot = null, editingUnitId = null)  
     }  
   
-    fun changeSupport(unitId: Long) {  
+    /**  
+     * 更换支援角色 + 穿EX 合并为单个任务。  
+     * 修复：旧版连调 changeSupport()+equipEx()，第二次因 isLoading=true  
+     * 被 runTask 开头的判断静默丢弃，导致"点击更换无反应"。  
+     *  
+     * @param normalChanges 普通EX槽改动 (slot -> serial)  
+     * @param cbChanges     会战EX槽改动 (slot -> serial)，一般传 emptyList  
+     * @param autoCb        true=换完角色后自动穿会战EX（团队战支援位）  
+     */  
+    fun applyEdit(  
+        unitId: Long,  
+        normalChanges: List<Pair<Int, Long>> = emptyList(),  
+        cbChanges: List<Pair<Int, Long>> = emptyList(),  
+        autoCb: Boolean = false  
+    ) {  
         val c = client ?: return  
         val (supportType, position) = _uiState.value.editingSlot ?: return  
         runTask {  
-            // 同一角色若已挂在其他支援位，先撤下（action=2）再挂（action=1）  
             val data = _uiState.value.data  
+            // 同一角色若已挂在其他支援位，先撤下（action=2）  
+            // 修复：占用检测必须比较 (supportType, position) 二元组。  
+            // 旧版只比较 position，地下城/好友的 position 都是 1/2 会误判；  
+            // 且好友位要用 supportType=2 撤下，公会位用 1。  
             if (data != null) {  
-                val occupied = (data.dungeon + data.clanBattle + data.friend)  
-                    .firstOrNull { it.unitId == unitId &&  
-                            !(it.position == position) }  
-                if (occupied != null) {  
-                    val occupiedType = if (occupied in data.friend) 2 else 1  
-                    engine.changeSupport(c, occupiedType, occupied.position, unitId, action = 2)  
+                val occupiedClan = (data.dungeon + data.clanBattle)  
+                    .firstOrNull {  
+                        it.unitId == unitId &&  
+                                !(supportType == 1 && it.position == position)  
+                    }  
+                val occupiedFriend = data.friend  
+                    .firstOrNull {  
+                        it.unitId == unitId &&  
+                                !(supportType == 2 && it.position == position)  
+                    }  
+                if (occupiedClan != null) {  
+                    engine.changeSupport(c, 1, occupiedClan.position, unitId, action = 2)  
                 }  
+                if (occupiedFriend != null) {  
+                    engine.changeSupport(c, 2, occupiedFriend.position, unitId, action = 2)  
+                }  
+                engine.changeSupport(c, supportType, position, unitId, action = 1)  
+                // 换角色后重新拉数据再穿EX（unitExSlots 归属已变）  
+                val fresh = engine.loadSupport(c)  
+                _uiState.value = _uiState.value.copy(data = fresh)  
+                if (normalChanges.isNotEmpty())  
+                    engine.equipEx(c, unitId, normalChanges, false, fresh)  
+                if (cbChanges.isNotEmpty())  
+                    engine.equipEx(c, unitId, cbChanges, true, fresh)  
+                if (autoCb)  
+                    engine.autoEquipCbEx(c, unitId, fresh)  
             }  
-            engine.changeSupport(c, supportType, position, unitId, action = 1)  
             "已更换支援角色"  
         }  
     }  
   
-    // isCb: false=普通EX穿戴界面, true=会战EX穿戴界面  
-    fun equipEx(unitId: Long, slots: List<Pair<Int, Long>>, isCb: Boolean) {  
+    // 会战支援位自动穿会战EX（套用 PPPPPP 挂会战支援，不换角色时使用）  
+    fun autoEquipCbEx(unitId: Long) {  
         val c = client ?: return  
         runTask {  
-            engine.equipEx(c, unitId, slots, isCb)  
-            "EX装备已更新"  
+            val data = _uiState.value.data ?: throw Exception("数据未加载")  
+            engine.autoEquipCbEx(c, unitId, data)  
+            "会战EX已自动穿戴"  
         }  
     }  
   
