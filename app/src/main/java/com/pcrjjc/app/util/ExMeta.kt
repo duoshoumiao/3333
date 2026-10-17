@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONObject  
 import java.math.BigDecimal  
 import java.math.RoundingMode  
+import java.util.TreeMap  
   
 /**  
  * EX装备元数据（assets/ex_meta.json，由 PPPPPP _export_ex_meta.py 导出）  
@@ -46,20 +47,20 @@ object ExMeta {
     //   14=ENERGY_RECOVERY_RATE 15=HP_RECOVERY_RATE  
     //   16=ENERGY_REDUCE_RATE 17=ACCURACY  
     private val SUB_STATUS = mapOf(  
-        1 to ("hp" to "HP"), 2 to ("atk" to "物攻"),  
-        3 to ("def_" to "物防"), 4 to ("magic_str" to "魔攻"),  
-        5 to ("magic_def" to "魔防"),  
-        6 to ("physical_critical" to "物理暴击"),  
-        7 to ("magic_critical" to "魔法暴击"),  
-        8 to ("dodge" to "回避"), 9 to ("life_steal" to "HP吸收"),  
-        10 to ("wave_hp_recovery" to "HP自回"),  
-        11 to ("wave_energy_recovery" to "TP自回"),  
-        12 to ("physical_penetrate" to "物理防御贯穿"),  
-        13 to ("magic_penetrate" to "魔法防御贯穿"),  
-        14 to ("energy_recovery_rate" to "TP上升"),  
-        15 to ("hp_recovery_rate" to "回复量上升"),  
-        16 to ("energy_reduce_rate" to "TP减耗"),  
-        17 to ("accuracy" to "命中")  
+        1 to Pair("hp", "HP"), 2 to Pair("atk", "物攻"),  
+        3 to Pair("def_", "物防"), 4 to Pair("magic_str", "魔攻"),  
+        5 to Pair("magic_def", "魔防"),  
+        6 to Pair("physical_critical", "物理暴击"),  
+        7 to Pair("magic_critical", "魔法暴击"),  
+        8 to Pair("dodge", "回避"), 9 to Pair("life_steal", "HP吸收"),  
+        10 to Pair("wave_hp_recovery", "HP自回"),  
+        11 to Pair("wave_energy_recovery", "TP自回"),  
+        12 to Pair("physical_penetrate", "物理防御贯穿"),  
+        13 to Pair("magic_penetrate", "魔法防御贯穿"),  
+        14 to Pair("energy_recovery_rate", "TP上升"),  
+        15 to Pair("hp_recovery_rate", "回复量上升"),  
+        16 to Pair("energy_reduce_rate", "TP减耗"),  
+        17 to Pair("accuracy", "命中")  
     )  
   
     // UnitAttribute.is_present 为 true 的字段（custom.py:75-93）：  
@@ -79,15 +80,15 @@ object ExMeta {
             val us = mutableMapOf<Int, List<Int>>()  
             obj.getJSONObject("unit_slots").keys().forEach { k ->  
                 val a = obj.getJSONObject("unit_slots").getJSONArray(k)  
-                us[k.toInt()] = List(a.length()) { a.getInt(it) }  
+                us.put(k.toInt(), List(a.length()) { a.getInt(it) })  
             }  
             unitSlots = us  
             val sp = mutableMapOf<Int, Map<Int, Int>>()  
             obj.getJSONObject("star_pt").keys().forEach { r ->  
                 val o = obj.getJSONObject("star_pt").getJSONObject(r)  
                 val m = mutableMapOf<Int, Int>()  
-                o.keys().forEach { s -> m[s.toInt()] = o.getInt(s) }  
-                sp[r.toInt()] = m  
+                o.keys().forEach { s -> m.put(s.toInt(), o.getInt(s)) }  
+                sp.put(r.toInt(), m)  
             }  
             starPt = sp  
             val eq = mutableMapOf<Int, ExInfo>()  
@@ -98,13 +99,13 @@ object ExMeta {
                     val ao = o.getJSONObject("attrs")  
                     ao.keys().forEach { a ->  
                         val arr = ao.getJSONArray(a)  
-                        attrs[a] = arr.getDouble(0) to arr.getDouble(1)  
+                        attrs.put(a, arr.getDouble(0) to arr.getDouble(1))  
                     }  
                 }  
-                eq[k.toInt()] = ExInfo(  
+                eq.put(k.toInt(), ExInfo(  
                     o.optString("name"), o.getInt("category"), o.getInt("rarity"),  
                     o.optInt("cb", 0), o.optInt("max_star", 0), attrs  
-                )  
+                ))  
             }  
             equips = eq  
             // 词条数值表：group_id -> status -> [value_1..value_5]  
@@ -115,9 +116,9 @@ object ExMeta {
                     val gm = mutableMapOf<Int, List<Int>>()  
                     go.keys().forEach { st ->  
                         val arr = go.getJSONArray(st)  
-                        gm[st.toInt()] = List(arr.length()) { arr.getInt(it) }  
+                        gm.put(st.toInt(), List(arr.length()) { arr.getInt(it) })  
                     }  
-                    ss[gid.toInt()] = gm  
+                    ss.put(gid.toInt(), gm)  
                 }  
             }  
             subStatus = ss  
@@ -125,7 +126,7 @@ object ExMeta {
             val sg = mutableMapOf<Int, Int>()  
             if (obj.has("sub_status_group")) {  
                 obj.getJSONObject("sub_status_group").keys().forEach { k ->  
-                    sg[k.toInt()] = obj.getJSONObject("sub_status_group").getInt(k)  
+                    sg.put(k.toInt(), obj.getJSONObject("sub_status_group").getInt(k))  
                 }  
             }  
             subStatusGroup = sg  
@@ -136,46 +137,48 @@ object ExMeta {
   
     /** 角色第 slotNum 槽(1-3)的类别 */  
     fun slotCategory(unitId: Int, slotNum: Int): Int? =  
-        unitSlots[unitId]?.getOrNull(slotNum - 1)  
+        unitSlots.get(unitId)?.getOrNull(slotNum - 1)  
   
     /** 对应 db.get_ex_equip_star_from_pt */  
     fun starFromPt(rarity: Int, pt: Int): Int {  
-        val m = starPt[rarity] ?: return 0  
+        val m = starPt.get(rarity) ?: return 0  
         return m.filter { it.value <= pt }.keys.maxOrNull() ?: 0  
     }  
   
     /**  
      * 对应 ExEquipmentDatum.get_unit_attribute：min + (max-min)*star/maxStar，  
-     * 显示按 ROUND_HALF_UP 取整（对齐 UnitAttribute.round()）  
+     * 显示时 ROUND_HALF_UP 取整（对齐 UnitAttribute.round()）  
      */  
     fun attrStr(exEquipId: Int, star: Int): String {  
-        val info = equips[exEquipId] ?: return ""  
+        val info = equips.get(exEquipId) ?: return ""  
         val parts = mutableListOf<String>()  
-        for ((k, ch) in ATTR_CH) {  
-            val (d, m) = info.attrs[k] ?: continue  
-            val v = if (info.maxStar > 0) d + (m - d) * star / info.maxStar else d  
+        for (entry in ATTR_CH.entries) {  
+            val dm = info.attrs.get(entry.key) ?: continue  
+            val v = if (info.maxStar > 0)  
+                dm.first + (dm.second - dm.first) * star / info.maxStar  
+            else dm.first  
             val r = BigDecimal(v).setScale(0, RoundingMode.HALF_UP).toInt()  
-            if (r != 0) parts += "$ch+$r"  
+            if (r != 0) parts.add("${entry.value}+$r")  
         }  
         return parts.joinToString("/")  
     }  
   
     /**  
-     * 副词条展示串，对齐 PPPPPP database.py get_ex_equip_sub_status_str（2117-2132行）：  
+     * 副词条展示串，完整对齐 PPPPPP database.py get_ex_equip_sub_status_str（2117-2132行）：  
      * - 数值 = ex_equipment_sub_status[group][status].value_{step}，不是 step 本身  
-     * - 同类型词条数值先累加  
-     * - 百分比型属性显示 "名xN.NN%"（值/100），其余显示 "名xN"  
+     * - 同类型词条数值先累加（对齐 database.py:2114 的 Counter）  
+     * - 百分比型属性显示 "名xN.NN%"（值/100），其余固定值型显示 "名xN"  
      * @param subStatus 每项 Pair(status=eParamType值, step=档位)  
      */  
     fun subStatusStr(exEquipId: Int, subStatus: List<Pair<Int, Int>>): String {  
         if (subStatus.isEmpty()) return ""  
         val group = subStatusGroup.get(exEquipId) ?: return ""  
         val table = subStatus.get(group) ?: return ""  
-        // Counter 累加同类型词条（对齐 database.py:2114）  
-        val sums = java.util.TreeMap<Int, Int>()  
-        for (pair in subStatus) {  
-            val st = pair.first  
-            val step = pair.second  
+        // Counter 累加同类型词条  
+        val sums = TreeMap<Int, Int>()  
+        for (item in subStatus) {  
+            val st = item.first  
+            val step = item.second  
             val values = table.get(st)  
             val v = if (values != null && step >= 1 && step <= values.size)  
                 values.get(step - 1) else 0  
@@ -183,15 +186,13 @@ object ExMeta {
         }  
         val parts = mutableListOf<String>()  
         for (entry in sums.entries) {  
-            val st = entry.key  
-            val total = entry.value  
-            val pair = SUB_STATUS.get(st)  
+            val pair = SUB_STATUS.get(entry.key)  
             val field = pair?.first ?: "?"  
-            val name = pair?.second ?: "未知属性$st"  
+            val name = pair?.second ?: "未知属性${entry.key}"  
             if (PERCENT_ATTRS.contains(field)) {  
-                parts.add("${name}x${"%.2f".format(total / 100.0)}%")  
+                parts.add("${name}x${"%.2f".format(entry.value / 100.0)}%")  
             } else {  
-                parts.add("${name}x$total")  
+                parts.add("${name}x${entry.value}")  
             }  
         }  
         return parts.joinToString("/", prefix = " 词条:")  
