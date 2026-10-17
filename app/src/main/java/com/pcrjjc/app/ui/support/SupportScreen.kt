@@ -21,8 +21,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid  
 import androidx.compose.foundation.lazy.grid.items  
 import androidx.compose.foundation.rememberScrollState  
-import androidx.compose.foundation.verticalScroll  
 import androidx.compose.foundation.shape.RoundedCornerShape  
+import androidx.compose.foundation.verticalScroll  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
 import androidx.compose.material.icons.filled.Search  
@@ -66,13 +66,11 @@ import com.pcrjjc.app.ui.detail.UnitIcon
 import com.pcrjjc.app.util.ExIconStorage  
 import java.io.File  
   
-private const val TAG = "SupportScreen"  
-  
 /**  
- * EX装备图标，三级回退：  
- * 1. 本地下载缓存 {filesDir}/icons/ex/icon_icon_extra_equip_{id}.png  
- * 2. APK 内置资源 file:///android_asset/ex_icons/icon_icon_extra_equip_{id}.png  
- * 3. 都没有 → 显示 "?" 占位（加载失败不再空白，方便区分"无装备"与"图没加载"）  
+ * EX装备图标：三级回退  
+ * 1. 本地缓存 {filesDir}/icons/ex/icon_icon_extra_equip_{id}.png  
+ * 2. 内置 assets/ex_icons/icon_icon_extra_equip_{id}.png  
+ * 3. 加载失败显示 "?" 占位（不再静默空白）  
  */  
 @Composable  
 fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {  
@@ -85,10 +83,9 @@ fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {
             .data(if (localPath != null) File(localPath) else assetUri)  
             .crossfade(true)  
             .diskCachePolicy(CachePolicy.ENABLED)  
-            .memoryCachePolicy(CachePolicy.ENABLED)  
             .listener(  
                 onError = { _, r ->  
-                    Log.w(TAG, "ExIcon load fail ex=$exEquipId local=$localPath err=${r.throwable}")  
+                    Log.w("ExIcon", "ex=$exEquipId local=$localPath err=${r.throwable}")  
                 }  
             )  
             .build(),  
@@ -107,7 +104,7 @@ fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {
         },  
         error = {  
             if (localPath != null) {  
-                // 本地文件损坏时再用 assets 兜底一次  
+                // 本地文件存在但解码失败时，回退内置 assets  
                 AsyncImage(  
                     model = ImageRequest.Builder(context)  
                         .data(assetUri)  
@@ -127,8 +124,7 @@ fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {
                         .background(MaterialTheme.colorScheme.surfaceVariant),  
                     contentAlignment = Alignment.Center  
                 ) {  
-                    Text("?", style = MaterialTheme.typography.labelSmall,  
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                    Text("?", style = MaterialTheme.typography.labelSmall)  
                 }  
             }  
         }  
@@ -187,12 +183,16 @@ fun SupportScreen(
             }  
   
             uiState.error?.let {  
-                Text(it, color = MaterialTheme.colorScheme.error,  
-                    style = MaterialTheme.typography.bodySmall)  
+                Text(  
+                    it, color = MaterialTheme.colorScheme.error,  
+                    style = MaterialTheme.typography.bodySmall  
+                )  
             }  
             uiState.message?.let {  
-                Text(it, color = MaterialTheme.colorScheme.primary,  
-                    style = MaterialTheme.typography.bodySmall)  
+                Text(  
+                    it, color = MaterialTheme.colorScheme.primary,  
+                    style = MaterialTheme.typography.bodySmall  
+                )  
             }  
   
             val data = uiState.data  
@@ -213,7 +213,6 @@ fun SupportScreen(
                     slots = data.dungeon,  
                     data = data,  
                     isCb = false,  
-                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(1, slot.position, slot.unitId)  
                     }  
@@ -223,7 +222,6 @@ fun SupportScreen(
                     slots = data.clanBattle,  
                     data = data,  
                     isCb = true,  
-                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(1, slot.position, slot.unitId)  
                     }  
@@ -233,7 +231,6 @@ fun SupportScreen(
                     slots = data.friend,  
                     data = data,  
                     isCb = false,  
-                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(2, slot.position, slot.unitId)  
                     }  
@@ -249,7 +246,6 @@ private fun SupportGroup(
     slots: List<SupportSlot>,  
     data: SupportData,  
     isCb: Boolean,  
-    nameMap: Map<Int, List<String>>,  
     onIconClick: (SupportSlot) -> Unit  
 ) {  
     Card(  
@@ -260,8 +256,10 @@ private fun SupportGroup(
             Text(title, style = MaterialTheme.typography.titleMedium)  
             Spacer(modifier = Modifier.height(8.dp))  
             if (slots.isEmpty()) {  
-                Text("无", style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                Text(  
+                    "无", style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
             }  
             slots.forEach { slot ->  
                 Row(verticalAlignment = Alignment.CenterVertically) {  
@@ -270,34 +268,27 @@ private fun SupportGroup(
                         Box(  
                             modifier = Modifier  
                                 .size(56.dp)  
-                                .clip(RoundedCornerShape(8.dp))  
+                                .clip(RoundedCornerShape(6.dp))  
+                                .clickable { onIconClick(slot) }  
                                 .border(  
                                     1.dp,  
                                     MaterialTheme.colorScheme.outline,  
-                                    RoundedCornerShape(8.dp)  
-                                )  
-                                .clickable { onIconClick(slot) },  
+                                    RoundedCornerShape(6.dp)  
+                                ),  
                             contentAlignment = Alignment.Center  
                         ) {  
-                            Text("+", style = MaterialTheme.typography.titleMedium,  
-                                color = MaterialTheme.colorScheme.outline)  
+                            Text(  
+                                "+", style = MaterialTheme.typography.titleMedium,  
+                                color = MaterialTheme.colorScheme.outline  
+                            )  
                         }  
                     } else {  
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {  
-                            // 头像来自本地缓存（UnitIcon 内部走 IconStorage）  
-                            UnitIcon(  
-                                unitId = slot.unitId.toInt(),  
-                                size = 56.dp,  
-                                modifier = Modifier.clickable { onIconClick(slot) }  
-                            )  
-                            // 花名册名字（第一个别名，即台服官译简体）  
-                            val charaName = nameMap[(slot.unitId / 100).toInt()]  
-                                ?.firstOrNull() ?: ""  
-                            if (charaName.isNotEmpty()) {  
-                                Text(charaName, style = MaterialTheme.typography.labelSmall,  
-                                    maxLines = 1)  
-                            }  
-                        }  
+                        // 头像来自本地缓存（UnitIcon 内部走 IconStorage）  
+                        UnitIcon(  
+                            unitId = slot.unitId.toInt(),  
+                            size = 56.dp,  
+                            modifier = Modifier.clickable { onIconClick(slot) }  
+                        )  
                     }  
                     Spacer(modifier = Modifier.width(12.dp))  
                     // 该角色穿戴的EX装备（会战位显示会战EX，其余显示普通EX）  
@@ -305,19 +296,27 @@ private fun SupportGroup(
                     val worn = exSlots.mapNotNull { (_, serial) ->  
                         data.exInventory[serial]  
                     }  
-                    if (slot.unitId != 0L) {  
-                        if (worn.isEmpty()) {  
-                            Text("无EX装备", style = MaterialTheme.typography.bodySmall,  
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)  
-                        } else {  
-                            worn.forEach { ex ->  
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {  
-                                    ExEquipIcon(ex.exEquipId, size = 40)  
-                                    Text("★${ex.rank}",  
-                                        style = MaterialTheme.typography.labelSmall)  
-                                }  
-                                Spacer(modifier = Modifier.width(8.dp))  
+                    if (slot.unitId == 0L) {  
+                        Text(  
+                            "点击选择支援角色",  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    } else if (worn.isEmpty()) {  
+                        Text(  
+                            "无EX装备", style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    } else {  
+                        worn.forEach { ex ->  
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {  
+                                ExEquipIcon(ex.exEquipId, size = 40)  
+                                Text(  
+                                    "★${ex.rank}",  
+                                    style = MaterialTheme.typography.labelSmall  
+                                )  
                             }  
+                            Spacer(modifier = Modifier.width(8.dp))  
                         }  
                     }  
                 }  
@@ -336,10 +335,11 @@ private fun EditSupportPanel(
 ) {  
     var tabIndex by remember { mutableIntStateOf(0) }  
     var pickedUnit by remember { mutableStateOf(editingUnitId) }  
-    // 每个槽位选的 serial_id（slot号 -> serial_id，0=卸除）  
+    // 每个槽位选的 serial_id（3个槽），0L = 卸下  
     var pickedSerials by remember {  
         mutableStateOf(mutableMapOf<Int, Long>())  
     }  
+    var searchQuery by remember { mutableStateOf("") }  
   
     Card(  
         modifier = Modifier.fillMaxWidth(),  
@@ -350,7 +350,6 @@ private fun EditSupportPanel(
             Spacer(modifier = Modifier.height(8.dp))  
   
             // ===== 花名册角色搜索 =====  
-            var searchQuery by remember { mutableStateOf("") }  
             OutlinedTextField(  
                 value = searchQuery,  
                 onValueChange = { searchQuery = it },  
@@ -381,9 +380,8 @@ private fun EditSupportPanel(
                 )  
             }  
   
-            // ===== 角色选择网格 =====  
             LazyVerticalGrid(  
-                columns = GridCells.Adaptive(minSize = 56.dp),  
+                columns = GridCells.Adaptive(56.dp),  
                 modifier = Modifier  
                     .fillMaxWidth()  
                     .heightIn(max = 300.dp),  
@@ -391,32 +389,25 @@ private fun EditSupportPanel(
                 verticalArrangement = Arrangement.spacedBy(4.dp)  
             ) {  
                 items(unitIds) { uid ->  
-                    val selected = pickedUnit == uid  
+                    val isPicked = pickedUnit == uid  
                     Column(  
                         horizontalAlignment = Alignment.CenterHorizontally,  
                         modifier = Modifier  
                             .clip(RoundedCornerShape(6.dp))  
+                            .clickable { pickedUnit = uid }  
                             .then(  
-                                if (selected) Modifier.border(  
+                                if (isPicked) Modifier.border(  
                                     2.dp,  
                                     MaterialTheme.colorScheme.primary,  
                                     RoundedCornerShape(6.dp)  
                                 ) else Modifier  
                             )  
-                            .clickable {  
-                                pickedUnit = uid  
-                                pickedSerials = mutableMapOf()  
-                            }  
                             .padding(2.dp)  
                     ) {  
                         UnitIcon(unitId = uid.toInt(), size = 48.dp)  
-                        val charaName = nameMap[(uid / 100).toInt()]?.firstOrNull() ?: ""  
-                        if (charaName.isNotEmpty()) {  
-                            Text(  
-                                charaName,  
-                                style = MaterialTheme.typography.labelSmall,  
-                                maxLines = 1  
-                            )  
+                        val bId = (uid / 100).toInt()  
+                        nameMap[bId]?.firstOrNull()?.let {  
+                            Text(it, style = MaterialTheme.typography.labelSmall)  
                         }  
                     }  
                 }  
@@ -424,17 +415,19 @@ private fun EditSupportPanel(
   
             if (pickedUnit != 0L) {  
                 Spacer(modifier = Modifier.height(8.dp))  
-                val pickedName = nameMap[(pickedUnit / 100).toInt()]?.firstOrNull() ?: ""  
+                val pickedName = nameMap[(pickedUnit / 100).toInt()]?.firstOrNull()  
                 Text(  
-                    "已选角色: ${if (pickedName.isNotEmpty()) "$pickedName ($pickedUnit)" else pickedUnit.toString()}",  
+                    "已选角色: ${pickedName ?: ""}($pickedUnit)",  
                     style = MaterialTheme.typography.bodySmall  
                 )  
   
                 // 普通EX / 会战EX 两个穿戴界面  
                 TabRow(selectedTabIndex = tabIndex) {  
-                    Tab(selected = tabIndex == 0, onClick = { tabIndex = 0 },  
+                    Tab(  
+                        selected = tabIndex == 0, onClick = { tabIndex = 0 },  
                         text = { Text("普通EX") })  
-                    Tab(selected = tabIndex == 1, onClick = { tabIndex = 1 },  
+                    Tab(  
+                        selected = tabIndex == 1, onClick = { tabIndex = 1 },  
                         text = { Text("会战EX") })  
                 }  
   
@@ -444,13 +437,19 @@ private fun EditSupportPanel(
                 else  
                     data?.unitExSlots?.get(pickedUnit)?.first  
   
+                // serial -> (unitId, slotNum) 反查持有者（需 SupportData 提供）  
+                val wearerMap = if (isCb) data?.cbExWearer else data?.exWearer  
+  
                 (slots ?: emptyList()).forEach { (slotNum, curSerial) ->  
                     Row(  
                         modifier = Modifier.fillMaxWidth(),  
                         verticalAlignment = Alignment.CenterVertically  
                     ) {  
-                        Text("槽位$slotNum", modifier = Modifier.width(56.dp),  
-                            style = MaterialTheme.typography.bodySmall)  
+                        Text(  
+                            "槽位$slotNum",  
+                            modifier = Modifier.width(56.dp),  
+                            style = MaterialTheme.typography.bodySmall  
+                        )  
                         // 候选EX装备列表（会战EX排除受限serial）  
                         val candidates = data?.exInventory?.values  
                             ?.filter { !isCb || it.serialId !in data.cbExRestriction }  
@@ -461,7 +460,7 @@ private fun EditSupportPanel(
                                 .weight(1f)  
                                 .horizontalScroll(rememberScrollState())  
                         ) {  
-                            // 卸除选项  
+                            // "卸" 选项  
                             Column(  
                                 horizontalAlignment = Alignment.CenterHorizontally,  
                                 modifier = Modifier  
@@ -480,43 +479,29 @@ private fun EditSupportPanel(
                                             RoundedCornerShape(6.dp)  
                                         ),  
                                     contentAlignment = Alignment.Center  
-                                ) {  
-                                    Text("卸", style = MaterialTheme.typography.labelSmall)  
-                                }  
+                                ) { Text("卸", style = MaterialTheme.typography.labelSmall) }  
                                 Text(  
-                                    if ((pickedSerials[slotNum] ?: curSerial) == 0L) "●" else " ",  
+                                    " ",  
                                     style = MaterialTheme.typography.labelSmall,  
                                     color = MaterialTheme.colorScheme.primary  
+                                )  
+                            }  
+                            if (candidates.isEmpty()) {  
+                                Text(  
+                                    "无可用装备",  
+                                    style = MaterialTheme.typography.labelSmall,  
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant  
                                 )  
                             }  
                             candidates.take(30).forEach { ex ->  
                                 val selected =  
                                     (pickedSerials[slotNum] ?: curSerial) == ex.serialId  
-                                Column(  
-                                    horizontalAlignment = Alignment.CenterHorizontally,  
-                                    modifier = Modifier  
-                                        .clickable {  
-                                            pickedSerials = pickedSerials.toMutableMap()  
-                                                .apply { put(slotNum, ex.serialId) }  
-                                        }  
-                                        .padding(2.dp)  
-                                ) {  
-                                    ExEquipIcon(ex.exEquipId, size = 36)  
-                                    Text(  
-                                        if (selected) "●" else "★${ex.rank}",  
-                                        style = MaterialTheme.typography.labelSmall,  
-                                        color = if (selected)  
-                                            MaterialTheme.colorScheme.primary  
-                                        else MaterialTheme.colorScheme.onSurfaceVariant  
-                                    ) 
-                                    candidates.take(30).forEach { ex ->  
-                                val selected =  
-                                    (pickedSerials[slotNum] ?: curSerial) == ex.serialId  
-                                // 反查持有者（会战Tab查会战表，普通Tab查普通表）  
-                                val wearerMap = if (isCb) data?.cbExWearer else data?.exWearer  
                                 val wearer = wearerMap?.get(ex.serialId)  
-                                val wearerName = wearer?.let { (uid, _) ->  
-                                    nameMap[(uid / 100).toInt()]?.firstOrNull() ?: "$uid"  
+                                val wearerText = when {  
+                                    wearer == null -> "空闲"  
+                                    wearer.first == pickedUnit -> "已穿"  
+                                    else -> nameMap[(wearer.first / 100).toInt()]  
+                                        ?.firstOrNull() ?: "${wearer.first}"  
                                 }  
                                 Column(  
                                     horizontalAlignment = Alignment.CenterHorizontally,  
@@ -530,25 +515,20 @@ private fun EditSupportPanel(
                                     ExEquipIcon(ex.exEquipId, size = 36)  
                                     Text(  
                                         "★${ex.rank}+${ex.enhancementPt}",  
-                                        style = MaterialTheme.typography.labelSmall  
-                                    )  
-                                    // 持有者：在自己身上=已穿，在别人身上=显示名字，空闲=空  
-                                    Text(  
-                                        when {  
-                                            wearer == null -> "空闲"  
-                                            wearer.first == pickedUnit -> "已穿"  
-                                            else -> wearerName ?: ""  
-                                        },  
                                         style = MaterialTheme.typography.labelSmall,  
-                                        color = when {  
-                                            selected -> MaterialTheme.colorScheme.primary  
-                                            wearer != null && wearer.first != pickedUnit ->  
-                                                MaterialTheme.colorScheme.error  
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant  
-                                        }  
+                                        color = if (selected)  
+                                            MaterialTheme.colorScheme.primary  
+                                        else MaterialTheme.colorScheme.onSurfaceVariant  
+                                    )  
+                                    Text(  
+                                        wearerText,  
+                                        style = MaterialTheme.typography.labelSmall,  
+                                        color = if (wearer != null && wearer.first != pickedUnit)  
+                                            MaterialTheme.colorScheme.error  
+                                        else MaterialTheme.colorScheme.onSurfaceVariant  
                                     )  
                                 }  
-                            } 
+                            }  
                         }  
                     }  
                 }  
