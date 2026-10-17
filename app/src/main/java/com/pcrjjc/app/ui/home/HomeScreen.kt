@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -107,7 +108,8 @@ fun HomeScreen(
     onNavigateToLabyrinth: () -> Unit,  
     onNavigateToExEquip: () -> Unit,  
     onNavigateToSupport: () -> Unit,
-	onNavigateToFriend: () -> Unit
+	onNavigateToFriend: () -> Unit,
+    onNavigateToWhoIs: () -> Unit
 ) {
     val jjcBinds by viewModel.jjcBinds.collectAsState()
     val pjjcBinds by viewModel.pjjcBinds.collectAsState()
@@ -136,7 +138,8 @@ fun HomeScreen(
         FeatureEntry("怎么拆", Icons.Default.ContentCut) { launchArenaBreaker(context) }, 		
         FeatureEntry("EX状态", Icons.Default.Save, onNavigateToExEquip),
 		FeatureEntry("我的支援", Icons.Default.Visibility, onNavigateToSupport),  
-		FeatureEntry("好友申请", Icons.Default.PersonAdd, onNavigateToFriend),  
+		FeatureEntry("好友申请", Icons.Default.PersonAdd, onNavigateToFriend),
+		FeatureEntry("这是谁", Icons.Default.Person, onNavigateToWhoIs),
 		FeatureEntry("账号管理", Icons.Default.ManageAccounts, onNavigateToAccount),  
         FeatureEntry("设置", Icons.Default.Settings, onNavigateToSettings)  
     )

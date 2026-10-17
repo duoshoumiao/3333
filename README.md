@@ -18,6 +18,7 @@ https://github.com/duoshoumiao/priconne
 - 后台定期轮询排名，排名变化时推送 Android 本地通知
 - 查看击剑（排名变动）历史记录
 - 查看详细玩家资料
+- 角色档案查询（这是谁）：按别称 / ID 查询角色头像、别称与档案
 - 支持排名变动通知、排名上升通知、上线提醒
 
 ## 技术栈
@@ -104,11 +105,13 @@ app/src/main/java/com/pcrjjc/app/
 │   ├── eqa/                   # EQA  
 │   ├── room/                  # 房间  
 │   ├── daily/                 # 日常  
+│   ├── whois/                 # 角色档案查询（这是谁）
 │   └── fortnightly/           # 半月刊/活动日历  
 └── util/  
     ├── Platform.kt            # 平台枚举  
     ├── ArenaQueryClient.kt    # 竞技场查询客户端封装  
     ├── CharaRoster.kt         # 角色名单  
+    ├── CharaProfileStore.kt   # 角色别称与档案（这是谁）
     ├── CharaIconUtil.kt       # 角色头像  
     ├── IconStorage.kt         # 图标存储  
     ├── EqaImageCache.kt       # EQA 图片缓存  
