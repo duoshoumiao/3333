@@ -1,32 +1,7 @@
-## \hoshino\modules\priconne\arena_api
-
-[modules\priconne\arena_api\ __init__.py](https://github.com/user-attachments/files/27401715/__init__.py)
-
-## 覆盖清日常文件
-
-[httpserver.py](https://github.com/user-attachments/files/32014016/httpserver.py)
-
-
-[command_relay.py](https://github.com/user-attachments/files/32014036/command_relay.py)
-
-
-
-## 房间插件
-
-[room.py](https://github.com/user-attachments/files/26977086/room.py)
-
-## 打包准备
-在\hoshino\modules\priconne，arena旁边创建arena_api文件夹，内创建__init__.py
-[__init__.py](https://github.com/user-attachments/files/26810816/__init__.py)
-
-## EQA
-
-[__init__.py](https://github.com/user-attachments/files/27157989/__init__.py)
-
-
-[web_api.py](https://github.com/user-attachments/files/27157994/web_api.py)
-
-
+## 需要安装对应的应用，端口设置为8040
+https://github.com/duoshoumiao/pcrjjc2
+https://github.com/duoshoumiao/PPPPPP
+https://github.com/duoshoumiao/priconne
 # 个人库，不建议商用，有问题不要找我。没有自己的bot下载也用不了，高度搭配使用的
 
 # 竞技场查询 Android 应用
