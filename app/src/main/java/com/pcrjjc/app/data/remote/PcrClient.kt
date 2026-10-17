@@ -267,7 +267,19 @@ class PcrClient(
         }  
     }  
   
-    @Suppress("UNCHECKED_CAST")  
+    /**  
+     * 发送好友申请（移植自 PPPPPP tools.py 的 add_friend）  
+     * @param targetViewerId 目标玩家 UID  
+     */  
+    suspend fun sendFriendRequest(targetViewerId: Long) {  
+        callApi(  
+            "/friend/request",  
+            mutableMapOf("target_viewer_id" to targetViewerId),  
+            noerr = false  
+        )  
+    }
+	
+	@Suppress("UNCHECKED_CAST")  
     private fun parseJsonToMap(json: String): Map<String, Any?> {  
         try {  
             val jsonObj = org.json.JSONObject(json)  
