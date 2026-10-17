@@ -452,7 +452,7 @@ class SettingsViewModel @Inject constructor(
                             else {  
                                 val html = resp.body?.string() ?: ""  
                                 // 文件名形如 icon_equipment_500001.webp，EX装备ID为6位  
-                                Regex("""(\d{6})\.webp""").findAll(html)  
+                                Regex("""icon_icon_extra_equip_(\d{7})\.png""").findAll(html)  
                                     .map { it.groupValues[1].toInt() }  
                                     .toSet()  
                             }  

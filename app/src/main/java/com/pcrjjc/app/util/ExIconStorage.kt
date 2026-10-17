@@ -7,7 +7,7 @@ import java.io.File
   
 /**  
  * EX装备图标本地存储  
- * 保存在 app 内部存储: {filesDir}/icons/ex/{exEquipId}.png  
+ * 保存在 app 内部存储: {filesDir}/icons/ex/icon_icon_extra_equip_{exEquipId}.png  
  */  
 object ExIconStorage {  
   
@@ -20,8 +20,8 @@ object ExIconStorage {
     }  
   
     private fun getIconFile(context: Context, exEquipId: Int): File {  
-        return File(getIconDir(context), "$exEquipId.png")  
-    }  
+        return File(getIconDir(context), "icon_icon_extra_equip_${exEquipId}.png")  
+    } 
   
     fun hasIcon(context: Context, exEquipId: Int): Boolean {  
         return getIconFile(context, exEquipId).exists()  

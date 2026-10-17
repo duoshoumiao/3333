@@ -66,7 +66,7 @@ fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {
         model = ImageRequest.Builder(context)  
             .data(  
                 if (localPath != null) File(localPath)  
-                else "https://redive.estertion.win/icon/equipment/${exEquipId}.webp"  
+                else "https://你的下载源/icon_icon_extra_equip_${exEquipId}.png"  
             )  
             .crossfade(true)  
             .build(),  
