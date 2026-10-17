@@ -64,6 +64,7 @@ import com.pcrjjc.app.domain.SupportEngine.SupportData
 import com.pcrjjc.app.domain.SupportEngine.SupportSlot  
 import com.pcrjjc.app.ui.detail.UnitIcon  
 import com.pcrjjc.app.util.ExIconStorage  
+import com.pcrjjc.app.util.ExMeta  
 import java.io.File  
   
 /**  
@@ -437,30 +438,59 @@ private fun EditSupportPanel(
                 else  
                     data?.unitExSlots?.get(pickedUnit)?.first  
   
-                // serial -> (unitId, slotNum) 反查持有者（需 SupportData 提供）  
+                // serial -> (unitId, slotNum) 反查持有者  
                 val wearerMap = if (isCb) data?.cbExWearer else data?.exWearer  
   
+                // ===== 每个槽位：左边槽位名，右边该槽类别匹配的可穿EX =====  
                 (slots ?: emptyList()).forEach { (slotNum, curSerial) ->  
+                    // 该槽位的类别（unit_ex_equipment_slot.slot_category_N）  
+                    val slotCat = ExMeta.slotCategory(pickedUnit, slotNum)  
+  
+                    // 候选：只保留类别匹配的装备（对齐一键穿ex tools.py:1804-1813）  
+                    // meta 数据缺失（slotCat/info 为 null）时不过滤兜底，防止全空  
+                    val candidates = data?.exInventory?.values  
+                        ?.filter { ex ->  
+                            // 会战EX界面排除限制(CD中)装备  
+                            !isCb || ex.serialId !in data.cbExRestriction  
+                        }  
+                        ?.filter { ex ->  
+                            val info = ExMeta.equips[ex.exEquipId]  
+                            slotCat == null || info == null || info.category == slotCat  
+                        }  
+                        ?.sortedWith(  
+                            if (isCb) {  
+                                // 会战EX: 会战专用优先 -> 稀有度 -> 强化pt  
+                                compareByDescending<com.pcrjjc.app.domain.SupportEngine.ExEquipItem> {  
+                                    ExMeta.equips[it.exEquipId]?.clanBattleFlag ?: 0  
+                                }.thenByDescending {  
+                                    ExMeta.equips[it.exEquipId]?.rarity ?: 0  
+                                }.thenByDescending { it.enhancementPt }  
+                            } else {  
+                                // 普通EX: 稀有度 -> 星数 -> ex_id  
+                                compareByDescending<com.pcrjjc.app.domain.SupportEngine.ExEquipItem> {  
+                                    ExMeta.equips[it.exEquipId]?.rarity ?: 0  
+                                }.thenByDescending {  
+                                    ExMeta.starFromPt(it.exEquipId, it.enhancementPt)  
+                                }.thenByDescending { it.exEquipId }  
+                            }  
+                        )  
+                        ?: emptyList()  
+  
                     Row(  
                         modifier = Modifier.fillMaxWidth(),  
                         verticalAlignment = Alignment.CenterVertically  
                     ) {  
                         Text(  
-                            "槽位$slotNum",  
+                            "槽位$slotNum\n类别${slotCat ?: "?"}",  
                             modifier = Modifier.width(56.dp),  
                             style = MaterialTheme.typography.bodySmall  
                         )  
-                        // 候选EX装备列表（会战EX排除受限serial）  
-                        val candidates = data?.exInventory?.values  
-                            ?.filter { !isCb || it.serialId !in data.cbExRestriction }  
-                            ?.sortedByDescending { it.enhancementPt }  
-                            ?: emptyList()  
                         Row(  
                             modifier = Modifier  
                                 .weight(1f)  
                                 .horizontalScroll(rememberScrollState())  
                         ) {  
-                            // "卸" 选项  
+                            // "卸" 选项：serial_id=0 卸下该槽  
                             Column(  
                                 horizontalAlignment = Alignment.CenterHorizontally,  
                                 modifier = Modifier  
@@ -482,18 +512,23 @@ private fun EditSupportPanel(
                                 ) { Text("卸", style = MaterialTheme.typography.labelSmall) }  
                                 Text(  
                                     " ",  
-                                    style = MaterialTheme.typography.labelSmall,  
-                                    color = MaterialTheme.colorScheme.primary  
+                                    style = MaterialTheme.typography.labelSmall  
                                 )  
                             }  
                             if (candidates.isEmpty()) {  
                                 Text(  
-                                    "无可用装备",  
+                                    if (slotCat != null && ExMeta.equips.isNotEmpty())  
+                                        "类别$slotCat 无可穿EX"  
+                                    else "无可用装备",  
                                     style = MaterialTheme.typography.labelSmall,  
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,  
+                                    modifier = Modifier.align(Alignment.CenterVertically)  
                                 )  
                             }  
                             candidates.take(30).forEach { ex ->  
+                                val info = ExMeta.equips[ex.exEquipId]  
+                                // 真实星数：enhancement_pt 反推（对齐 get_ex_equip_star_from_pt）  
+                                val star = ExMeta.starFromPt(ex.exEquipId, ex.enhancementPt)  
                                 val selected =  
                                     (pickedSerials[slotNum] ?: curSerial) == ex.serialId  
                                 val wearer = wearerMap?.get(ex.serialId)  
@@ -510,16 +545,30 @@ private fun EditSupportPanel(
                                             pickedSerials = pickedSerials.toMutableMap()  
                                                 .apply { put(slotNum, ex.serialId) }  
                                         }  
+                                        .border(  
+                                            if (selected) 2.dp else 0.dp,  
+                                            if (selected) MaterialTheme.colorScheme.primary  
+                                            else androidx.compose.ui.graphics.Color.Transparent,  
+                                            RoundedCornerShape(6.dp)  
+                                        )  
                                         .padding(2.dp)  
                                 ) {  
                                     ExEquipIcon(ex.exEquipId, size = 36)  
+                                    // 名字★星数  
                                     Text(  
-                                        "★${ex.rank}+${ex.enhancementPt}",  
+                                        "${info?.name ?: ex.exEquipId}★$star",  
                                         style = MaterialTheme.typography.labelSmall,  
                                         color = if (selected)  
                                             MaterialTheme.colorScheme.primary  
                                         else MaterialTheme.colorScheme.onSurfaceVariant  
                                     )  
+                                    // 属性串：HP+X/物攻+Y（default/max 按星插值）  
+                                    Text(  
+                                        ExMeta.attrStr(ex.exEquipId, star),  
+                                        style = MaterialTheme.typography.labelSmall,  
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                                    )  
+                                    // 持有者：空闲 / 已穿 / 别人名字（标红）  
                                     Text(  
                                         wearerText,  
                                         style = MaterialTheme.typography.labelSmall,  
