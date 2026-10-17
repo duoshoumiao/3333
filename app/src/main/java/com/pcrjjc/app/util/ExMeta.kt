@@ -2,10 +2,12 @@ package com.pcrjjc.app.util
   
 import android.content.Context  
 import org.json.JSONObject  
+import java.math.BigDecimal  
+import java.math.RoundingMode  
   
 /**  
  * EX装备元数据（assets/ex_meta.json，由 PPPPPP _export_ex_meta.py 导出）  
- * 对应 db.unit_ex_equipment_slot + db.ex_equipment_data  
+ * 对应 db.unit_ex_equipment_slot + db.ex_equipment_data + ex_equipment_sub_status(_group)  
  */  
 object ExMeta {  
     data class ExInfo(  
@@ -14,29 +16,43 @@ object ExMeta {
         val attrs: Map<String, Pair<Double, Double>>  // 属性 -> (default, max)  
     )  
   
-    var unitSlots: Map<Int, List<Int>> = emptyMap()      // unitId -> 3槽类别  
-    var starPt: Map<Int, Map<Int, Int>> = emptyMap()     // rarity -> star -> total_point  
+    var unitSlots: Map<Int, List<Int>> = emptyMap()          // unitId -> 3槽类别  
+    var starPt: Map<Int, Map<Int, Int>> = emptyMap()         // rarity -> star -> total_point  
     var equips: Map<Int, ExInfo> = emptyMap()  
+    // group_id -> (status类型 -> 各档位数值 value_1..value_N)  
+    var subStatus: Map<Int, Map<Int, List<Int>>> = emptyMap()  
+    // ex_equipment_id -> group_id  
+    var subStatusGroup: Map<Int, Int> = emptyMap()  
   
+    // 基础属性 key -> 中文名（对应 UnitAttribute 字段，custom.py:17-33）  
     private val ATTR_CH = mapOf(  
         "hp" to "HP", "atk" to "物攻", "magic_str" to "魔攻",  
         "def" to "物防", "magic_def" to "魔防",  
         "physical_critical" to "物理暴击", "magic_critical" to "魔法暴击",  
         "wave_hp_recovery" to "HP自回", "wave_energy_recovery" to "TP自回",  
-        "dodge" to "回避", "physical_penetrate" to "物穿",  
-        "magic_penetrate" to "魔穿", "life_steal" to "HP吸收",  
-        "hp_recovery_rate" to "回复上升", "energy_recovery_rate" to "TP上升",  
+        "dodge" to "回避", "physical_penetrate" to "物理防御贯穿",  
+        "magic_penetrate" to "魔法防御贯穿", "life_steal" to "HP吸收",  
+        "hp_recovery_rate" to "回复量上升", "energy_recovery_rate" to "TP上升",  
         "energy_reduce_rate" to "TP减耗", "accuracy" to "命中"  
     )  
   
-    // 副词条 sub_status 的属性类型编号 -> 中文名  
-    // 对应 PPPPPP db.ex_equipment_sub_status 的属性字段顺序  
-    private val SUB_STATUS_CH = mapOf(  
-        1 to "HP", 2 to "物攻", 3 to "物防", 4 to "魔攻", 5 to "魔防",  
-        6 to "物理暴击", 7 to "魔法暴击", 8 to "回避",  
-        9 to "HP吸收", 10 to "命中", 11 to "HP自回", 12 to "TP自回",  
-        13 to "回复上升", 14 to "TP上升", 15 to "TP减耗",  
-        16 to "物穿", 17 to "魔穿"  
+    // sub_status.status -> (字段名, 中文名)  
+    // status 是 eParamType 枚举值（enums.py:724-742），勿用声明顺序猜  
+    private val SUB_STATUS = mapOf(  
+        1 to ("hp" to "HP"), 2 to ("atk" to "物攻"),  
+        3 to ("def_" to "物防"), 4 to ("magic_str" to "魔攻"), 5 to ("magic_def" to "魔防"),  
+        6 to ("physical_critical" to "物理暴击"), 7 to ("magic_critical" to "魔法暴击"),  
+        8 to ("dodge" to "回避"), 9 to ("life_steal" to "HP吸收"),  
+        10 to ("wave_hp_recovery" to "HP自回"), 11 to ("wave_energy_recovery" to "TP自回"),  
+        12 to ("physical_penetrate" to "物理防御贯穿"), 13 to ("magic_penetrate" to "魔法防御贯穿"),  
+        14 to ("energy_recovery_rate" to "TP上升"), 15 to ("hp_recovery_rate" to "回复量上升"),  
+        16 to ("energy_reduce_rate" to "TP减耗"), 17 to ("accuracy" to "命中")  
+    )  
+  
+    // is_present 表（custom.py:75-93）：这些属性是百分比型，存储值=实际%×100  
+    private val PERCENT_ATTRS = setOf(  
+        "hp", "atk", "magic_str", "def_", "magic_def",  
+        "physical_critical", "magic_critical"  
     )  
   
     @Synchronized  
@@ -77,6 +93,28 @@ object ExMeta {
                 )  
             }  
             equips = eq  
+            // 词条数值表：group_id -> status -> [value_1..]  
+            val ss = mutableMapOf<Int, Map<Int, List<Int>>>()  
+            if (obj.has("sub_status")) {  
+                obj.getJSONObject("sub_status").keys().forEach { gid ->  
+                    val go = obj.getJSONObject("sub_status").getJSONObject(gid)  
+                    val gm = mutableMapOf<Int, List<Int>>()  
+                    go.keys().forEach { st ->  
+                        val arr = go.getJSONArray(st)  
+                        gm[st.toInt()] = List(arr.length()) { arr.getInt(it) }  
+                    }  
+                    ss[gid.toInt()] = gm  
+                }  
+            }  
+            subStatus = ss  
+            // ex_id -> group_id  
+            val sg = mutableMapOf<Int, Int>()  
+            if (obj.has("sub_status_group")) {  
+                obj.getJSONObject("sub_status_group").keys().forEach { k ->  
+                    sg[k.toInt()] = obj.getJSONObject("sub_status_group").getInt(k)  
+                }  
+            }  
+            subStatusGroup = sg  
         } catch (e: Exception) {  
             e.printStackTrace()  
         }  
@@ -92,29 +130,47 @@ object ExMeta {
         return m.filter { it.value <= pt }.keys.maxOrNull() ?: 0  
     }  
   
-    /** 对应 ExEquipmentDatum.get_unit_attribute：min + (max-min)*star/maxStar */  
+    /**  
+     * 对应 ExEquipmentDatum.get_unit_attribute：min + (max-min)*star/maxStar，  
+     * 显示时 ROUND_HALF_UP 取整（对齐 UnitAttribute.round()）  
+     */  
     fun attrStr(exEquipId: Int, star: Int): String {  
         val info = equips[exEquipId] ?: return ""  
         val parts = mutableListOf<String>()  
         for ((k, ch) in ATTR_CH) {  
             val (d, m) = info.attrs[k] ?: continue  
             val v = if (info.maxStar > 0) d + (m - d) * star / info.maxStar else d  
-            if (v != 0.0) parts += "$ch${v.toInt()}"  
+            val r = BigDecimal(v).setScale(0, RoundingMode.HALF_UP).toInt()  
+            if (r != 0) parts += "$ch+$r"  
         }  
         return parts.joinToString("/")  
     }  
   
     /**  
-     * 副词条展示串，对应 PPPPPP db.get_ex_equip_sub_status_str。  
-     * sub_status 每项为 (status=属性类型, step=词条档位)。  
-     * 注：词条实际数值存在 db.ex_equipment_sub_status 的 step_value 表中，  
-     * 当前 ex_meta.json 未导出该表，故显示 属性名+档位（如 "物攻+5"）；  
-     * 后续若要精确数值，需在 _export_ex_meta.py 中导出 sub_status 表再查值。  
+     * 副词条展示串，完整对齐 database.py get_ex_equip_sub_status_str（2117-2132行）：  
+     * - 数值 = sub_status[group][status].value_{step}，不是 step 本身  
+     * - 同类型词条数值先累加  
+     * - 百分比型属性(hp/atk/magic_str/def_/magic_def/双暴)显示 "名xN.NN%"（值/100）  
+     *   其余固定值型显示 "名xN"  
+     * @param subStatus 每项 (status=eParamType值, step=档位)  
      */  
-    fun subStatusStr(subStatus: List<Pair<Int, Int>>): String {  
+    fun subStatusStr(exEquipId: Int, subStatus: List<Pair<Int, Int>>): String {  
         if (subStatus.isEmpty()) return ""  
-        return subStatus.joinToString("/", prefix = " 词条:") { (st, step) ->  
-            "${SUB_STATUS_CH[st] ?: "属性$st"}+$step"  
+        val group = subStatusGroup[exEquipId] ?: return ""  
+        val table = subStatus[group] ?: return ""  
+        // Counter 累加同类型词条（对齐 database.py:2114）  
+        val sums = sortedMapOf<Int, Int>()  
+        for ((st, step) in subStatus) {  
+            val v = table[st]?.getOrNull(step - 1) ?: 0  
+            sums[st] = (sums[st] ?: 0) + v  
+        }  
+        return sums.entries.joinToString("/", prefix = " 词条:") { (st, total) ->  
+            val (field, name) = SUB_STATUS[st] ?: ("?" to "未知属性$st")  
+            if (field in PERCENT_ATTRS) {  
+                "${name}x${total / 100.0}%"   // 对齐 f"{name}x{count:.2f}%"  
+            } else {  
+                "${name}x$total"  
+            }  
         }  
     }  
 }
