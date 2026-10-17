@@ -243,7 +243,7 @@ private fun EditSupportPanel(
     data: SupportData?,  
     editingUnitId: Long,  
     nameMap: Map<Int, List<String>>  
-) {  
+) { 
     var tabIndex by remember { mutableIntStateOf(0) }  
     var pickedUnit by remember { mutableStateOf(editingUnitId) }  
     // 每个槽位选的 serial_id（3个槽）  
@@ -278,34 +278,17 @@ private fun EditSupportPanel(
             } else {  
                 val q = searchQuery.trim()  
                 allUnitIds.filter { uid ->  
-                    // unitId 前4位为 baseId（unit_id/100）  
                     val baseId = (uid / 100).toInt()  
-                    uiStateNameMap[baseId]?.any { it.contains(q, ignoreCase = true) } == true  
-                            || uid.toString().contains(q)  
+                    nameMap[baseId]?.any { n -> n.contains(q, ignoreCase = true) } == true ||  
+                            uid.toString().contains(q)  
                 }  
             }  
             if (searchQuery.isNotBlank() && unitIds.isEmpty()) {  
-                Text("未找到匹配角色", style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)  
-            }
-			
-			// 拥有角色网格（本地缓存头像）  
-            val unitIds = data?.unitExSlots?.keys?.toList() ?: emptyList()  
-            LazyVerticalGrid(  
-                columns = GridCells.Fixed(6),  
-                modifier = Modifier  
-                    .fillMaxWidth()  
-                    .height(220.dp)  
-            ) {  
-                items(unitIds) { uid ->  
-                    UnitIcon(  
-                        unitId = uid.toInt(),  
-                        size = 48.dp,  
-                        modifier = Modifier  
-                            .padding(2.dp)  
-                            .clickable { pickedUnit = uid }  
-                    )  
-                }  
+                Text(  
+                    "未找到匹配角色",  
+                    style = MaterialTheme.typography.bodySmall,  
+                    color = MaterialTheme.colorScheme.onSurfaceVariant  
+                )  
             }  
   
             if (pickedUnit != 0L) {  

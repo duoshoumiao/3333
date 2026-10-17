@@ -17,9 +17,10 @@ class SupportEngine {
     companion object {  
         private const val TAG = "SupportEngine"  
   
-        // 对应 PPPPPP eClanSupportMemberType：地下城=3/4，会战=1/2（若实测不符按返回的 position 值调整）  
-        val DUNGEON_POSITIONS = setOf(3, 4)  
-        val CB_POSITIONS = setOf(1, 2)  
+        // 对应 PPPPPP tools.py:1199-1200：  
+        // 地下城=clan_support_units中position 1/2，会战=3/4（eClanSupportMemberType）  
+        val DUNGEON_POSITIONS = setOf(1, 2)  
+        val CB_POSITIONS = setOf(3, 4)  
         val FRIEND_POSITIONS = setOf(1, 2)  
     }  
   
@@ -138,14 +139,15 @@ class SupportEngine {
         client: PcrClient,  
         supportType: Int,   // 1=公会支援(地下城/会战), 2=好友支援  
         position: Int,  
-        unitId: Long  
-    ) {  
+        unitId: Long,  
+        action: Int = 1  
+    ) {
         client.callApi(  
             "/support_unit/change_setting",  
             mutableMapOf(  
                 "support_type" to supportType,  
                 "position" to position,  
-                "action" to 2,  
+                "action" to action,   // 1=挂上支援，2=撤下支援  
                 "unit_id" to unitId  
             )  
         )  
