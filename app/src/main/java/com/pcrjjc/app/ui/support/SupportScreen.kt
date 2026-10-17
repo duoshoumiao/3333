@@ -117,7 +117,7 @@ fun SupportScreen(
                     FilterChip(  
                         selected = uiState.selectedAccount?.id == acc.id,  
                         onClick = { viewModel.selectAccount(acc) },  
-                        label = { Text(acc.name ?: "账号${acc.id}") }  
+                        label = { Text(acc.account) }  
                     )  
                 }  
             }  
