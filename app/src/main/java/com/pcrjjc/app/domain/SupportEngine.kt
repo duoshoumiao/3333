@@ -8,8 +8,8 @@ import com.pcrjjc.app.data.remote.PcrClient
  *  
  * - loadSupport: 调 /support_unit/get_setting 拿 clan_support_units(地下城+会战) 与  
  *   friend_support_units(好友)，再调 /load/index 拿每个角色的 ex_equip_slot /  
- *   cb_ex_equip_slot 和 ex_equips 背包(serial_id -> 装备详情)  
- * - changeSupport: 调 /support_unit/change_setting 更换挂载角色  
+ *   cb_ex_equip_slot 和 user_ex_equip 背包(serial_id -> 装备详情)  
+ * - changeSupport: 调 /support_unit/change_setting 更换挂载角色（action 1=挂上 2=撤下）  
  * - equipEx: 调 /unit/equip_ex 穿/卸普通EX或会战EX（复用 ExEquipEngine 的请求格式）  
  */  
 class SupportEngine {  
@@ -33,7 +33,7 @@ class SupportEngine {
   
     data class SupportSlot(  
         val position: Int,  
-        val unitId: Long,  
+        val unitId: Long,          // 0 = 空支援位  
         val supportStartTime: Long = 0L,  
         // 普通EX槽 / 会战EX槽: slot号 -> serial_id  
         val exSlots: List<Pair<Int, Long>> = emptyList(),  
@@ -54,31 +54,39 @@ class SupportEngine {
   
     // ---------- 读取 ----------  
     suspend fun loadSupport(client: PcrClient): SupportData {  
-        // ⚠ 端点路径需与 PPPPPP pcrclient.py 中 support_unit_get_setting 的  
-        //    实际 path 一致（一般为 /support_unit/get_setting，对照 requests.py 核实）  
         val setting = client.callApi("/support_unit/get_setting", mutableMapOf())  
         val loadIndex = client.callApi("/load/index", mutableMapOf("carrier" to "OPPO"))  
   
-        // 1. 解析支援位  
+        // 1. 解析支援位（保留 unit_id=0 的空槽，否则空位无法点击进入更换）  
         fun parseSupports(key: String): List<SupportSlot> {  
             val list = setting[key] as? List<Map<String, Any?>> ?: return emptyList()  
             return list.mapNotNull { s ->  
-                val unitId = (s["unit_id"] as? Number)?.toLong() ?: 0L  
                 val position = (s["position"] as? Number)?.toInt() ?: return@mapNotNull null  
-                if (unitId == 0L) return@mapNotNull null  
                 SupportSlot(  
                     position = position,  
-                    unitId = unitId,  
+                    unitId = (s["unit_id"] as? Number)?.toLong() ?: 0L,  
                     supportStartTime = (s["support_start_time"] as? Number)?.toLong() ?: 0L  
                 )  
             }  
         }  
   
+        // 补齐空支援位：服务器可能不返回 unit_id=0 的条目，强制每个 position 都有槽  
+        fun fillMissing(parsed: List<SupportSlot>, positions: Set<Int>): List<SupportSlot> {  
+            val existing = parsed.associateBy { it.position }.toMutableMap()  
+            positions.forEach { p ->  
+                existing.putIfAbsent(p, SupportSlot(position = p, unitId = 0L))  
+            }  
+            return existing.values.sortedBy { it.position }  
+        }  
+  
         val clanUnits = parseSupports("clan_support_units")  
-        val dungeon = clanUnits.filter { it.position in DUNGEON_POSITIONS }  
-        val clanBattle = clanUnits.filter { it.position in CB_POSITIONS }  
-        val friend = parseSupports("friend_support_units")  
-            .filter { it.position in FRIEND_POSITIONS }  
+        val dungeon = fillMissing(  
+            clanUnits.filter { it.position in DUNGEON_POSITIONS }, DUNGEON_POSITIONS)  
+        val clanBattle = fillMissing(  
+            clanUnits.filter { it.position in CB_POSITIONS }, CB_POSITIONS)  
+        val friend = fillMissing(  
+            parseSupports("friend_support_units").filter { it.position in FRIEND_POSITIONS },  
+            FRIEND_POSITIONS)  
   
         // 2. 解析 unit_list 的 ex_equip_slot / cb_ex_equip_slot  
         val unitList = loadIndex["unit_list"] as? List<Map<String, Any?>> ?: emptyList()  
@@ -94,7 +102,7 @@ class SupportEngine {
         }  
   
         // 3. EX背包 serial_id -> 详情  
-        // ⚠ /load/index 里字段名是 user_ex_equip，不是 ex_equips  
+        // /load/index 里字段名是 user_ex_equip，不是 ex_equips  
         val exInventory = HashMap<Long, ExEquipItem>()  
         val exList = (loadIndex["user_ex_equip"] as? List<Map<String, Any?>>) ?: emptyList()  
         for (ex in exList) {  
@@ -133,15 +141,15 @@ class SupportEngine {
     }  
   
     // ---------- 更换支援角色 ----------  
-    // ⚠ 参数格式对照 PPPPPP requests.py 的 SupportUnitChangeSettingRequest 核实  
-    //    原版调用: support_unit_change_setting(support_type=1, position, change_type=2, unit_id)  
+    // 对照 PPPPPP requests.py SupportUnitChangeSettingRequest：字段为 action  
+    // action: 1=挂上支援, 2=撤下支援  
     suspend fun changeSupport(  
         client: PcrClient,  
         supportType: Int,   // 1=公会支援(地下城/会战), 2=好友支援  
         position: Int,  
         unitId: Long,  
         action: Int = 1  
-    ) {
+    ) {  
         client.callApi(  
             "/support_unit/change_setting",  
             mutableMapOf(  

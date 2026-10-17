@@ -1,8 +1,10 @@
 package com.pcrjjc.app.ui.support  
   
+import androidx.compose.foundation.border  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.horizontalScroll  
 import androidx.compose.foundation.layout.Arrangement  
+import androidx.compose.foundation.layout.Box  
 import androidx.compose.foundation.layout.Column  
 import androidx.compose.foundation.layout.Row  
 import androidx.compose.foundation.layout.Spacer  
@@ -20,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape  
 import androidx.compose.material.icons.Icons  
 import androidx.compose.material.icons.automirrored.filled.ArrowBack  
+import androidx.compose.material.icons.filled.Search  
 import androidx.compose.material3.Button  
 import androidx.compose.material3.Card  
 import androidx.compose.material3.CardDefaults  
@@ -30,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton  
 import androidx.compose.material3.MaterialTheme  
 import androidx.compose.material3.OutlinedButton  
+import androidx.compose.material3.OutlinedTextField  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Tab  
 import androidx.compose.material3.TabRow  
@@ -56,8 +60,6 @@ import com.pcrjjc.app.domain.SupportEngine.SupportSlot
 import com.pcrjjc.app.ui.detail.UnitIcon  
 import com.pcrjjc.app.util.ExIconStorage  
 import java.io.File  
-import androidx.compose.material3.OutlinedTextField  
-import androidx.compose.material.icons.filled.Search
   
 /** EX装备图标：优先本地缓存，无缓存回退网络URL */  
 @Composable  
@@ -206,19 +208,41 @@ private fun SupportGroup(
             }  
             slots.forEach { slot ->  
                 Row(verticalAlignment = Alignment.CenterVertically) {  
-                    // 头像来自本地缓存（UnitIcon 内部走 IconStorage）  
-                    UnitIcon(  
-                        unitId = slot.unitId.toInt(),  
-                        size = 56.dp,  
-                        modifier = Modifier.clickable { onIconClick(slot) }  
-                    )  
+                    if (slot.unitId == 0L) {  
+                        // 空支援位：占位框，点击进入更换模式  
+                        Box(  
+                            modifier = Modifier  
+                                .size(56.dp)  
+                                .clip(RoundedCornerShape(6.dp))  
+                                .border(  
+                                    1.dp,  
+                                    MaterialTheme.colorScheme.outline,  
+                                    RoundedCornerShape(6.dp)  
+                                )  
+                                .clickable { onIconClick(slot) },  
+                            contentAlignment = Alignment.Center  
+                        ) {  
+                            Text("+", style = MaterialTheme.typography.titleMedium,  
+                                color = MaterialTheme.colorScheme.outline)  
+                        }  
+                    } else {  
+                        // 头像来自本地缓存（UnitIcon 内部走 IconStorage）  
+                        UnitIcon(  
+                            unitId = slot.unitId.toInt(),  
+                            size = 56.dp,  
+                            modifier = Modifier.clickable { onIconClick(slot) }  
+                        )  
+                    }  
                     Spacer(modifier = Modifier.width(12.dp))  
                     // 该角色穿戴的EX装备（会战位显示会战EX，其余显示普通EX）  
                     val exSlots = if (isCb) slot.cbExSlots else slot.exSlots  
                     val worn = exSlots.mapNotNull { (_, serial) ->  
                         data.exInventory[serial]  
                     }  
-                    if (worn.isEmpty()) {  
+                    if (slot.unitId == 0L) {  
+                        Text("未设置支援", style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                    } else if (worn.isEmpty()) {  
                         Text("无EX装备", style = MaterialTheme.typography.bodySmall,  
                             color = MaterialTheme.colorScheme.onSurfaceVariant)  
                     } else {  
@@ -243,7 +267,7 @@ private fun EditSupportPanel(
     data: SupportData?,  
     editingUnitId: Long,  
     nameMap: Map<Int, List<String>>  
-) { 
+) {  
     var tabIndex by remember { mutableIntStateOf(0) }  
     var pickedUnit by remember { mutableStateOf(editingUnitId) }  
     // 每个槽位选的 serial_id（3个槽）  
@@ -291,10 +315,44 @@ private fun EditSupportPanel(
                 )  
             }  
   
+            LazyVerticalGrid(  
+                columns = GridCells.Fixed(6),  
+                modifier = Modifier  
+                    .fillMaxWidth()  
+                    .height(220.dp)  
+            ) {  
+                items(unitIds) { uid ->  
+                    val isPicked = pickedUnit == uid  
+                    Box(  
+                        modifier = Modifier  
+                            .padding(2.dp)  
+                            .clip(RoundedCornerShape(6.dp))  
+                            .then(  
+                                if (isPicked) Modifier.border(  
+                                    2.dp,  
+                                    MaterialTheme.colorScheme.primary,  
+                                    RoundedCornerShape(6.dp)  
+                                ) else Modifier  
+                            )  
+                            .clickable { pickedUnit = uid },  
+                        contentAlignment = Alignment.Center  
+                    ) {  
+                        UnitIcon(  
+                            unitId = uid.toInt(),  
+                            size = 48.dp  
+                        )  
+                    }  
+                }  
+            }  
+  
             if (pickedUnit != 0L) {  
                 Spacer(modifier = Modifier.height(8.dp))  
-                Text("已选角色: $pickedUnit",  
-                    style = MaterialTheme.typography.bodySmall)  
+                val pickedNames = nameMap[(pickedUnit / 100).toInt()]  
+                    ?.firstOrNull() ?: ""  
+                Text(  
+                    "已选角色: $pickedNames ($pickedUnit)",  
+                    style = MaterialTheme.typography.bodySmall  
+                )  
   
                 // 普通EX / 会战EX 两个穿戴界面  
                 TabRow(selectedTabIndex = tabIndex) {  
@@ -327,6 +385,34 @@ private fun EditSupportPanel(
                                 .weight(1f)  
                                 .horizontalScroll(rememberScrollState())  
                         ) {  
+                            // 卸除选项  
+                            Column(  
+                                horizontalAlignment = Alignment.CenterHorizontally,  
+                                modifier = Modifier  
+                                    .clickable {  
+                                        pickedSerials = pickedSerials.toMutableMap()  
+                                            .apply { put(slotNum, 0L) }  
+                                    }  
+                                    .padding(2.dp)  
+                            ) {  
+                                Box(  
+                                    modifier = Modifier  
+                                        .size(36.dp)  
+                                        .border(  
+                                            1.dp,  
+                                            MaterialTheme.colorScheme.outline,  
+                                            RoundedCornerShape(6.dp)  
+                                        ),  
+                                    contentAlignment = Alignment.Center  
+                                ) {  
+                                    Text("卸", style = MaterialTheme.typography.labelSmall)  
+                                }  
+                                Text(  
+                                    if ((pickedSerials[slotNum] ?: curSerial) == 0L) "●" else " ",  
+                                    style = MaterialTheme.typography.labelSmall,  
+                                    color = MaterialTheme.colorScheme.primary  
+                                )  
+                            }  
                             candidates.take(30).forEach { ex ->  
                                 val selected =  
                                     (pickedSerials[slotNum] ?: curSerial) == ex.serialId  
