@@ -269,7 +269,7 @@ class PcrClient(
   
     /**  
      * 发送好友申请（移植自 PPPPPP tools.py 的 add_friend）  
-     * @param targetViewerId 目标玩家 UID  
+     * 使用当前已登录账号向 targetViewerId 发送好友请求  
      */  
     suspend fun sendFriendRequest(targetViewerId: Long) {  
         callApi(  

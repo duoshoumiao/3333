@@ -158,7 +158,6 @@ class TwPcrClient(
             noerr = false  
         )  
     }
-	
 	suspend fun login() {  
         callApi("/check/check_agreement", mutableMapOf())  
         callApi("/check/game_start", mutableMapOf())  

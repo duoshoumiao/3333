@@ -62,9 +62,7 @@ data class DetailUiState(
     val grandArenaDefenseUnits: List<Map<String, Any?>> = emptyList(),  
     // 状态  
     val isLoading: Boolean = false,  
-    val errorMessage: String? = null,  
-    // 添加好友结果提示  
-    val friendRequestMessage: String? = null
+    val errorMessage: String? = null  
 )  
   
 @HiltViewModel  
@@ -77,9 +75,7 @@ class DetailViewModel @Inject constructor(
   
     private val bindId: Int = savedStateHandle["bindId"] ?: 0  
     private val _uiState = MutableStateFlow(DetailUiState())  
-    val uiState: StateFlow<DetailUiState> = _uiState 
-    // 保存查询时登录的游戏客户端，用于发送好友申请  
-    private var loggedClient: Any? = null	
+    val uiState: StateFlow<DetailUiState> = _uiState  
   
     init {  
         loadDetail()  
@@ -130,8 +126,7 @@ class DetailViewModel @Inject constructor(
                             pcrClient  
                         }  
                     }  
-                    loggedClient = client
-					val result = queryEngine.queryProfile(client, bind)  
+                    val result = queryEngine.queryProfile(client, bind)  
                     info = result?.userInfo  
                     fullRes = result?.fullResponse ?: emptyMap()  
                 }  
@@ -219,43 +214,7 @@ class DetailViewModel @Inject constructor(
         }  
     }  
   
-    /**  
-     * 向指定玩家 UID 发送好友申请  
-     */  
-    fun addFriend(targetUid: String) {  
-        val uid = targetUid.trim()  
-        val uidLong = uid.toLongOrNull()  
-        if (uid.isEmpty() || !uid.all { it.isDigit() } || uidLong == null || uidLong <= 0L) {  
-            _uiState.value = _uiState.value.copy(friendRequestMessage = "请输入正确的玩家UID")  
-            return  
-        }  
-        val client = loggedClient  
-        if (client == null) {  
-            _uiState.value = _uiState.value.copy(friendRequestMessage = "无可用查询账号，无法发送好友申请")  
-            return  
-        }  
-        viewModelScope.launch(Dispatchers.IO) {  
-            try {  
-                when (client) {  
-                    is PcrClient -> client.sendFriendRequest(uidLong)  
-                    is TwPcrClient -> client.sendFriendRequest(uidLong)  
-                }  
-                _uiState.value = _uiState.value.copy(friendRequestMessage = "已成功发送好友申请")  
-            } catch (e: Exception) {  
-                val msg = e.message ?: ""  
-                _uiState.value = _uiState.value.copy(  
-                    friendRequestMessage = when {  
-                        msg.contains("已经") || msg.contains("既に") -> "已经是你的好友"  
-                        msg.contains("申请") || msg.contains("pending", true) -> "已发送过申请，请等待对方处理"  
-                        msg.contains("上限") || msg.contains("limit", true) -> "好友数量已达上限"  
-                        else -> "发送好友申请失败: $msg"  
-                    }  
-                )  
-            }  
-        }  
-    }
-	
-	fun retry() {  
+    fun retry() {  
         loadDetail()  
     }  
 }

@@ -23,6 +23,7 @@ import com.pcrjjc.app.ui.eqa.EqaScreen
 import com.pcrjjc.app.ui.labyrinth.LabyrinthScreen
 import com.pcrjjc.app.ui.exequip.ExEquipScreen
 import com.pcrjjc.app.ui.support.SupportScreen
+import com.pcrjjc.app.ui.friend.FriendScreen
   
 sealed class Screen(val route: String) {      
     data object Home : Screen("home")      
@@ -47,6 +48,7 @@ sealed class Screen(val route: String) {
 	data object Labyrinth : Screen("labyrinth")
 	data object ExEquip : Screen("ex_equip")
 	data object Support : Screen("support")
+	data object Friend : Screen("friend")
 	data object TopBarBgCrop : Screen("topbar_crop/{uri}") {  
         fun createRoute(uri: String) =  
             "topbar_crop/${java.net.URLEncoder.encode(uri, "UTF-8")}"  
@@ -82,7 +84,8 @@ fun PcrJjcNavHost() {
                 onNavigateToEqa = { navController.navigate(Screen.Eqa.route) },  
                 onNavigateToLabyrinth = { navController.navigate(Screen.Labyrinth.route) },  
                 onNavigateToExEquip = { navController.navigate(Screen.ExEquip.route) },  
-                onNavigateToSupport = { navController.navigate(Screen.Support.route) }
+                onNavigateToSupport = { navController.navigate(Screen.Support.route) },  
+                onNavigateToFriend = { navController.navigate(Screen.Friend.route) }
             )  
         }  
   
@@ -196,6 +199,10 @@ fun PcrJjcNavHost() {
 		// 我的支援路由  
         composable(Screen.Support.route) {  
             SupportScreen(onNavigateBack = { navController.popBackStack() })  
+        }
+		// 好友申请路由  
+        composable(Screen.Friend.route) {  
+            FriendScreen(onNavigateBack = { navController.popBackStack() })  
         }
 		// 顶栏背景裁剪路由  
         composable(  

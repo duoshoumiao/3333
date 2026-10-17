@@ -27,10 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme  
 import androidx.compose.material3.Scaffold  
 import androidx.compose.material3.Text  
-import androidx.compose.material3.OutlinedTextField  
-import androidx.compose.runtime.mutableStateOf  
-import androidx.compose.runtime.remember  
-import androidx.compose.runtime.setValue
 import androidx.compose.material3.TopAppBar  
 import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.collectAsState  
@@ -128,7 +124,7 @@ fun DetailScreen(
                 }  
             }  
             else -> {  
-                DetailContent(uiState, viewModel)
+                DetailContent(uiState)  
             }  
         }  
     }  
@@ -137,7 +133,7 @@ fun DetailScreen(
 // ==================== 内容布局 ====================  
   
 @Composable  
-private fun DetailContent(uiState: DetailUiState, viewModel: DetailViewModel) {
+private fun DetailContent(uiState: DetailUiState) {  
     Column(  
         modifier = Modifier  
             .fillMaxSize()  
@@ -145,7 +141,7 @@ private fun DetailContent(uiState: DetailUiState, viewModel: DetailViewModel) {
             .verticalScroll(rememberScrollState()),  
         verticalArrangement = Arrangement.spacedBy(16.dp)  
     ) {  
-        PersonalInfoCard(uiState, viewModel)  
+        PersonalInfoCard(uiState)  
         ArenaInfoRow(uiState)  
         FavoriteUnitCard(uiState)  
         AdventureCard(uiState)  
@@ -158,7 +154,7 @@ private fun DetailContent(uiState: DetailUiState, viewModel: DetailViewModel) {
 // ==================== 个人信息卡片 ====================  
   
 @Composable  
-private fun PersonalInfoCard(uiState: DetailUiState, viewModel: DetailViewModel) { 
+private fun PersonalInfoCard(uiState: DetailUiState) {  
     Card(  
         modifier = Modifier.fillMaxWidth(),  
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)  
@@ -191,32 +187,7 @@ Column(modifier = Modifier.padding(16.dp)) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant  
                 )  
                 Text(text = uiState.userComment, style = MaterialTheme.typography.bodyMedium)  
-            } 
-            // 添加好友（移植自 PPPPPP #添加好友 命令）  
-            Spacer(modifier = Modifier.height(8.dp))  
-            HorizontalDivider()  
-            Spacer(modifier = Modifier.height(8.dp))  
-            var inputUid by remember { mutableStateOf(uiState.viewerId) }  
-            OutlinedTextField(  
-                value = inputUid,  
-                onValueChange = { inputUid = it },  
-                label = { Text("玩家UID") },  
-                singleLine = true,  
-                modifier = Modifier.fillMaxWidth()  
-            )  
-            Spacer(modifier = Modifier.height(8.dp))  
-            Button(  
-                onClick = { viewModel.addFriend(inputUid) },  
-                modifier = Modifier.fillMaxWidth()  
-            ) { Text("发送好友申请") }  
-            uiState.friendRequestMessage?.let { msg ->  
-                Spacer(modifier = Modifier.height(4.dp))  
-                Text(  
-                    text = msg,  
-                    style = MaterialTheme.typography.bodySmall,  
-                    color = MaterialTheme.colorScheme.primary  
-                )  
-            }			
+            }  
         }  
     }  
 }  
