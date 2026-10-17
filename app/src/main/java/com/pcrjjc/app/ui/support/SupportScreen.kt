@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.support  
   
+import android.util.Log  
+import androidx.compose.foundation.background  
 import androidx.compose.foundation.border  
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.horizontalScroll  
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize  
 import androidx.compose.foundation.layout.fillMaxWidth  
 import androidx.compose.foundation.layout.height  
+import androidx.compose.foundation.layout.heightIn  
 import androidx.compose.foundation.layout.padding  
 import androidx.compose.foundation.layout.size  
 import androidx.compose.foundation.layout.width  
@@ -54,6 +57,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp  
 import androidx.hilt.navigation.compose.hiltViewModel  
 import coil.compose.AsyncImage  
+import coil.compose.SubcomposeAsyncImage  
+import coil.request.CachePolicy  
 import coil.request.ImageRequest  
 import com.pcrjjc.app.domain.SupportEngine.SupportData  
 import com.pcrjjc.app.domain.SupportEngine.SupportSlot  
@@ -61,27 +66,74 @@ import com.pcrjjc.app.ui.detail.UnitIcon
 import com.pcrjjc.app.util.ExIconStorage  
 import java.io.File  
   
-/** EX装备图标：优先本地缓存，无缓存回退网络URL */  
+private const val TAG = "SupportScreen"  
+  
+/**  
+ * EX装备图标，三级回退：  
+ * 1. 本地下载缓存 {filesDir}/icons/ex/icon_icon_extra_equip_{id}.png  
+ * 2. APK 内置资源 file:///android_asset/ex_icons/icon_icon_extra_equip_{id}.png  
+ * 3. 都没有 → 显示 "?" 占位（加载失败不再空白，方便区分"无装备"与"图没加载"）  
+ */  
 @Composable  
 fun ExEquipIcon(exEquipId: Int, modifier: Modifier = Modifier, size: Int = 40) {  
     val context = LocalContext.current  
     val localPath = ExIconStorage.getIconPath(context, exEquipId)  
-    android.util.Log.d("ExIcon", "ex=$exEquipId localPath=$localPath")  
-    AsyncImage(  
+    val assetUri = "file:///android_asset/ex_icons/icon_icon_extra_equip_${exEquipId}.png"  
+  
+    SubcomposeAsyncImage(  
         model = ImageRequest.Builder(context)  
-            .data(if (localPath != null) File(localPath) else null)  
+            .data(if (localPath != null) File(localPath) else assetUri)  
             .crossfade(true)  
+            .diskCachePolicy(CachePolicy.ENABLED)  
+            .memoryCachePolicy(CachePolicy.ENABLED)  
             .listener(  
                 onError = { _, r ->  
-                    android.util.Log.w("ExIcon", "load fail ex=$exEquipId ${r.throwable}")  
+                    Log.w(TAG, "ExIcon load fail ex=$exEquipId local=$localPath err=${r.throwable}")  
                 }  
             )  
             .build(),  
         contentDescription = "EX装备 $exEquipId",  
-        modifier = modifier.size(size.dp).clip(RoundedCornerShape(6.dp)),  
-        contentScale = ContentScale.Crop  
+        modifier = modifier  
+            .size(size.dp)  
+            .clip(RoundedCornerShape(6.dp)),  
+        contentScale = ContentScale.Crop,  
+        loading = {  
+            Box(  
+                modifier = Modifier  
+                    .size(size.dp)  
+                    .clip(RoundedCornerShape(6.dp))  
+                    .background(MaterialTheme.colorScheme.surfaceVariant)  
+            )  
+        },  
+        error = {  
+            if (localPath != null) {  
+                // 本地文件损坏时再用 assets 兜底一次  
+                AsyncImage(  
+                    model = ImageRequest.Builder(context)  
+                        .data(assetUri)  
+                        .crossfade(true)  
+                        .build(),  
+                    contentDescription = "EX装备 $exEquipId",  
+                    modifier = Modifier  
+                        .size(size.dp)  
+                        .clip(RoundedCornerShape(6.dp)),  
+                    contentScale = ContentScale.Crop  
+                )  
+            } else {  
+                Box(  
+                    modifier = Modifier  
+                        .size(size.dp)  
+                        .clip(RoundedCornerShape(6.dp))  
+                        .background(MaterialTheme.colorScheme.surfaceVariant),  
+                    contentAlignment = Alignment.Center  
+                ) {  
+                    Text("?", style = MaterialTheme.typography.labelSmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                }  
+            }  
+        }  
     )  
-}
+}  
   
 @OptIn(ExperimentalMaterial3Api::class)  
 @Composable  
@@ -161,6 +213,7 @@ fun SupportScreen(
                     slots = data.dungeon,  
                     data = data,  
                     isCb = false,  
+                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(1, slot.position, slot.unitId)  
                     }  
@@ -170,6 +223,7 @@ fun SupportScreen(
                     slots = data.clanBattle,  
                     data = data,  
                     isCb = true,  
+                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(1, slot.position, slot.unitId)  
                     }  
@@ -179,6 +233,7 @@ fun SupportScreen(
                     slots = data.friend,  
                     data = data,  
                     isCb = false,  
+                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(2, slot.position, slot.unitId)  
                     }  
@@ -194,6 +249,7 @@ private fun SupportGroup(
     slots: List<SupportSlot>,  
     data: SupportData,  
     isCb: Boolean,  
+    nameMap: Map<Int, List<String>>,  
     onIconClick: (SupportSlot) -> Unit  
 ) {  
     Card(  
@@ -214,11 +270,11 @@ private fun SupportGroup(
                         Box(  
                             modifier = Modifier  
                                 .size(56.dp)  
-                                .clip(RoundedCornerShape(6.dp))  
+                                .clip(RoundedCornerShape(8.dp))  
                                 .border(  
                                     1.dp,  
                                     MaterialTheme.colorScheme.outline,  
-                                    RoundedCornerShape(6.dp)  
+                                    RoundedCornerShape(8.dp)  
                                 )  
                                 .clickable { onIconClick(slot) },  
                             contentAlignment = Alignment.Center  
@@ -227,12 +283,21 @@ private fun SupportGroup(
                                 color = MaterialTheme.colorScheme.outline)  
                         }  
                     } else {  
-                        // 头像来自本地缓存（UnitIcon 内部走 IconStorage）  
-                        UnitIcon(  
-                            unitId = slot.unitId.toInt(),  
-                            size = 56.dp,  
-                            modifier = Modifier.clickable { onIconClick(slot) }  
-                        )  
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {  
+                            // 头像来自本地缓存（UnitIcon 内部走 IconStorage）  
+                            UnitIcon(  
+                                unitId = slot.unitId.toInt(),  
+                                size = 56.dp,  
+                                modifier = Modifier.clickable { onIconClick(slot) }  
+                            )  
+                            // 花名册名字（第一个别名，即台服官译简体）  
+                            val charaName = nameMap[(slot.unitId / 100).toInt()]  
+                                ?.firstOrNull() ?: ""  
+                            if (charaName.isNotEmpty()) {  
+                                Text(charaName, style = MaterialTheme.typography.labelSmall,  
+                                    maxLines = 1)  
+                            }  
+                        }  
                     }  
                     Spacer(modifier = Modifier.width(12.dp))  
                     // 该角色穿戴的EX装备（会战位显示会战EX，其余显示普通EX）  
@@ -240,19 +305,19 @@ private fun SupportGroup(
                     val worn = exSlots.mapNotNull { (_, serial) ->  
                         data.exInventory[serial]  
                     }  
-                    if (slot.unitId == 0L) {  
-                        Text("未设置支援", style = MaterialTheme.typography.bodySmall,  
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)  
-                    } else if (worn.isEmpty()) {  
-                        Text("无EX装备", style = MaterialTheme.typography.bodySmall,  
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)  
-                    } else {  
-                        worn.forEach { ex ->  
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {  
-                                ExEquipIcon(ex.exEquipId, size = 40)  
-                                Text("★${ex.rank}", style = MaterialTheme.typography.labelSmall)  
+                    if (slot.unitId != 0L) {  
+                        if (worn.isEmpty()) {  
+                            Text("无EX装备", style = MaterialTheme.typography.bodySmall,  
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)  
+                        } else {  
+                            worn.forEach { ex ->  
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {  
+                                    ExEquipIcon(ex.exEquipId, size = 40)  
+                                    Text("★${ex.rank}",  
+                                        style = MaterialTheme.typography.labelSmall)  
+                                }  
+                                Spacer(modifier = Modifier.width(8.dp))  
                             }  
-                            Spacer(modifier = Modifier.width(8.dp))  
                         }  
                     }  
                 }  
@@ -271,7 +336,7 @@ private fun EditSupportPanel(
 ) {  
     var tabIndex by remember { mutableIntStateOf(0) }  
     var pickedUnit by remember { mutableStateOf(editingUnitId) }  
-    // 每个槽位选的 serial_id（3个槽）  
+    // 每个槽位选的 serial_id（slot号 -> serial_id，0=卸除）  
     var pickedSerials by remember {  
         mutableStateOf(mutableMapOf<Int, Long>())  
     }  
@@ -316,42 +381,52 @@ private fun EditSupportPanel(
                 )  
             }  
   
+            // ===== 角色选择网格 =====  
             LazyVerticalGrid(  
-                columns = GridCells.Fixed(6),  
+                columns = GridCells.Adaptive(minSize = 56.dp),  
                 modifier = Modifier  
                     .fillMaxWidth()  
-                    .height(220.dp)  
+                    .heightIn(max = 300.dp),  
+                horizontalArrangement = Arrangement.spacedBy(4.dp),  
+                verticalArrangement = Arrangement.spacedBy(4.dp)  
             ) {  
                 items(unitIds) { uid ->  
-                    val isPicked = pickedUnit == uid  
-                    Box(  
+                    val selected = pickedUnit == uid  
+                    Column(  
+                        horizontalAlignment = Alignment.CenterHorizontally,  
                         modifier = Modifier  
-                            .padding(2.dp)  
                             .clip(RoundedCornerShape(6.dp))  
                             .then(  
-                                if (isPicked) Modifier.border(  
+                                if (selected) Modifier.border(  
                                     2.dp,  
                                     MaterialTheme.colorScheme.primary,  
                                     RoundedCornerShape(6.dp)  
                                 ) else Modifier  
                             )  
-                            .clickable { pickedUnit = uid },  
-                        contentAlignment = Alignment.Center  
+                            .clickable {  
+                                pickedUnit = uid  
+                                pickedSerials = mutableMapOf()  
+                            }  
+                            .padding(2.dp)  
                     ) {  
-                        UnitIcon(  
-                            unitId = uid.toInt(),  
-                            size = 48.dp  
-                        )  
+                        UnitIcon(unitId = uid.toInt(), size = 48.dp)  
+                        val charaName = nameMap[(uid / 100).toInt()]?.firstOrNull() ?: ""  
+                        if (charaName.isNotEmpty()) {  
+                            Text(  
+                                charaName,  
+                                style = MaterialTheme.typography.labelSmall,  
+                                maxLines = 1  
+                            )  
+                        }  
                     }  
                 }  
             }  
   
             if (pickedUnit != 0L) {  
                 Spacer(modifier = Modifier.height(8.dp))  
-                val pickedNames = nameMap[(pickedUnit / 100).toInt()]  
-                    ?.firstOrNull() ?: ""  
+                val pickedName = nameMap[(pickedUnit / 100).toInt()]?.firstOrNull() ?: ""  
                 Text(  
-                    "已选角色: $pickedNames ($pickedUnit)",  
+                    "已选角色: ${if (pickedName.isNotEmpty()) "$pickedName ($pickedUnit)" else pickedUnit.toString()}",  
                     style = MaterialTheme.typography.bodySmall  
                 )  
   
