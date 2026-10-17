@@ -67,15 +67,13 @@ class SupportViewModel @Inject constructor(
             // 加载花名册名字映射（用于角色搜索）：缓存为空则强制拉取  
             try {  
                 var map = CharaRoster.getCachedNameMap(app)  
-                Log.i(TAG, "cached nameMap size = ${map?.size ?: 0}")  
+                Log.i(TAG, "cached nameMap = ${map?.size ?: 0}")  
                 if (map.isNullOrEmpty()) {  
                     val http = OkHttpClient.Builder()  
                         .connectTimeout(15, TimeUnit.SECONDS)  
                         .readTimeout(15, TimeUnit.SECONDS)  
                         .build()  
-                    map = withContext(Dispatchers.IO) {  
-                        CharaRoster.fetchNameMap(http, app)  
-                    }  
+                    map = withContext(Dispatchers.IO) { CharaRoster.fetchNameMap(http, app) }  
                 }  
                 Log.i(TAG, "nameMap size = ${map?.size ?: 0}")  
                 if (!map.isNullOrEmpty()) {  

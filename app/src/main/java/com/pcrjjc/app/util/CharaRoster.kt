@@ -178,12 +178,10 @@ object CharaRoster {
         val result = LinkedHashMap<Int, List<String>>()  
         val start = text.indexOf("CHARA_NAME")  
         if (start == -1) return result  
-        // 定位 "CHARA_NAME = {" 的起始大括号  
         val braceStart = text.indexOf('{', start)  
         if (braceStart == -1) return result  
-        // 大括号配对，找到字典真正结束位置  
         var depth = 0  
-        var end = braceStart  
+        var end = text.length  
         loop@ for (i in braceStart until text.length) {  
             when (text[i]) {  
                 '{' -> depth++  
@@ -191,7 +189,6 @@ object CharaRoster {
             }  
         }  
         val body = text.substring(braceStart + 1, end)  
-        // 条目形如:  1001: ["日和", "ヒヨリ", "Hiyori", "日和莉", "猫拳", ...],  
         val entryRegex = Regex("""(\d{4,})\s*:\s*\[(.*?)]""", RegexOption.DOT_MATCHES_ALL)  
         val strRegex = Regex("""'([^']*)'|"([^"]*)"""")  
         for (m in entryRegex.findAll(body)) {  
@@ -202,7 +199,7 @@ object CharaRoster {
                 .toList()  
             if (names.isNotEmpty()) result[id] = names  
         }  
-        Log.d(TAG, "parseCharaNameMap 解析到 ${result.size} 个角色名字")  
+        Log.d(TAG, "parseCharaNameMap 解析到 ${result.size} 个角色")  
         return result  
     }
 	
