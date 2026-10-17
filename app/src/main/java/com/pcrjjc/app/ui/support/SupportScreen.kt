@@ -323,8 +323,9 @@ private fun SupportGroup(
                             val star = ExMeta.starFromPt(rarity, ex.enhancementPt)  
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {  
                                 ExEquipIcon(ex.exEquipId, size = 40)  
+                                // 首页只显示星数，不显示装备名（手机上太挤）  
                                 Text(  
-                                    "${ExMeta.equips[ex.exEquipId]?.name ?: ex.exEquipId}★$star",  
+                                    "★$star",  
                                     style = MaterialTheme.typography.labelSmall  
                                 )  
                             }  
