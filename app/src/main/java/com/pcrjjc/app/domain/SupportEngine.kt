@@ -9,7 +9,7 @@ import com.pcrjjc.app.util.ExMeta
  *  
  * - loadSupport: 调 /support_unit/get_setting 拿 clan_support_units(地下城+会战) 与  
  *   friend_support_units(好友)，再调 /load/index 拿每个角色的 ex_equip_slot /  
- *   cb_ex_equip_slot 和 user_ex_equip 背包(serial_id -> 装备详情)  
+ *   cb_ex_equip_slot 和 user_ex_equip 背包(serial_id -> 装备详情，含 sub_status 词条)  
  * - changeSupport: 调 /support_unit/change_setting 更换挂载角色（action 1=挂上 2=撤下）  
  * - equipEx: 四步事务穿EX（对齐 PPPPPP one_click_ex_equip tools.py:2001-2039）  
  * - autoEquipCbEx: 会战EX自动穿戴（对齐 PPPPPP「挂会战支援」）  
@@ -31,7 +31,7 @@ class SupportEngine {
         val exEquipId: Int,  
         val rank: Int,  
         val enhancementPt: Int,  
-        // user_ex_equip.sub_status：彩装随机词条，每项 {status=属性类型, step=档位}  
+        // user_ex_equip.sub_status：彩装随机词条，每项 (status=属性类型, step=档位)  
         // 对齐 PPPPPP common.py ExtraEquipSubStatus  
         val subStatus: List<Pair<Int, Int>> = emptyList()  
     )  
@@ -191,14 +191,14 @@ class SupportEngine {
     // ---------- EX装备穿戴 ----------  
     /**  
      * 对齐 PPPPPP tools.py one_click_ex_equip 的四步事务（tools.py:2001-2039）：  
-     * ① 把目标 serial 从其他角色身上卸下  
+     * ① 把目标 serial 从其他角色身上卸下（isCb 则查 cbExWearer）  
      * ② 清空目标角色"将被改动的槽"和"serial 冲突的槽"  
      * ③ 给目标角色穿上新装备  
      * ④ 把目标角色被替换下的旧装备换给原持有者（互换，serial=0 跳过）  
      *  
      * @param slots slot -> serial_id (0=卸下)  
      * @param isCb  false=普通EX, true=会战EX  
-     * @param data  当前 SupportData（ wearer 反查 + 目标当前槽 ）  
+     * @param data  当前 SupportData（用于 wearer 反查 + 目标当前槽）  
      */  
     suspend fun equipEx(  
         client: PcrClient,  
@@ -276,8 +276,8 @@ class SupportEngine {
     /**  
      * 为会战支援位角色自动选择最优会战EX并穿戴。  
      * 选取规则：排除 cbExRestriction；每个槽按 unit_ex_equipment_slot 的类别匹配  
-     * （category == slot_category_N，对齐 exequip.py:740-751），  
-     * 排序：会战专用 cbFlag -> 稀有度 -> 强化pt，取最优 serial。  
+     * （category == slot_category_N，对齐 exequip.py:740-751 与 tools.py:1810），  
+     * 排序：会战专用 cbFlag -> 稀有度 -> 强化pt；同一 serial 不能占两槽。  
      */  
     suspend fun autoEquipCbEx(  
         client: PcrClient,  

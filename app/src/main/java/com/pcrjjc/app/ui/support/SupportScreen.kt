@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment  
 import androidx.compose.ui.Modifier  
 import androidx.compose.ui.draw.clip  
+import androidx.compose.ui.graphics.Color  
 import androidx.compose.ui.layout.ContentScale  
 import androidx.compose.ui.platform.LocalContext  
 import androidx.compose.ui.unit.dp  
@@ -199,7 +200,7 @@ fun SupportScreen(
   
             if (editing != null) {  
                 // ===== 支援角色更换模式 =====  
-                // 会战位（公会 supportType=1 且 position 3/4）走自动穿会战EX  
+                // 会战位：公会 supportType=1 且 position 3/4  
                 val isCbGroup = editing.first == 1 &&  
                         editing.second in SupportEngine.CB_POSITIONS  
                 EditSupportPanel(  
@@ -216,6 +217,7 @@ fun SupportScreen(
                     slots = data.dungeon,  
                     data = data,  
                     isCb = false,  
+                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(1, slot.position, slot.unitId)  
                     }  
@@ -225,6 +227,7 @@ fun SupportScreen(
                     slots = data.clanBattle,  
                     data = data,  
                     isCb = true,  
+                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(1, slot.position, slot.unitId)  
                     }  
@@ -234,6 +237,7 @@ fun SupportScreen(
                     slots = data.friend,  
                     data = data,  
                     isCb = false,  
+                    nameMap = uiState.nameMap,  
                     onIconClick = { slot ->  
                         viewModel.startEdit(2, slot.position, slot.unitId)  
                     }  
@@ -249,6 +253,7 @@ private fun SupportGroup(
     slots: List<SupportSlot>,  
     data: SupportData,  
     isCb: Boolean,  
+    nameMap: Map<Int, List<String>>,  
     onIconClick: (SupportSlot) -> Unit  
 ) {  
     Card(  
@@ -313,21 +318,14 @@ private fun SupportGroup(
                     } else {  
                         worn.forEach { ex ->  
                             val rarity = ExMeta.equips[ex.exEquipId]?.rarity ?: 0  
+                            // 真实星数用 enhancement_pt 反推（对齐 get_ex_equip_star_from_pt），  
+                            // 不再用 rank 字段  
+                            val star = ExMeta.starFromPt(rarity, ex.enhancementPt)  
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {  
                                 ExEquipIcon(ex.exEquipId, size = 40)  
-                                // 名字★真实星数 + 基础属性 + 副词条  
                                 Text(  
-                                    "${ExMeta.equips[ex.exEquipId]?.name ?: ex.exEquipId}" +  
-                                            "★${ExMeta.starFromPt(rarity, ex.enhancementPt)}",  
+                                    "${ExMeta.equips[ex.exEquipId]?.name ?: ex.exEquipId}★$star",  
                                     style = MaterialTheme.typography.labelSmall  
-                                )  
-                                Text(  
-                                    ExMeta.attrStr(  
-                                        ex.exEquipId,  
-                                        ExMeta.starFromPt(rarity, ex.enhancementPt)  
-                                    ),  
-                                    style = MaterialTheme.typography.labelSmall,  
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant  
                                 )  
                             }  
                             Spacer(modifier = Modifier.width(8.dp))  
@@ -344,7 +342,7 @@ private fun SupportGroup(
 private fun EditSupportPanel(  
     viewModel: SupportViewModel,  
     data: SupportData?,  
-    isCbGroup: Boolean,                 // true=团队战支援位，只走自动穿会战EX  
+    isCbGroup: Boolean,                 // true=团队战支援位：只读展示+自动穿会战EX  
     editingUnitId: Long,  
     nameMap: Map<Int, List<String>>  
 ) {  
@@ -436,7 +434,8 @@ private fun EditSupportPanel(
                 )  
   
                 if (isCbGroup) {  
-                    // ===== 团队战：套用 PPPPPP 挂会战支援，只读展示 + 自动穿戴 =====  
+                    // ===== 团队战：套用 PPPPPP 挂会战支援 =====  
+                    // 只读展示当前会战EX + 「自动穿戴会战EX」按钮，不提供手动槽位编辑  
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text("会战EX（自动穿戴）", style = MaterialTheme.typography.titleSmall)  
                     val cbSlots = data?.unitExSlots?.get(pickedUnit)?.second ?: emptyList()  
@@ -478,21 +477,28 @@ private fun EditSupportPanel(
                     Spacer(modifier = Modifier.height(8.dp))  
                     Text("普通EX", style = MaterialTheme.typography.titleSmall)  
   
-                    val slots = data?.unitExSlots?.get(pickedUnit)?.first  
-                    // serial -> (unitId, slotNum) 反查持有者  
+                    val slots = data?.unitExSlots?.get(pickedUnit)?.first ?: emptyList()  
+                    // serial -> (unitId, slotNum) 反查持有者（普通EX）  
                     val wearerMap = data?.exWearer  
   
                     // ===== 每个槽位：左边槽位名，右边该槽类别匹配的可穿EX =====  
-                    (slots ?: emptyList()).forEach { (slotNum, curSerial) ->  
+                    slots.forEach { (slotNum, curSerial) ->  
                         // 该槽位的类别（unit_ex_equipment_slot.slot_category_N）  
                         val slotCat = ExMeta.slotCategory(pickedUnit.toInt(), slotNum)  
   
-                        // 候选：只保留类别匹配的装备（对齐一键穿ex tools.py:1804-1813）  
-                        // meta 数据缺失（slotCat/info 为 null）时不过滤兜底，防止全空  
+                        // 严格类别匹配（对齐一键穿ex tools.py:1810 category != ex_category → continue）。  
+                        // 不再兜底放行：类别/meta 查不到时该槽显示"无可穿EX"，  
+                        // 否则三个槽会显示同一批装备（游戏逻辑上不可能）。  
+                        // 注意：要求 ViewModel.init 已调用 ExMeta.load(app)。  
                         val candidates = data?.exInventory?.values  
                             ?.filter { ex ->  
-                                val info = ExMeta.equips[ex.exEquipId]  
-                                slotCat == null || info == null || info.category == slotCat  
+                                slotCat != null &&  
+                                        ExMeta.equips[ex.exEquipId]?.category == slotCat  
+                            }  
+                            // 一件 serial 不能占两个槽：排除已被其它槽选中的  
+                            ?.filter { ex ->  
+                                pickedSerials.filterKeys { it != slotNum }  
+                                    .values.none { it == ex.serialId }  
                             }  
                             ?.sortedWith(  
                                 // 普通EX: 稀有度 -> 星数 -> ex_id  
@@ -578,7 +584,7 @@ private fun EditSupportPanel(
                                             .border(  
                                                 if (selected) 2.dp else 0.dp,  
                                                 if (selected) MaterialTheme.colorScheme.primary  
-                                                else androidx.compose.ui.graphics.Color.Transparent,  
+                                                else Color.Transparent,  
                                                 RoundedCornerShape(6.dp)  
                                             )  
                                             .padding(2.dp)  
@@ -625,7 +631,7 @@ private fun EditSupportPanel(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  
                     Button(onClick = {  
                         if (isCbGroup) {  
-                            // 团队战：换角色 + 自动穿会战EX  
+                            // 团队战：换角色 + 自动穿会战EX（套用挂会战支援）  
                             viewModel.applyEdit(  
                                 pickedUnit,  
                                 normalChanges = emptyList(),  
@@ -634,6 +640,8 @@ private fun EditSupportPanel(
                             )  
                         } else {  
                             // 地下城/好友：换角色 + 普通EX改动，合并为单个任务  
+                            // 修复：旧版连调 changeSupport+equipEx，第二个 runTask  
+                            // 因 isLoading=true 被静默丢弃  
                             val normalSlots =  
                                 data?.unitExSlots?.get(pickedUnit)?.first ?: emptyList()  
                             val normalChanges = normalSlots.mapNotNull { (s, cur) ->  
