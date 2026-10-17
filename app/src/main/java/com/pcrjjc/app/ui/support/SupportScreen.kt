@@ -444,7 +444,7 @@ private fun EditSupportPanel(
                 // ===== 每个槽位：左边槽位名，右边该槽类别匹配的可穿EX =====  
                 (slots ?: emptyList()).forEach { (slotNum, curSerial) ->  
                     // 该槽位的类别（unit_ex_equipment_slot.slot_category_N）  
-                    val slotCat = ExMeta.slotCategory(pickedUnit, slotNum)  
+                    val slotCat = ExMeta.slotCategory(pickedUnit.toInt(), slotNum)  
   
                     // 候选：只保留类别匹配的装备（对齐一键穿ex tools.py:1804-1813）  
                     // meta 数据缺失（slotCat/info 为 null）时不过滤兜底，防止全空  
@@ -461,10 +461,10 @@ private fun EditSupportPanel(
                             if (isCb) {  
                                 // 会战EX: 会战专用优先 -> 稀有度 -> 强化pt  
                                 compareByDescending<com.pcrjjc.app.domain.SupportEngine.ExEquipItem> {  
-                                    ExMeta.equips[it.exEquipId]?.clanBattleFlag ?: 0  
+                                    ExMeta.equips[it.exEquipId]?.cbFlag ?: 0  
                                 }.thenByDescending {  
                                     ExMeta.equips[it.exEquipId]?.rarity ?: 0  
-                                }.thenByDescending { it.enhancementPt }  
+                                }.thenByDescending { it.enhancementPt }
                             } else {  
                                 // 普通EX: 稀有度 -> 星数 -> ex_id  
                                 compareByDescending<com.pcrjjc.app.domain.SupportEngine.ExEquipItem> {  
