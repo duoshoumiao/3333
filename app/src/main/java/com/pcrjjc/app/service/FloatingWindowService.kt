@@ -725,7 +725,7 @@ class FloatingWindowService : Service() {
             setPadding(dp(4), dp(4), dp(4), dp(4))  
         }  
         val titleText = TextView(ctx).apply {  
-            text = "⠿ $displayMessage"  
+            text = "⠿ 查询结果"  
             setTextColor(Color.WHITE)  
             textSize = 13f  
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)  
