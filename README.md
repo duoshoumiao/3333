@@ -1,6 +1,9 @@
 ## 需要安装对应的应用，端口设置为8040
+
 https://github.com/duoshoumiao/pcrjjc2
+
 https://github.com/duoshoumiao/PPPPPP
+
 https://github.com/duoshoumiao/priconne
 # 个人库，不建议商用，有问题不要找我。没有自己的bot下载也用不了，高度搭配使用的
 
