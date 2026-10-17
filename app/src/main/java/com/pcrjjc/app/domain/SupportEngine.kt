@@ -93,8 +93,9 @@ class SupportEngine {
         }  
   
         // 3. EX背包 serial_id -> 详情  
+        // ⚠ /load/index 里字段名是 user_ex_equip，不是 ex_equips  
         val exInventory = HashMap<Long, ExEquipItem>()  
-        val exList = (loadIndex["ex_equips"] as? List<Map<String, Any?>>) ?: emptyList()  
+        val exList = (loadIndex["user_ex_equip"] as? List<Map<String, Any?>>) ?: emptyList()  
         for (ex in exList) {  
             val serial = (ex["serial_id"] as? Number)?.toLong() ?: continue  
             exInventory[serial] = ExEquipItem(  
@@ -104,6 +105,7 @@ class SupportEngine {
                 enhancementPt = (ex["enhancement_pt"] as? Number)?.toInt() ?: 0  
             )  
         }  
+        Log.i(TAG, "exInventory size=${exInventory.size}")  
   
         // 4. 会战EX限制  
         val cbRestriction = HashSet<Long>()  
@@ -143,7 +145,7 @@ class SupportEngine {
             mutableMapOf(  
                 "support_type" to supportType,  
                 "position" to position,  
-                "change_type" to 2,  
+                "action" to 2,  
                 "unit_id" to unitId  
             )  
         )  
