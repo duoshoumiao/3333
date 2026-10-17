@@ -266,7 +266,62 @@ fun SettingsScreen(
                 }    
             }    
   
-            // ========== 轮询间隔设置 Card ==========    
+            // ========== EX装备图标缓存 Card ==========  
+            Card(  
+                modifier = Modifier.fillMaxWidth(),  
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)  
+            ) {  
+                Column(modifier = Modifier.padding(16.dp)) {  
+                    Text("EX装备图标缓存", style = MaterialTheme.typography.titleMedium)  
+                    Spacer(modifier = Modifier.height(8.dp))  
+                    Text(  
+                        text = "提前下载所有EX装备图标到本地，用于我的支援界面展示",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(4.dp))  
+                    Text(  
+                        text = "已缓存: ${uiState.cachedExIconCount} 个图标",  
+                        style = MaterialTheme.typography.bodySmall,  
+                        color = MaterialTheme.colorScheme.onSurfaceVariant  
+                    )  
+                    Spacer(modifier = Modifier.height(12.dp))  
+  
+                    Button(  
+                        onClick = { viewModel.downloadAllExIcons() },  
+                        modifier = Modifier.fillMaxWidth(),  
+                        enabled = !uiState.isDownloadingExIcons  
+                    ) {  
+                        if (uiState.isDownloadingExIcons) {  
+                            CircularProgressIndicator(  
+                                modifier = Modifier.size(20.dp),  
+                                strokeWidth = 2.dp  
+                            )  
+                            Spacer(modifier = Modifier.width(8.dp))  
+                        }  
+                        Text("下载全部EX图标")  
+                    }  
+  
+                    if (uiState.isDownloadingExIcons) {  
+                        Spacer(modifier = Modifier.height(8.dp))  
+                        LinearProgressIndicator(  
+                            progress = { uiState.exIconDownloadProgress },  
+                            modifier = Modifier.fillMaxWidth()  
+                        )  
+                    }  
+  
+                    uiState.exIconDownloadMessage?.let { msg ->  
+                        Spacer(modifier = Modifier.height(8.dp))  
+                        Text(  
+                            text = msg,  
+                            style = MaterialTheme.typography.bodySmall,  
+                            color = MaterialTheme.colorScheme.onSurfaceVariant  
+                        )  
+                    }  
+                }  
+            }
+			
+			// ========== 轮询间隔设置 Card ==========    
             Card(    
                 modifier = Modifier.fillMaxWidth(),    
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)    

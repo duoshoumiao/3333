@@ -18,6 +18,7 @@ import com.pcrjjc.app.util.CharaRoster
 import com.pcrjjc.app.util.EmailSender 
 import com.pcrjjc.app.util.TopBarBgStorage
 import com.pcrjjc.app.util.IconStorage    
+import com.pcrjjc.app.util.ExIconStorage
 import dagger.hilt.android.lifecycle.HiltViewModel    
 import dagger.hilt.android.qualifiers.ApplicationContext    
 import kotlinx.coroutines.Dispatchers    
@@ -60,7 +61,11 @@ data class SettingsUiState(
     val emailPushEnabled: Boolean = false,             // 邮箱推送开关  
     val emailSaved: Boolean = false,                   // 邮箱配置已保存  
     val isTestingEmail: Boolean = false,               // 正在测试邮件  
-    val emailTestMessage: String? = null               // 测试结果消息
+    val emailTestMessage: String? = null,               // 测试结果消息
+	val cachedExIconCount: Int = 0,  
+    val isDownloadingExIcons: Boolean = false,  
+    val exIconDownloadProgress: Float = 0f,  
+    val exIconDownloadMessage: String? = null
 )    
   
 @HiltViewModel    
@@ -88,7 +93,12 @@ class SettingsViewModel @Inject constructor(
                 cachedAvatarCount = count,    
                 rosterCount = rosterCount    
             )    
-        }    
+        _uiState.value = _uiState.value.copy(  
+                cachedAvatarCount = count,  
+                rosterCount = rosterCount,  
+                cachedExIconCount = ExIconStorage.getCachedCount(context)  
+            )
+		}    
         viewModelScope.launch {    
             settingsDataStore.pollingIntervalFlow.collect { interval ->    
                 _uiState.value = _uiState.value.copy(    
@@ -414,7 +424,124 @@ class SettingsViewModel @Inject constructor(
         }    
     }    
   
-    fun checkForUpdate() {    
+    fun downloadAllExIcons() {  
+        if (_uiState.value.isDownloadingExIcons) return  
+  
+        viewModelScope.launch {  
+            _uiState.value = _uiState.value.copy(  
+                isDownloadingExIcons = true,  
+                exIconDownloadProgress = 0f,  
+                exIconDownloadMessage = "正在获取服务端EX图标列表..."  
+            )  
+  
+            try {  
+                withContext(Dispatchers.IO) {  
+                    val client = OkHttpClient.Builder()  
+                        .connectTimeout(10, TimeUnit.SECONDS)  
+                        .readTimeout(10, TimeUnit.SECONDS)  
+                        .build()  
+  
+                    // redive 图床EX装备图标目录（与头像同站的 equipment 目录）  
+                    val baseUrl = "https://redive.estertion.win/icon/equipment/"  
+  
+                    val iconIds = try {  
+                        client.newCall(  
+                            Request.Builder().url(baseUrl).build()  
+                        ).execute().use { resp ->  
+                            if (!resp.isSuccessful) emptySet<Int>()  
+                            else {  
+                                val html = resp.body?.string() ?: ""  
+                                // 文件名形如 icon_equipment_500001.webp，EX装备ID为6位  
+                                Regex("""(\d{6})\.webp""").findAll(html)  
+                                    .map { it.groupValues[1].toInt() }  
+                                    .toSet()  
+                            }  
+                        }  
+                    } catch (e: Exception) {  
+                        emptySet()  
+                    }  
+  
+                    if (iconIds.isEmpty()) {  
+                        _uiState.value = _uiState.value.copy(  
+                            isDownloadingExIcons = false,  
+                            exIconDownloadMessage = "服务端EX图标列表获取失败"  
+                        )  
+                        return@withContext  
+                    }  
+  
+                    val toDownload = iconIds.filter { !ExIconStorage.hasIcon(context, it) }  
+                    if (toDownload.isEmpty()) {  
+                        _uiState.value = _uiState.value.copy(  
+                            isDownloadingExIcons = false,  
+                            exIconDownloadProgress = 1f,  
+                            exIconDownloadMessage = "所有EX图标已是最新（共 ${iconIds.size} 个）"  
+                        )  
+                        return@withContext  
+                    }  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        exIconDownloadMessage = "需要下载 ${toDownload.size} 个EX图标..."  
+                    )  
+  
+                    val completed = AtomicInteger(0)  
+                    val success = AtomicInteger(0)  
+                    val total = toDownload.size  
+                    val semaphore = Semaphore(5)  
+  
+                    coroutineScope {  
+                        val jobs = toDownload.map { exId ->  
+                            async(Dispatchers.IO) {  
+                                semaphore.withPermit {  
+                                    try {  
+                                        val url = "${baseUrl}${exId}.webp"  
+                                        val request = Request.Builder().url(url).build()  
+                                        client.newCall(request).execute().use { resp ->  
+                                            if (resp.isSuccessful) {  
+                                                val bytes = resp.body?.bytes()  
+                                                if (bytes != null) {  
+                                                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)  
+                                                    if (bitmap != null) {  
+                                                        ExIconStorage.saveBitmap(context, exId, bitmap)  
+                                                        bitmap.recycle()  
+                                                        success.incrementAndGet()  
+                                                    }  
+                                                }  
+                                            }  
+                                        }  
+                                    } catch (e: Exception) {  
+                                        Log.w("SettingsVM", "EX icon failed: $exId: ${e.message}")  
+                                    }  
+                                    val done = completed.incrementAndGet()  
+                                    if (done % 10 == 0 || done == total) {  
+                                        _uiState.value = _uiState.value.copy(  
+                                            exIconDownloadProgress = done.toFloat() / total,  
+                                            exIconDownloadMessage = "下载中 $done/$total (成功 ${success.get()})"  
+                                        )  
+                                    }  
+                                }  
+                            }  
+                        }  
+                        jobs.awaitAll()  
+                    }  
+  
+                    _uiState.value = _uiState.value.copy(  
+                        isDownloadingExIcons = false,  
+                        exIconDownloadProgress = 1f,  
+                        exIconDownloadMessage = "完成，成功下载 ${success.get()} 个EX图标",  
+                        cachedExIconCount = ExIconStorage.getCachedCount(context)  
+                    )  
+                }  
+            } catch (e: Exception) {  
+                Log.e("SettingsVM", "EX icon download failed", e)  
+                _uiState.value = _uiState.value.copy(  
+                    isDownloadingExIcons = false,  
+                    exIconDownloadMessage = "下载失败: ${e.message}"  
+                )  
+            }  
+        }  
+    }
+	
+	fun checkForUpdate() {    
         viewModelScope.launch {    
             _uiState.value = _uiState.value.copy(    
                 isCheckingUpdate = true,    

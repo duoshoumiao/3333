@@ -22,6 +22,7 @@ import com.pcrjjc.app.ui.settings.SettingsScreen
 import com.pcrjjc.app.ui.eqa.EqaScreen
 import com.pcrjjc.app.ui.labyrinth.LabyrinthScreen
 import com.pcrjjc.app.ui.exequip.ExEquipScreen
+import com.pcrjjc.app.ui.support.SupportScreen
   
 sealed class Screen(val route: String) {      
     data object Home : Screen("home")      
@@ -45,6 +46,7 @@ sealed class Screen(val route: String) {
 	data object Eqa : Screen("eqa")
 	data object Labyrinth : Screen("labyrinth")
 	data object ExEquip : Screen("ex_equip")
+	data object Support : Screen("support")
 	data object TopBarBgCrop : Screen("topbar_crop/{uri}") {  
         fun createRoute(uri: String) =  
             "topbar_crop/${java.net.URLEncoder.encode(uri, "UTF-8")}"  
@@ -79,7 +81,8 @@ fun PcrJjcNavHost() {
                 onNavigateToClanRanking = { navController.navigate(Screen.ClanRanking.route) },  
                 onNavigateToEqa = { navController.navigate(Screen.Eqa.route) },  
                 onNavigateToLabyrinth = { navController.navigate(Screen.Labyrinth.route) },  
-                onNavigateToExEquip = { navController.navigate(Screen.ExEquip.route) }
+                onNavigateToExEquip = { navController.navigate(Screen.ExEquip.route) },  
+                onNavigateToSupport = { navController.navigate(Screen.Support.route) }
             )  
         }  
   
@@ -189,6 +192,10 @@ fun PcrJjcNavHost() {
 		// EX状态管理路由  
         composable(Screen.ExEquip.route) {  
             ExEquipScreen(onNavigateBack = { navController.popBackStack() })  
+        }
+		// 我的支援路由  
+        composable(Screen.Support.route) {  
+            SupportScreen(onNavigateBack = { navController.popBackStack() })  
         }
 		// 顶栏背景裁剪路由  
         composable(  
