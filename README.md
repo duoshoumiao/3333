@@ -35,42 +35,91 @@ https://github.com/duoshoumiao/priconne
 ## 项目结构
 
 ```
-app/src/main/java/com/pcrjjc/app/
-├── PcrJjcApp.kt              # Application 类 (Hilt, 通知渠道)
-├── MainActivity.kt            # 主 Activity (Compose)
-├── data/
-│   ├── local/
-│   │   ├── entity/            # Room 实体 (PcrBind, Account, JjcHistory)
-│   │   ├── dao/               # Room DAO (BindDao, AccountDao, HistoryDao)
-│   │   └── AppDatabase.kt     # Room 数据库
-│   └── remote/
-│       ├── CryptoUtils.kt     # AES-CBC 加密 + msgpack 序列化
-│       ├── RsaCrypto.kt       # RSA 公钥加密
-│       ├── PcrClient.kt       # CN 服 API 客户端
-│       ├── TwPcrClient.kt     # TW 服 API 客户端
-│       ├── BiliAuth.kt        # B 站 SDK 登录
-│       └── ApiException.kt    # API 异常
-├── di/
-│   └── AppModule.kt           # Hilt 依赖注入
-├── domain/
-│   ├── QueryEngine.kt         # 查询引擎
-│   └── RankMonitor.kt         # 排名监控 + 通知
-├── service/
-│   └── RankMonitorService.kt  # 前台服务
-├── worker/
-│   └── RankCheckWorker.kt     # WorkManager 定期轮询
-├── ui/
-│   ├── theme/Theme.kt         # Material 3 主题
-│   ├── navigation/NavHost.kt  # 导航
-│   ├── home/                  # 主页 (绑定列表)
-│   ├── bind/                  # 添加绑定
-│   ├── query/                 # 排名查询
-│   ├── detail/                # 详细资料
-│   ├── history/               # 击剑记录
-│   ├── settings/              # 设置
-│   └── account/               # 账号管理
-└── util/
-    └── Platform.kt            # 平台枚举
+app/src/main/java/com/pcrjjc/app/  
+├── PcrJjcApp.kt               # Application 类 (Hilt, 通知渠道)  
+├── MainActivity.kt            # 主 Activity (Compose)  
+├── ScreenCaptureActivity.kt   # 截图识别入口 Activity  
+├── data/  
+│   ├── local/  
+│   │   ├── entity/            # Room 实体  
+│   │   ├── dao/               # Room DAO  
+│   │   ├── AppDatabase.kt     # Room 数据库  
+│   │   ├── RankCacheDao.kt    # 排名缓存 DAO  
+│   │   └── SettingsDataStore.kt # DataStore 设置存储  
+│   ├── model/                 # 数据模型 (ActivityClassifier, FortnightlyData)  
+│   ├── repository/            # 仓库层 (FortnightlyRepository)  
+│   └── remote/  
+│       ├── CryptoUtils.kt     # AES-CBC 加密 + msgpack 序列化  
+│       ├── RsaCrypto.kt       # RSA 公钥加密  
+│       ├── PcrClient.kt       # CN 服 API 客户端  
+│       ├── TwPcrClient.kt     # TW 服 API 客户端  
+│       ├── RemotePcrClient.kt # 远程代理 API 客户端  
+│       ├── RoomClient.kt      # 房间 API 客户端  
+│       ├── BigFunClient.kt    # BigFun API 客户端  
+│       ├── AppPushClient.kt   # 推送客户端  
+│       ├── BiliAuth.kt        # B 站 SDK 登录  
+│       ├── ApiException.kt    # API 异常  
+│       └── CaptchaRequiredException.kt # 验证码异常  
+├── di/  
+│   └── AppModule.kt           # Hilt 依赖注入  
+├── domain/  
+│   ├── QueryEngine.kt         # 查询引擎  
+│   ├── RankMonitor.kt         # 排名监控 + 通知  
+│   ├── ClanBattleEngine.kt    # 公会战引擎  
+│   ├── ManualBattleEngine.kt  # 手动出刀引擎  
+│   ├── ExEquipEngine.kt       # EX装备引擎  
+│   ├── SupportEngine.kt       # 支援引擎  
+│   ├── LabyrinthDb.kt         # 地下城数据库  
+│   ├── LabyrinthRouteFinder.kt # 地下城路线搜索  
+│   ├── LabyrinthViewModel.kt  # 地下城 ViewModel  
+│   ├── ClientManager.kt       # 客户端管理  
+│   ├── CaptchaManager.kt      # 验证码管理  
+│   └── UpdateChecker.kt       # 更新检查  
+├── service/  
+│   ├── RankMonitorService.kt  # 前台服务  
+│   ├── FloatingWindowService.kt # 悬浮窗服务  
+│   ├── ScreenCaptureService.kt  # 截图服务  
+│   ├── CropSelectionOverlay.kt  # 截图区域选择  
+│   ├── UpdateCheckWorker.kt     # 更新检查任务  
+│   └── BootReceiver.kt          # 开机自启  
+├── worker/  
+│   └── RankCheckWorker.kt     # WorkManager 定期轮询  
+├── ui/  
+│   ├── theme/                 # Material 3 主题  
+│   ├── navigation/            # 导航  
+│   ├── components/            # 通用组件  
+│   ├── home/                  # 主页 (绑定列表)  
+│   ├── bind/                  # 添加绑定  
+│   ├── query/                 # 排名查询  
+│   ├── detail/                # 详细资料  
+│   ├── history/               # 击剑记录  
+│   ├── settings/              # 设置  
+│   ├── account/               # 账号管理  
+│   ├── friend/                # 好友管理  
+│   ├── support/               # 支援  
+│   ├── clanranking/           # 公会排名  
+│   ├── manualbattle/          # 手动出刀  
+│   ├── master/                # 会长/管理  
+│   ├── labyrinth/             # 地下城  
+│   ├── exequip/               # EX装备  
+│   ├── eqa/                   # EQA  
+│   ├── room/                  # 房间  
+│   ├── daily/                 # 日常  
+│   └── fortnightly/           # 半月刊/活动日历  
+└── util/  
+    ├── Platform.kt            # 平台枚举  
+    ├── ArenaQueryClient.kt    # 竞技场查询客户端封装  
+    ├── CharaRoster.kt         # 角色名单  
+    ├── CharaIconUtil.kt       # 角色头像  
+    ├── IconStorage.kt         # 图标存储  
+    ├── EqaImageCache.kt       # EQA 图片缓存  
+    ├── ElementUnits.kt        # 属性角色数据  
+    ├── ClanBattleUtils.kt     # 会战工具  
+    ├── KnightRankCalculator.kt # 骑士君等级计算  
+    ├── ExMeta.kt              # EX 元数据  
+    ├── PcrdApiSigner.kt       # PCD API 签名  
+    ├── EmailSender.kt         # 邮件发送  
+    └── TopBarBgStorage.kt     # 顶栏背景存储
 ```
 
 ## 构建
