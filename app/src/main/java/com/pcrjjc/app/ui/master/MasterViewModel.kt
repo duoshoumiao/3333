@@ -206,7 +206,7 @@ class MasterViewModel @Inject constructor(
                     // 按界面选中的账号 id 选出目标账号，找不到则回退到第一个  
                     val account = accounts.firstOrNull { it.id == state.selectedAccountId }  
                         ?: accounts.first()  
-                    val client = clientManager.getClient(account, forceRelogin = true)
+                    val client = clientManager.getClient(account)
   
                     when (state.selectedType) {  
                         ArenaType.JJC -> queryEngine.queryArenaRanking(client, clientManager = clientManager, account = account)  
@@ -253,18 +253,8 @@ class MasterViewModel @Inject constructor(
                 }		
             } catch (e: Exception) {  
                 Log.e(TAG, "Query ranking failed: ${e.message}", e)  
-                // 可能是会话失效/顶号，销毁可能已失效的 client，保证下次点击一定重新登录  
-                try {  
-                    val accounts = accountDao.getMasterAccountsByPlatform(state.selectedPlatform.id)  
-                    if (accounts.isNotEmpty()) {  
-                        // 优先清理界面选中的账号，找不到再回退到第一个  
-                        val target = accounts.firstOrNull { it.id == state.selectedAccountId }  
-                            ?: accounts.first()  
-                        clientManager.clearClient(target.id)  
-                    }
-                } catch (ignore: Exception) {  
-                    Log.w(TAG, "clearClient on error failed: ${ignore.message}")  
-                }  
+                // 登录会话由 ClientManager 全局持有：这里只报错，不再销毁会话。
+                // 真被顶下线时 ClientManager 会自动重登，其他功能仍可继续用。
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     errorMessage = "查询失败: ${e.message ?: e.javaClass.simpleName}"  

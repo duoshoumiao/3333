@@ -130,25 +130,44 @@ class TwPcrClient(
                 headers["RES-VER"] = it.toString()  
             }  
   
-            val data = parsed["data"] as? Map<String, Any?> ?: emptyMap()  
-            if (!noerr && data.containsKey("server_error")) {  
-                val error = data["server_error"] as? Map<String, Any?> ?: emptyMap()  
-                val resultCode = dataHeaders["result_code"]  
-                Log.e(TAG, "$apiUrl api failed code = $resultCode, $error")  
-                throw ApiException(  
-                    error["message"]?.toString() ?: "Unknown error",  
-                    (error["status"] as? Number)?.toInt() ?: 500  
-                )  
-            }  
-  
-            return data  
-        } catch (e: ApiException) {  
-            shouldLogin = true  
-            throw e  
-        } catch (e: Exception) {  
-            shouldLogin = true  
-            throw e  
-        }  
+            val data = parsed["data"] as? Map<String, Any?> ?: emptyMap()
+
+            // 会话失效识别：result_code 6002/4 或 status==3 才需要重登
+            val resultCode = (dataHeaders["result_code"] as? Number)?.toInt()
+            val serverError = data["server_error"] as? Map<String, Any?>
+            val status = (serverError?.get("status") as? Number)?.toInt()
+            if (serverError != null &&
+                (resultCode == 4 || resultCode == 6002 || status == 3)
+            ) {
+                shouldLogin = true
+                throw SessionExpiredException(
+                    serverError["message"]?.toString()
+                        ?: "登录状态已失效，可能已在其他设备登录"
+                )
+            }
+
+            if (!noerr && serverError != null) {
+                // 业务错误（好友已存在、上限…）不代表会话失效，不能置 shouldLogin，
+                // 否则一次失败就会让所有功能重新登录。
+                Log.e(TAG, "$apiUrl api failed code = $resultCode, $serverError")
+                throw ApiException(
+                    serverError["message"]?.toString() ?: "Unknown error",
+                    (serverError["status"] as? Number)?.toInt() ?: 500
+                )
+            }
+
+            return data
+        } catch (e: SessionExpiredException) {
+            shouldLogin = true
+            throw e
+        } catch (e: ApiException) {
+            // 业务错误：保持会话可用
+            throw e
+        } catch (e: Exception) {
+            // 网络/解密异常：会话可能已不可用，下次调用重新登录
+            shouldLogin = true
+            throw e
+        }
     }  
   
     suspend fun sendFriendRequest(targetViewerId: Long) {  

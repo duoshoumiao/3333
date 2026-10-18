@@ -2066,13 +2066,15 @@ private fun DailyConfigItemView(
 ) {
     var showAllCandidates by remember { mutableStateOf(false) }
 	var searchQuery by remember { mutableStateOf("") }
+    // 候选值统一按倒序展示：如 1,2,3...99 显示为 99,98,97...
+    val orderedCandidates = remember(config.candidates) { config.candidates.reversed() }
     val filteredCandidates = if (searchQuery.isNotBlank()) {  
-		config.candidates.filter { cand ->  
+		orderedCandidates.filter { cand ->  
 			cand.display.contains(searchQuery, ignoreCase = true) ||  
 			cand.tags.any { it.contains(searchQuery, ignoreCase = true) }  
 		}  
 	} else {  
-		config.candidates  
+		orderedCandidates  
 	}  
 	val visibleCandidates = if (searchQuery.isBlank() && filteredCandidates.size > MAX_VISIBLE_CANDIDATES && !showAllCandidates) {  
 		filteredCandidates.take(MAX_VISIBLE_CANDIDATES)  
@@ -2276,7 +2278,7 @@ private fun DailyConfigItemView(
 				) {  
 					TextButton(  
 						onClick = {  
-							val allValues = config.candidates.map {   
+							val allValues = orderedCandidates.map {   
 								it.value?.toString() ?: ""   
 							}.map { s -> s.toIntOrNull() ?: s.toDoubleOrNull() ?: s }  
 							onUpdateConfigList(config.key, allValues)  

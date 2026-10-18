@@ -146,7 +146,7 @@ class ClanBattleViewModel @Inject constructor(
             )            
   
             try {            
-                // 1. 登录账号（在 IO 线程执行网络请求）            
+                // 1. 取得账号客户端（复用全局登录会话，已在其他功能登录过就不会再登录）
                 val client = withContext(Dispatchers.IO) {            
                     clientManager.getClient(account)            
                 }            

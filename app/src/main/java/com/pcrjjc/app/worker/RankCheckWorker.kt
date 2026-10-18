@@ -95,11 +95,14 @@ class RankCheckWorker @AssistedInject constructor(
                     val client = clientManager.getClient(account)  
   
                     // 全部查询完后再统一推送
-                    val results = queryEngine.queryAll(binds, client)
+                    val results = queryEngine.queryAll(
+                        binds, client,
+                        clientManager = clientManager, account = account
+                    )
                     rankMonitor.processResults(results)
                 } catch (e: Exception) {  
                     Log.e(TAG, "Error querying platform ${account.platform}: ${e.message}", e)  
-                    clientManager.clearClient(account.id)  
+                    // 不清会话：会话失效由 ClientManager 自动重登处理  
                 }  
             }
             

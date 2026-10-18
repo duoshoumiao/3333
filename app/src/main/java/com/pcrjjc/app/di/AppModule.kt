@@ -5,7 +5,8 @@ import androidx.room.Room
 import androidx.room.migration.Migration    
 import androidx.sqlite.db.SupportSQLiteDatabase    
 import com.pcrjjc.app.data.local.AppDatabase  
-import com.pcrjjc.app.data.local.SettingsDataStore  
+import com.pcrjjc.app.data.local.SettingsDataStore
+import com.pcrjjc.app.data.local.SessionStore  
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.remote.RoomClient  
 import com.pcrjjc.app.domain.ClientManager  
@@ -107,11 +108,11 @@ object AppModule {
         return RoomClient(settingsDataStore)  
     }  
   
-    // 新增：ClientManager 单例提供  
-    @Provides  
-    @Singleton  
-    fun provideClientManager(): ClientManager {  
-        return ClientManager()  
+    // 新增：ClientManager 单例提供（持有跨页面共享的登录会话）
+    @Provides
+    @Singleton
+    fun provideClientManager(sessionStore: SessionStore): ClientManager {
+        return ClientManager(sessionStore)
     }
     // 新增：黎明界游戏数据（assets/labyrinth/*.json）单例  
     @Provides  

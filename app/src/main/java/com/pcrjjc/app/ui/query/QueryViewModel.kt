@@ -99,8 +99,12 @@ class QueryViewModel @Inject constructor(
                 } else {  
                     val account = accounts.first()  
                     val queryEngine = QueryEngine()  
-                    val client = clientManager.getClient(account)  
-                    info = queryEngine.queryProfile(client, bind)?.userInfo  
+                    // 复用全局登录会话，掉线时自动重登后重试  
+                    info = clientManager.withClient(account) { client ->  
+                        queryEngine.queryProfile(  
+                            client, bind, clientManager = clientManager, account = account  
+                        )?.userInfo  
+                    }  
                 }  
   
                 if (info != null) {  
@@ -140,13 +144,8 @@ class QueryViewModel @Inject constructor(
                     )  
                 }  
             } catch (e: Throwable) {  
-                try {  
-                    val accounts = accountDao.getNonMasterAccountsByPlatform(bind.platform)  
-                    if (accounts.isNotEmpty()) {  
-                        clientManager.clearClient(accounts.first().id)  
-                    }  
-                } catch (_: Exception) {}  
-  
+                // 登录会话由 ClientManager 全局持有并自动续期，这里只报错不清会话，  
+                // 否则一个页面查询失败会顺带清掉其他功能正在复用的登录状态。  
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     errorMessage = "查询出错: ${e.message}"  

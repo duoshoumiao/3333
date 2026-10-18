@@ -86,6 +86,8 @@ class AccountViewModel @Inject constructor(
     fun deleteAccount(account: Account) {  
         viewModelScope.launch {  
             accountDao.deleteById(account.id)  
+            // 账号已删除，同时丢弃它的登录会话，避免残留凭据  
+            clientManager.forgetAccount(account.id)  
         }  
     }  
   
@@ -94,13 +96,16 @@ class AccountViewModel @Inject constructor(
     }  
   
     /**  
-     * 测试登录（可选功能），触发登录流程，若遇到验证码则通过全局 CaptchaManager 弹出手动过码  
+     * 测试登录（可选功能），触发登录流程，若遇到验证码则通过全局 CaptchaManager 弹出手动过码。  
+     *  
+     * 只在确实没有可用会话时才真正登录：已有会话的账号点一下就能立刻确认可用，  
+     * 不会平白多登录一次（反复登录反而容易把自己顶下线）。  
      */  
     fun testLogin(account: Account) {  
         viewModelScope.launch {  
             try {  
-                clientManager.getClient(account, forceRelogin = true)  
-                // 登录成功  
+                clientManager.getClient(account)  
+                // 登录成功（或复用了已有会话）  
             } catch (e: CaptchaRequiredException) {  
                 captchaManager.requestCaptcha(  
                     CaptchaRequest(  

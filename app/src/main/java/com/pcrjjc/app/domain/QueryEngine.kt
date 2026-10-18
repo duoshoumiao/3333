@@ -5,6 +5,7 @@ import com.pcrjjc.app.data.local.entity.Account
 import com.pcrjjc.app.data.local.entity.PcrBind  
 import com.pcrjjc.app.data.remote.ApiException  
 import com.pcrjjc.app.data.remote.PcrClient  
+import com.pcrjjc.app.data.remote.SessionExpiredException  
 import com.pcrjjc.app.data.remote.TwPcrClient  
   
 class QueryEngine {  
@@ -50,6 +51,9 @@ class QueryEngine {
             }  
             val userInfo = res["user_info"] as? Map<String, Any?>  
             userInfo?.get("user_name")?.toString() ?: "未知"  
+        } catch (e: SessionExpiredException) {  
+            // 会话失效不能被当成"未知"，交由上层统一重登重试  
+            throw e  
         } catch (e: Exception) {  
             Log.e(TAG, "getUserName failed for $viewerId: ${e.message}")  
             "未知"  
@@ -99,13 +103,49 @@ class QueryEngine {
                     // 先用空名称占位  
                     allPlayers.add(ArenaRankingPlayer(viewerId, rank, "", teamLevel))  
                 }  
+            } catch (e: SessionExpiredException) {  
+                // 被顶下线：用缓存 token 重登后重试本页一次，不让用户重新登录  
+                if (clientManager != null && account != null) {  
+                    Log.w(TAG, "queryArenaRanking page $page session expired, relogin and retry")  
+                    try {  
+                        activeClient = clientManager.relogin(account)  
+                        val ranking = fetchRankingPage(activeClient, page)  
+                        if (ranking != null) {  
+                            for (item in ranking) {  
+                                val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
+                                val rank = (item["rank"] as? Number)?.toInt() ?: continue  
+                                if (rank > 51) break  
+                                val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
+                                allPlayers.add(ArenaRankingPlayer(viewerId, rank, "", teamLevel))  
+                            }  
+                        }  
+                    } catch (retry: Exception) {  
+                        Log.e(TAG, "queryArenaRanking page $page retry failed: ${retry.message}", retry)  
+                    }  
+                } else {  
+                    Log.e(TAG, "queryArenaRanking page $page session expired: ${e.message}")  
+                }  
             } catch (e: Exception) {  
                 Log.e(TAG, "queryArenaRanking page $page failed: ${e.message}", e)  
             }  
         }  
         // 第二步：逐个获取用户名称（用可能已刷新的 activeClient）  
         val result = allPlayers.map { player ->  
-            val userName = getUserName(activeClient, player.viewerId)  
+            val userName = try {  
+                getUserName(activeClient, player.viewerId)  
+            } catch (e: SessionExpiredException) {  
+                // 名称查询途中被顶下线：重登一次再补，避免整页数据作废  
+                if (clientManager != null && account != null) {  
+                    try {  
+                        activeClient = clientManager.relogin(account)  
+                        getUserName(activeClient, player.viewerId)  
+                    } catch (retry: Exception) {  
+                        "未知"  
+                    }  
+                } else {  
+                    "未知"  
+                }  
+            }  
             player.copy(userName = userName)  
         }  
         return result.sortedBy { it.rank }  
@@ -152,12 +192,47 @@ class QueryEngine {
                     val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
                     allPlayers.add(ArenaRankingPlayer(viewerId, rank, "", teamLevel))  
                 }  
+            } catch (e: SessionExpiredException) {  
+                // 被顶下线：用缓存 token 重登后重试本页一次，不让用户重新登录  
+                if (clientManager != null && account != null) {  
+                    Log.w(TAG, "queryGrandArenaRanking page $page session expired, relogin and retry")  
+                    try {  
+                        activeClient = clientManager.relogin(account)  
+                        val ranking = fetchRankingPage(activeClient, page)  
+                        if (ranking != null) {  
+                            for (item in ranking) {  
+                                val viewerId = (item["viewer_id"] as? Number)?.toLong() ?: continue  
+                                val rank = (item["rank"] as? Number)?.toInt() ?: continue  
+                                if (rank > 51) break  
+                                val teamLevel = (item["team_level"] as? Number)?.toInt() ?: 0  
+                                allPlayers.add(ArenaRankingPlayer(viewerId, rank, "", teamLevel))  
+                            }  
+                        }  
+                    } catch (retry: Exception) {  
+                        Log.e(TAG, "queryGrandArenaRanking page $page retry failed: ${retry.message}", retry)  
+                    }  
+                } else {  
+                    Log.e(TAG, "queryGrandArenaRanking page $page session expired: ${e.message}")  
+                }  
             } catch (e: Exception) {  
                 Log.e(TAG, "queryGrandArenaRanking page $page failed: ${e.message}", e)  
             }  
         }  
         val result = allPlayers.map { player ->  
-            val userName = getUserName(activeClient, player.viewerId)  
+            val userName = try {  
+                getUserName(activeClient, player.viewerId)  
+            } catch (e: SessionExpiredException) {  
+                if (clientManager != null && account != null) {  
+                    try {  
+                        activeClient = clientManager.relogin(account)  
+                        getUserName(activeClient, player.viewerId)  
+                    } catch (retry: Exception) {  
+                        "未知"  
+                    }  
+                } else {  
+                    "未知"  
+                }  
+            }  
             player.copy(userName = userName)  
         }  
         return result.sortedBy { it.rank }  
@@ -291,7 +366,8 @@ class QueryEngine {
   
             val userInfo = res["user_info"] as? Map<String, Any?>  
             if (userInfo == null) {  
-                // 会话过期，重新登录  
+                // 响应缺 user_info 也视作会话异常：优先用 ClientManager 静默重登，
+                // 只有完全没有 ClientManager 时才退回本地重登
                 val retryClient = if (clientManager != null && account != null) {  
                     clientManager.relogin(account)  
                 } else {  
@@ -326,6 +402,37 @@ class QueryEngine {
                     return null  
                 }  
                 QueryResult(bind, userInfo, res)  
+            }  
+        } catch (e: SessionExpiredException) {  
+            // 被顶下线：静默重登一次后重试，用户无感知  
+            if (clientManager == null || account == null) {  
+                Log.w(TAG, "Query aborted for ${bind.pcrid}: session expired (${e.message})")  
+                return null  
+            }  
+            try {  
+                Log.w(TAG, "Query for ${bind.pcrid} hit expired session, relogin and retry")  
+                val retryClient = clientManager.relogin(account)  
+                val retryRes = when (retryClient) {  
+                    is PcrClient -> retryClient.callApi(  
+                        "/profile/get_profile",  
+                        mutableMapOf("target_viewer_id" to bind.pcrid)  
+                    )  
+                    is TwPcrClient -> retryClient.callApi(  
+                        "/profile/get_profile",  
+                        mutableMapOf("target_viewer_id" to bind.pcrid)  
+                    )  
+                    else -> return null  
+                }  
+                val retryUserInfo = retryRes["user_info"] as? Map<String, Any?> ?: return null  
+                val retryViewerId = (retryUserInfo["viewer_id"] as? Number)?.toLong()  
+                if (retryViewerId != null && retryViewerId != bind.pcrid) {  
+                    Log.e(TAG, "viewer_id mismatch after relogin: requested ${bind.pcrid}, got $retryViewerId")  
+                    return null  
+                }  
+                QueryResult(bind, retryUserInfo, retryRes)  
+            } catch (retry: Exception) {  
+                Log.e(TAG, "Query failed for ${bind.pcrid} after relogin: ${retry.message}")  
+                null  
             }  
         } catch (e: ApiException) {  
             Log.e(TAG, "Query failed for ${bind.pcrid}: ${e.message}")  

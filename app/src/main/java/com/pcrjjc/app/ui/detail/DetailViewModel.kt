@@ -6,9 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pcrjjc.app.data.local.dao.AccountDao  
 import com.pcrjjc.app.data.local.dao.BindDao  
 import com.pcrjjc.app.data.local.entity.PcrBind  
-import com.pcrjjc.app.data.remote.BiliAuth  
-import com.pcrjjc.app.data.remote.PcrClient  
-import com.pcrjjc.app.data.remote.TwPcrClient  
+import com.pcrjjc.app.domain.ClientManager  
 import com.pcrjjc.app.domain.QueryEngine  
 import com.pcrjjc.app.data.local.SettingsDataStore  
 import com.pcrjjc.app.data.remote.AppPushClient
@@ -70,7 +68,8 @@ class DetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,  
     private val bindDao: BindDao,  
     private val accountDao: AccountDao,  
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val clientManager: ClientManager
 ) : ViewModel() {  
   
     private val bindId: Int = savedStateHandle["bindId"] ?: 0  
@@ -109,24 +108,12 @@ class DetailViewModel @Inject constructor(
                 } else {  
                     val account = accounts.first()  
                     val queryEngine = QueryEngine()  
-                    val client: Any = when (bind.platform) {  
-                        Platform.TW_SERVER.id -> {  
-                            val twPlatform = (account.viewerId.toLong() / 1000000000).toInt()  
-                            val twClient = TwPcrClient(  
-                                account.account, account.password,  
-                                account.viewerId, twPlatform  
-                            )  
-                            twClient.login()  
-                            twClient  
-                        }  
-                        else -> {  
-                            val biliAuth = BiliAuth(account.account, account.password, account.platform)  
-                            val pcrClient = PcrClient(biliAuth)  
-                            pcrClient.login()  
-                            pcrClient  
-                        }  
+                    // 复用全局登录会话：不再为每次查看详情重新登录一遍  
+                    val result = clientManager.withClient(account) { client ->  
+                        queryEngine.queryProfile(  
+                            client, bind, clientManager = clientManager, account = account  
+                        )  
                     }  
-                    val result = queryEngine.queryProfile(client, bind)  
                     info = result?.userInfo  
                     fullRes = result?.fullResponse ?: emptyMap()  
                 }  

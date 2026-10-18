@@ -162,6 +162,14 @@ fun SupportScreen(
                 ) { CircularProgressIndicator() }  
             }  
   
+            // 加载失败时给一个重试入口（登录会话全局共享，重试不会要求重新登录）
+            if (!uiState.isLoading && uiState.data == null && uiState.error != null) {
+                OutlinedButton(
+                    onClick = { viewModel.loadSupport() },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("重新加载") }
+            }
+  
             uiState.error?.let {  
                 Text(  
                     it, color = MaterialTheme.colorScheme.error,  

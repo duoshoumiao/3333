@@ -12,6 +12,7 @@ import com.pcrjjc.app.domain.QueryEngine
 import com.pcrjjc.app.domain.CaptchaManager  
 import com.pcrjjc.app.domain.CaptchaRequest  
 import com.pcrjjc.app.data.remote.CaptchaRequiredException
+import com.pcrjjc.app.data.remote.SessionExpiredException
 import com.pcrjjc.app.util.Platform  
 import dagger.hilt.android.lifecycle.HiltViewModel  
 import kotlinx.coroutines.Dispatchers  
@@ -167,7 +168,7 @@ class LabyrinthViewModel @Inject constructor(
                         "使用账号 id=${selectedAccount.id}, account=${selectedAccount.account}, " +  
                         "候选账号 ids=${accounts.map { it.id }}"  
                     )  
-                    var activeClient = clientManager.getClient(selectedAccount, forceRelogin = true)
+                    var activeClient = clientManager.getClient(selectedAccount)
   
                     // 1. 校验难度是否解锁（_max_unlocked_difficulty）  
                     val top = queryEngine.labyrinthTop(activeClient, clientManager, selectedAccount) 
@@ -187,7 +188,19 @@ class LabyrinthViewModel @Inject constructor(
                     var lastReason = ""  
                     var consecutiveFailures = 0  
                     for (attempt in 1..MAX_COUNT) {  
-                        val enter = queryEngine.labyrinthEnter(activeClient, state.selectedGuildId, state.difficulty)  
+                        // 会话失效（被顶下线）由 ClientManager 统一重登后重试，
+                        // 不打断刷开局流程，也不需要用户重新登录
+                        val enter = try {
+                            queryEngine.labyrinthEnter(activeClient, state.selectedGuildId, state.difficulty)
+                        } catch (e: SessionExpiredException) {
+                            consecutiveFailures++
+                            if (consecutiveFailures >= 3) {
+                                throw IllegalStateException("登录状态反复失效，请确认账号是否在别处登录后重试")
+                            }
+                            appendLog("检测到会话失效，正在自动恢复登录（第 $consecutiveFailures 次）")
+                            activeClient = clientManager.relogin(selectedAccount)
+                            continue
+                        }  
   
                         // 会话失效检测：进入黎明界返回空（既无 enter_id 也无 blocks），疑似被挤号/会话过期  
                         if (enter.enterId == 0L && enter.blocks.isEmpty()) {  
@@ -246,7 +259,9 @@ class LabyrinthViewModel @Inject constructor(
                                 platform = account.platform  
                             )  
                         )  
-                        clientManager.clearClient(account.id)  
+                        // 需要人工过码说明缓存 token 已不可用，连同磁盘会话一起清掉，
+                        // 下次走账号密码登录并在界面弹过码框
+                        clientManager.logout(account.id)
                     }  
                 } catch (ignore: Exception) {  
                     Log.w(TAG, "requestCaptcha failed: ${ignore.message}")  
@@ -257,20 +272,8 @@ class LabyrinthViewModel @Inject constructor(
                 )
 			} catch (e: Exception) {  
                 Log.e(TAG, "startReroll failed: ${e.message}", e)  
-                // セッション失効/顶号の可能性があるので、失効した可能性のあるクライアントを破棄し  
-                // 次回クリック時に必ず再ログインさせる  
-                try {  
-                    val accounts = accountDao.getMasterAccountsByPlatform(_uiState.value.selectedPlatform.id)  
-                    if (accounts.isNotEmpty()) {  
-                        // 优先清理界面选中的账号，找不到再回退到第一个  
-                        val selectedId = _uiState.value.selectedAccountId  
-                        val target = accounts.firstOrNull { it.id == selectedId }  
-                            ?: accounts.first()  
-                        clientManager.clearClient(target.id)  
-                    }  
-                } catch (ignore: Exception) {  
-                    Log.w(TAG, "clearClient on error failed: ${ignore.message}")  
-                }  
+                // 登录会话由 ClientManager 全局持有并自动续期，这里只报错不清会话，
+                // 否则一次刷开局失败会让其他功能也要重新登录。  
                 _uiState.value = _uiState.value.copy(  
                     isLoading = false,  
                     errorMessage = e.message ?: e.javaClass.simpleName  

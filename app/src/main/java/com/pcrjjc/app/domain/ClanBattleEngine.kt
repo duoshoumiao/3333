@@ -151,6 +151,8 @@ class ClanBattleEngine {
                 val pcrClient = client ?: throw Exception("客户端未初始化")  
   
                 // 1. 获取最新 top 数据  
+                //    PcrClient 会在被顶下线时抛 SessionExpiredException，  
+                //    这里同样按会话失效处理，走统一的自动重登流程。  
                 val clanBattleTop = getClanBattleTop()  
   
                 // ★ 会话过期检测：检查返回数据是否包含 server_error 或缺少关键字段  
@@ -270,12 +272,13 @@ class ClanBattleEngine {
 				if (mgr != null && acct != null) {  
 					try {  
 						lastReloginTime = now  
-						onEvent("检测到会话过期，正在尝试重新登录...")  
+						onEvent("检测到登录状态失效，正在自动恢复...")  
+						// relogin 优先用缓存 token 快速恢复，不会重新走账号密码/验证码  
 						val newClient = mgr.relogin(acct)  
 						if (newClient is PcrClient) {  
 							client = newClient  
 							coinCacheExpiry = 0L  
-							onEvent("重新登录成功，继续监控")  
+							onEvent("登录状态已恢复，继续监控")  
 							Log.i(TAG, "Re-login succeeded, resuming monitor loop")  
 							errorCount = 0  
 						} else {  
@@ -284,11 +287,11 @@ class ClanBattleEngine {
 						}  
 					} catch (reloginEx: Exception) {  
 						Log.e(TAG, "Re-login failed", reloginEx)  
-						onEvent("重新登录失败: ${reloginEx.message}，监控已退出")  
+						onEvent("自动恢复登录失败: ${reloginEx.message}，监控已退出")  
 						return  
 					}  
 				} else {  
-					onEvent("会话过期，但未配置 ClientManager，无法自动重新登录，监控已退出")  
+					onEvent("登录状态失效，但未配置 ClientManager，无法自动恢复，监控已退出")  
 					return  
 				}  
 			} catch (e: Exception) {  
@@ -715,6 +718,7 @@ class ClanBattleEngine {
 }  
   
 /**  
- * 会话过期异常，用于区分普通网络错误和会话过期  
+ * 会话过期异常：已统一到 data.remote.SessionExpiredException，  
+ * 这里保留别名，既避免重复类型又让既有调用点无需改动。  
  */  
-class SessionExpiredException(message: String) : Exception(message)
+typealias SessionExpiredException = com.pcrjjc.app.data.remote.SessionExpiredException
