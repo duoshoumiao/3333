@@ -80,6 +80,10 @@ android {
             excludes += "/META-INF/LICENSE.md" 
         }  
     }  
+    // 竞技场识别算法的 JVM 单测需要 android.util.Log 等桩实现
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }  
   
 dependencies {  
@@ -141,4 +145,8 @@ dependencies {
     // JSON  
     debugImplementation("androidx.compose.ui:ui-tooling")  
     debugImplementation("androidx.compose.ui:ui-test-manifest")  
+
+    // 竞技场识别移植的验证单测（纯 JVM）
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20231013")
 }

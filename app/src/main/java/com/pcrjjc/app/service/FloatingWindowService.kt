@@ -65,11 +65,13 @@ class FloatingWindowService : Service() {
         super.onCreate()  
         isRunning = true  
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager  
-        arenaClient = ArenaQueryClient()  
+        // 默认端侧：识别 + 直连 pcrdfans，无需自建服务器
+        arenaClient = ArenaQueryClient(this)
 		val settingsDataStore = SettingsDataStore(this)  
 		scope.launch {  
 			val serverUrl = settingsDataStore.getServerUrl()  
-			arenaClient = ArenaQueryClient(serverUrl)  
+			// 服务器地址仅作为本地引擎异常时的降级通道
+			arenaClient = ArenaQueryClient(this@FloatingWindowService, serverUrl)  
 		}  
         createFloatButton()  
     }  
@@ -671,7 +673,7 @@ class FloatingWindowService : Service() {
   
         val progress = ProgressBar(this)  
         val text = TextView(this).apply {  
-            this.text = "正在识别中，请稍候...\n(PJJC多队可能需要1-2分钟)"  
+            this.text = "正在本地识别并查询…"  
             setTextColor(Color.WHITE)  
             textSize = 13f  
             gravity = Gravity.CENTER  
