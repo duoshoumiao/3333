@@ -12,6 +12,7 @@ captures/
 *.apk
 *.ap_
 *.aab
+dist/
 
 # 本地签名与构建工具
 keystore/

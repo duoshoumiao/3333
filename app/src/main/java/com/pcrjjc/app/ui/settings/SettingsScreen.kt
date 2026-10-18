@@ -397,6 +397,8 @@ fun SettingsScreen(
                     }  
                 }  
             }
+			// ========== 半月刊新活动推送 Card ==========
+            FortnightlyPushCard(viewModel = viewModel)
 			// ========== 顶栏背景 Card ==========  
             val pickImageLauncher = rememberLauncherForActivityResult(  
                 contract = ActivityResultContracts.PickVisualMedia()  
@@ -455,4 +457,43 @@ private fun NoticeCheckbox(
         Text(text = label, style = MaterialTheme.typography.bodyMedium)    
         Checkbox(checked = checked, onCheckedChange = onCheckedChange)    
     }    
+}
+
+/** 半月刊新活动推送设置卡片 */
+@Composable
+private fun FortnightlyPushCard(viewModel: SettingsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("半月刊新活动推送", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "订阅半月刊的活动类别后，新活动开始时自动推送通知（后台每 15 分钟检查一次）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            NoticeCheckbox(
+                label = "启用新活动推送",
+                checked = uiState.fortnightlyPushEnabled,
+                onCheckedChange = { viewModel.setFortnightlyPushEnabled(it) }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (uiState.fortnightlySubscriptions.isEmpty()) {
+                    "当前没有订阅任何类别，请到「半月刊」页面为类别点订阅"
+                } else {
+                    "已订阅 ${uiState.fortnightlySubscriptions.size} 个类别：" +
+                        uiState.fortnightlySubscriptions.joinToString("、")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }

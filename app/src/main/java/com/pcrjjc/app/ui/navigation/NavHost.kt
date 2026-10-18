@@ -1,6 +1,7 @@
 package com.pcrjjc.app.ui.navigation      
   
 import androidx.compose.runtime.Composable      
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType      
 import androidx.navigation.compose.NavHost      
 import androidx.navigation.compose.composable      
@@ -62,8 +63,21 @@ sealed class Screen(val route: String) {
 }  
   
 @Composable      
-fun PcrJjcNavHost() {      
+fun PcrJjcNavHost(
+    openFortnightly: Boolean = false,
+    onFortnightlyOpened: () -> Unit = {}
+) {      
     val navController = rememberNavController()      
+
+    // 通知点击进入：直接跳到半月刊页面
+    LaunchedEffect(openFortnightly) {
+        if (openFortnightly) {
+            navController.navigate(Screen.Fortnightly.route) {
+                launchSingleTop = true
+            }
+            onFortnightlyOpened()
+        }
+    }
   
     NavHost(      
         navController = navController,      

@@ -49,11 +49,17 @@ import com.pcrjjc.app.domain.UpdateInfo
 import com.pcrjjc.app.ui.navigation.PcrJjcNavHost
 import com.pcrjjc.app.ui.theme.PcrJjcTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        /** 通知点击后要求直接打开「半月刊」页面 */
+        const val EXTRA_OPEN_FORTNIGHTLY = "extra_open_fortnightly"
+    }
 
     @Inject
     lateinit var clientManager: ClientManager
@@ -64,6 +70,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var updateChecker: UpdateChecker
 
+    /** 由通知带入的跳转请求，交给 Compose 导航消费 */
+    private val openFortnightly = MutableStateFlow(false)
+
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _: Boolean ->
         }
@@ -72,6 +81,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestNotificationPermission()
         parseCaptchaFromIntent(intent)
+        consumeNavigationIntent(intent)
 
         setContent {
             PcrJjcTheme {
@@ -79,7 +89,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    PcrJjcNavHost()
+                    val pendingFortnightly by openFortnightly.collectAsState()
+                    PcrJjcNavHost(
+                        openFortnightly = pendingFortnightly,
+                        onFortnightlyOpened = { openFortnightly.value = false }
+                    )
 
                     // 手动过码对话框覆盖层（全局）
                     val captchaRequest by captchaManager.pendingCaptcha.collectAsState()
@@ -215,7 +229,16 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)  
         setIntent(intent)  
         parseCaptchaFromIntent(intent)  
+        consumeNavigationIntent(intent)
     }  
+
+    /** 读取通知带入的跳转参数（一次性消费） */
+    private fun consumeNavigationIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_FORTNIGHTLY, false) == true) {
+            openFortnightly.value = true
+            intent.removeExtra(EXTRA_OPEN_FORTNIGHTLY)
+        }
+    }
   
     private fun parseCaptchaFromIntent(intent: Intent?) {  
         val gt = intent?.getStringExtra("captcha_gt") ?: return  

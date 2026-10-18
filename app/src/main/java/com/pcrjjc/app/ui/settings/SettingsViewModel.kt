@@ -60,7 +60,10 @@ data class SettingsUiState(
     val emailPushEnabled: Boolean = false,             // 邮箱推送开关  
     val emailSaved: Boolean = false,                   // 邮箱配置已保存  
     val isTestingEmail: Boolean = false,               // 正在测试邮件  
-    val emailTestMessage: String? = null
+    val emailTestMessage: String? = null,
+    // ==================== 半月刊新活动推送 ====================
+    val fortnightlyPushEnabled: Boolean = true,
+    val fortnightlySubscriptions: Set<String> = emptySet()
 )    
   
 @HiltViewModel    
@@ -111,7 +114,25 @@ class SettingsViewModel @Inject constructor(
                 emailPushEnabled = enabled  
             )  
         }
+        // 半月刊订阅状态
+        viewModelScope.launch {
+            val enabled = settingsDataStore.isFortnightlyPushEnabled()
+            _uiState.value = _uiState.value.copy(fortnightlyPushEnabled = enabled)
+        }
+        viewModelScope.launch {
+            settingsDataStore.fortnightlySubscriptionsFlow().collect { subscribed ->
+                _uiState.value = _uiState.value.copy(fortnightlySubscriptions = subscribed)
+            }
+        }
 	}
+
+    /** 半月刊新活动推送开关 */
+    fun setFortnightlyPushEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setFortnightlyPushEnabled(enabled)
+            _uiState.value = _uiState.value.copy(fortnightlyPushEnabled = enabled)
+        }
+    }
   
     fun onIntervalInputChanged(input: String) {    
         _uiState.value = _uiState.value.copy(    

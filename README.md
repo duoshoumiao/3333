@@ -20,6 +20,29 @@ https://github.com/duoshoumiao/priconne
 - 查看详细玩家资料
 - 角色档案查询（这是谁）：按别称 / ID 查询角色头像、别称与档案
 - 支持排名变动通知、排名上升通知、上线提醒
+- **半月刊分类订阅 + 新活动系统性推送**：每个活动类别可单独订阅，订阅类别出现新活动 / 即将开始时自动推送系统通知（可选同步邮件）
+
+## 半月刊订阅与推送
+
+进入「半月刊」页面：
+
+- 每个分类标题栏右侧有 **订阅 / 已订阅** 按钮，点击即可订阅该类别
+- 右上角铃铛图标打开 **订阅管理**：可批量全选、清空、开关推送、立即检查
+- 订阅状态持久化在 DataStore，重启应用不丢失
+
+推送机制：
+
+| 环节 | 说明 |
+| --- | --- |
+| 定时检查 | `FortnightlyCheckWorker` 每 15 分钟检查一次（WorkManager 最小周期） |
+| 启动补检 | App 冷启动时补一次，保证打开即可收到最新推送 |
+| 手动检查 | 半月刊页面右上角刷新 / 订阅管理里的「立即检查」 |
+| 推送事件 | 新活动预告（3 天内开始）、即将开始（提前 30 分钟）、已开始（6 小时内补偿） |
+| 去重 | 按「类别 + 活动名 + 开始时间 + 事件」记录，同一事件只推一次 |
+| 点击通知 | 直接跳转到半月刊页面 |
+
+推送使用独立通知渠道「半月刊新活动」，可在系统设置中单独关闭。
+若在「设置 → 邮箱推送」中配置了邮箱，同一批新活动还会同步发送一封汇总邮件。
 
 ## 技术栈
 
@@ -65,6 +88,7 @@ app/src/main/java/com/pcrjjc/app/
 ├── domain/  
 │   ├── QueryEngine.kt         # 查询引擎  
 │   ├── RankMonitor.kt         # 排名监控 + 通知  
+│   ├── FortnightlyPushManager.kt # 半月刊订阅类别的新活动推送  
 │   ├── ClanBattleEngine.kt    # 公会战引擎  
 │   ├── ManualBattleEngine.kt  # 手动出刀引擎  
 │   ├── ExEquipEngine.kt       # EX装备引擎  
@@ -83,7 +107,8 @@ app/src/main/java/com/pcrjjc/app/
 │   ├── UpdateCheckWorker.kt     # 更新检查任务  
 │   └── BootReceiver.kt          # 开机自启  
 ├── worker/  
-│   └── RankCheckWorker.kt     # WorkManager 定期轮询  
+│   ├── RankCheckWorker.kt     # WorkManager 定期轮询  
+│   └── FortnightlyCheckWorker.kt # 半月刊新活动定时检查（15 分钟）  
 ├── ui/  
 │   ├── theme/                 # Material 3 主题  
 │   ├── navigation/            # 导航  

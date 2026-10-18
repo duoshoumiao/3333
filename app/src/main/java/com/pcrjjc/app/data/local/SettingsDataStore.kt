@@ -10,8 +10,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore    
 import kotlinx.coroutines.flow.Flow    
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first    
 import kotlinx.coroutines.flow.map    
+import kotlinx.coroutines.flow.onEach
 import org.json.JSONArray    
 import org.json.JSONObject    
   
@@ -48,6 +52,18 @@ class SettingsDataStore(private val context: Context) {
 		private val KEY_APP_USER_ID = longPreferencesKey("app_user_id")
 		private val KEY_NO_CONFIG_WARN_AT = longPreferencesKey("no_config_warn_at")
 		private val KEY_PCR_SERVER_URL = stringPreferencesKey("pcr_server_url")
+
+		// ==================== 半月刊订阅 / 推送 ====================
+		/** 已订阅的活动类别（JSON 数组字符串） */
+		private val KEY_FN_SUBSCRIBED = stringPreferencesKey("fn_subscribed_categories")
+		/** 新活动推送总开关 */
+		private val KEY_FN_PUSH_ENABLED = booleanPreferencesKey("fn_push_enabled")
+		/** 上一次检查新活动的时间（毫秒） */
+		private val KEY_FN_LAST_CHECK = longPreferencesKey("fn_last_check_at")
+		/** 上一次从 GitHub 拉取 data.json 的时间（毫秒） */
+		private val KEY_FN_LAST_REFRESH = longPreferencesKey("fn_last_refresh_at")
+		/** 已推送过的活动 key（JSON 数组字符串，用于去重） */
+		private val KEY_FN_NOTIFIED_KEYS = stringPreferencesKey("fn_notified_keys")
     }  
   
     val pollingIntervalFlow: Flow<Long> = context.dataStore.data.map { prefs ->    
@@ -353,5 +369,108 @@ class SettingsDataStore(private val context: Context) {
             prefs[KEY_LAB_AREA3_BOSSES] = area3.joinToString(",")  
             prefs[KEY_LAB_AREA5_BOSSES] = area5.joinToString(",")  
         }  
+    }
+
+    // ==================== 半月刊：分类订阅 + 新活动推送 ====================
+
+    /** 订阅变化时通知 UI 与后台任务 */
+    private val _fortnightlySubscriptions =
+        MutableStateFlow<Set<String>>(emptySet())
+
+    /** 供 Compose / Worker 观察的订阅集合 */
+    val fortnightlySubscriptions: StateFlow<Set<String>> = _fortnightlySubscriptions.asStateFlow()
+
+    /**
+     * 读取已订阅类别。首次调用时从 DataStore 载入并同步到内存。
+     */
+    suspend fun getFortnightlySubscriptions(): Set<String> {
+        val raw = context.dataStore.data.first()[KEY_FN_SUBSCRIBED]
+        val parsed = parseStringSet(raw)
+        _fortnightlySubscriptions.value = parsed
+        return parsed
+    }
+
+    /** 观察已订阅类别（会先载入一次磁盘值） */
+    fun fortnightlySubscriptionsFlow(): Flow<Set<String>> =
+        context.dataStore.data.map { prefs -> parseStringSet(prefs[KEY_FN_SUBSCRIBED]) }
+            .onEach { _fortnightlySubscriptions.value = it }
+
+    /** 覆盖写入订阅类别集合 */
+    suspend fun setFortnightlySubscriptions(categories: Set<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FN_SUBSCRIBED] = JSONArray(categories.toList()).toString()
+        }
+        _fortnightlySubscriptions.value = categories
+    }
+
+    /** 订阅 / 取消订阅单个类别，返回操作后是否处于订阅状态 */
+    suspend fun toggleFortnightlySubscription(category: String): Boolean {
+        val current = getFortnightlySubscriptions().toMutableSet()
+        val nowSubscribed = if (current.contains(category)) {
+            current.remove(category)
+            false
+        } else {
+            current.add(category)
+            true
+        }
+        setFortnightlySubscriptions(current)
+        return nowSubscribed
+    }
+
+    /** 是否已订阅某类别 */
+    suspend fun isFortnightlySubscribed(category: String): Boolean =
+        getFortnightlySubscriptions().contains(category)
+
+    suspend fun isFortnightlyPushEnabled(): Boolean =
+        context.dataStore.data.first()[KEY_FN_PUSH_ENABLED] ?: true
+
+    suspend fun setFortnightlyPushEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_FN_PUSH_ENABLED] = enabled }
+    }
+
+    suspend fun getFortnightlyLastCheckAt(): Long =
+        context.dataStore.data.first()[KEY_FN_LAST_CHECK] ?: 0L
+
+    suspend fun setFortnightlyLastCheckAt(timeMs: Long) {
+        context.dataStore.edit { prefs -> prefs[KEY_FN_LAST_CHECK] = timeMs }
+    }
+
+    suspend fun getFortnightlyLastRefreshAt(): Long =
+        context.dataStore.data.first()[KEY_FN_LAST_REFRESH] ?: 0L
+
+    suspend fun setFortnightlyLastRefreshAt(timeMs: Long) {
+        context.dataStore.edit { prefs -> prefs[KEY_FN_LAST_REFRESH] = timeMs }
+    }
+
+    /** 已推送过的活动 key 集合 */
+    suspend fun getFortnightlyNotifiedKeys(): Set<String> =
+        parseStringSet(context.dataStore.data.first()[KEY_FN_NOTIFIED_KEYS])
+
+    /**
+     * 合并写入已推送 key。内部只保留最近 [maxEntries] 条，防止无限增长。
+     */
+    suspend fun addFortnightlyNotifiedKeys(keys: Collection<String>, maxEntries: Int = 500) {
+        if (keys.isEmpty()) return
+        val merged = LinkedHashSet(getFortnightlyNotifiedKeys())
+        merged.addAll(keys)
+        val trimmed = if (merged.size > maxEntries) {
+            merged.toList().takeLast(maxEntries)
+        } else {
+            merged.toList()
+        }
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FN_NOTIFIED_KEYS] = JSONArray(trimmed).toString()
+        }
+    }
+
+    private fun parseStringSet(raw: String?): Set<String> {
+        if (raw.isNullOrBlank()) return emptySet()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
+                .toSet()
+        } catch (e: Exception) {
+            emptySet()
+        }
     }
 }
