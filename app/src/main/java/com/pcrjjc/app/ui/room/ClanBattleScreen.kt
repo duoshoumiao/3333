@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.room  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.layout.*  
 import androidx.compose.foundation.rememberScrollState  
@@ -68,7 +70,7 @@ fun ClanBattleScreen(
 	
 	Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = {  
                     Column {  
                         Text("自动报刀", maxLines = 1, overflow = TextOverflow.Ellipsis)  

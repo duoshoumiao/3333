@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.detail  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Box  
@@ -82,7 +84,7 @@ fun DetailScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("详细资料") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

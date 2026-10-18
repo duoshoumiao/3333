@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.exequip  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Column  
@@ -54,7 +56,7 @@ fun ExEquipScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("EX状态管理") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

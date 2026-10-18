@@ -1,9 +1,11 @@
 package com.pcrjjc.app.ui.whois
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+import com.pcrjjc.app.ui.theme.isNightTheme
+
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,7 +81,7 @@ fun WhoIsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CyberTopAppBar(
                 title = { Text("这是谁") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -234,11 +236,11 @@ private fun WhoIsNoResultCard(query: String) {
 
 @Composable
 private fun WhoIsCard(profile: CharaProfile) {
-    val dark = isSystemInDarkTheme()
-    // 还原 whois 图片的淡青绿色背景与深褐红文字
-    val container = if (dark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFB6D0C9)
-    val content = if (dark) MaterialTheme.colorScheme.onSurface else Color(0xFF6A3E42)
-    val secondary = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF7A565A)
+    val dark = isNightTheme()
+    // 轻赛博：淡青全息底 + 冷墨文字
+    val container = if (dark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFDCF2FA)
+    val content = if (dark) MaterialTheme.colorScheme.onSurface else Color(0xFF10142A)
+    val secondary = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF44536F)
 
     Card(
         modifier = Modifier.fillMaxWidth(),

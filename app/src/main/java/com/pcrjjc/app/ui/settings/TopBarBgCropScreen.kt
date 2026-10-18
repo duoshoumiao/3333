@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.settings  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import android.graphics.Bitmap  
 import android.graphics.drawable.BitmapDrawable  
@@ -58,7 +60,7 @@ fun TopBarBgCropScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("裁剪顶栏背景") },  
                 navigationIcon = { TextButton(onClick = onCancel) { Text("取消") } },  
                 actions = {  

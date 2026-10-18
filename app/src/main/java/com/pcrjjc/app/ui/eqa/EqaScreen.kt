@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.eqa  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import android.graphics.BitmapFactory  
 import android.util.Base64  
@@ -254,7 +256,7 @@ fun EqaScreen(
 	
 	Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("问答") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

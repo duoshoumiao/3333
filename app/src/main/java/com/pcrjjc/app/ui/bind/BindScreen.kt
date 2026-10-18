@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.bind
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,7 +49,7 @@ fun BindScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CyberTopAppBar(
                 title = { Text("添加绑定") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

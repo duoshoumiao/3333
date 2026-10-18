@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.manualbattle  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.layout.*  
 import androidx.compose.foundation.rememberScrollState  
@@ -73,7 +75,7 @@ fun ManualBattleScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = {  
                     Column {  
                         Text("手动报刀", maxLines = 1, overflow = TextOverflow.Ellipsis)  

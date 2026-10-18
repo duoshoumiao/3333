@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.query
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +49,7 @@ fun QueryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CyberTopAppBar(
                 title = { Text("排名查询") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

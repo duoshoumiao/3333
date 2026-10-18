@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.labyrinth  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.ExperimentalFoundationApi  
 import androidx.compose.foundation.layout.Arrangement  
@@ -77,7 +79,7 @@ fun LabyrinthScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("黎明界刷开局") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

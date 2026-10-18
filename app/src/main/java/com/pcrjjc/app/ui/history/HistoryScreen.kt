@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.history
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +49,7 @@ fun HistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CyberTopAppBar(
                 title = { Text("击剑记录") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

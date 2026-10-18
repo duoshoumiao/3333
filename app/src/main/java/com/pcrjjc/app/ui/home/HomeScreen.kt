@@ -1,5 +1,8 @@
 package com.pcrjjc.app.ui.home    
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.TopAppBar
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.scale
@@ -150,8 +153,9 @@ fun HomeScreen(
 	var showClearManualDialog by remember { mutableStateOf(false) }
 	
 	Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(  
+            CyberTopAppBar(
 				title = {    
                     LazyRow(    
                         modifier = Modifier.fillMaxWidth(),    

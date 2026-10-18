@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.support  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import android.util.Log  
 import androidx.compose.foundation.background  
@@ -121,7 +123,7 @@ fun SupportScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("我的支援") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

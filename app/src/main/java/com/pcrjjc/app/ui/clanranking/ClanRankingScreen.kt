@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.clanranking  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.layout.Arrangement  
 import androidx.compose.foundation.layout.Column  
@@ -64,7 +66,7 @@ fun ClanRankingScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("公会排名") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

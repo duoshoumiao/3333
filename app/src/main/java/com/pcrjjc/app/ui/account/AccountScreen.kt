@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.account
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -97,7 +99,7 @@ private fun AccountPageContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CyberTopAppBar(
                 title = { Text("竞技场监控账号") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

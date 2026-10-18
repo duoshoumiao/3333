@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.friend  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.horizontalScroll  
 import androidx.compose.foundation.layout.Arrangement  
@@ -54,7 +56,7 @@ fun FriendScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("好友申请") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

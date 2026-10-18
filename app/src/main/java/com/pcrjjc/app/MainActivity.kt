@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,15 +39,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import com.pcrjjc.app.BuildConfig
+import com.pcrjjc.app.data.local.SettingsDataStore
 import com.pcrjjc.app.domain.CaptchaManager
 import com.pcrjjc.app.domain.CaptchaRequest
 import com.pcrjjc.app.domain.ClientManager
 import com.pcrjjc.app.domain.UpdateChecker
 import com.pcrjjc.app.domain.UpdateInfo
+import com.pcrjjc.app.ui.components.CyberBackdrop
 import com.pcrjjc.app.ui.navigation.PcrJjcNavHost
 import com.pcrjjc.app.ui.theme.PcrJjcTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -70,6 +76,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var updateChecker: UpdateChecker
 
+    @Inject
+    lateinit var settingsDataStore: SettingsDataStore
+
     /** 由通知带入的跳转请求，交给 Compose 导航消费 */
     private val openFortnightly = MutableStateFlow(false)
 
@@ -84,45 +93,70 @@ class MainActivity : ComponentActivity() {
         consumeNavigationIntent(intent)
 
         setContent {
-            PcrJjcTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val pendingFortnightly by openFortnightly.collectAsState()
-                    PcrJjcNavHost(
-                        openFortnightly = pendingFortnightly,
-                        onFortnightlyOpened = { openFortnightly.value = false }
-                    )
-
-                    // 手动过码对话框覆盖层（全局）
-                    val captchaRequest by captchaManager.pendingCaptcha.collectAsState()
-                    captchaRequest?.let { data ->
-                        ManualCaptchaDialog(
-                            captchaRequest = data,
-                            clientManager = clientManager,
-                            onDismiss = { captchaManager.clearCaptcha() },
-                            onSuccess = {
-                                captchaManager.clearCaptcha()
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    "手动过码成功，登录完成",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+            // 外观：night（默认）/ system / day，设置页可切换
+            val themeMode by settingsDataStore.themeModeFlow.collectAsState(initial = "night")
+            val darkTheme = when (themeMode) {
+                "day" -> false
+                "system" -> isSystemInDarkTheme()
+                else -> true
+            }
+            // 系统栏颜色跟随应用内主题，而不是系统深色（强制夜间时也不留白条）
+            SideEffect { applySystemBarStyle(darkTheme) }
+            PcrJjcTheme(darkTheme = darkTheme) {
+                // 夜景由这层极光背景统一铺底，各页面 Scaffold 透明后透出
+                CyberBackdrop {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        // 背景由外层 CyberBackdrop 提供，这里保持透明
+                        color = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.onBackground
+                    ) {
+                        val pendingFortnightly by openFortnightly.collectAsState()
+                        PcrJjcNavHost(
+                            openFortnightly = pendingFortnightly,
+                            onFortnightlyOpened = { openFortnightly.value = false }
                         )
-                    }
 
-                    // 更新提醒对话框
-                    UpdateDialog()
+                        // 手动过码对话框覆盖层（全局）
+                        val captchaRequest by captchaManager.pendingCaptcha.collectAsState()
+                        captchaRequest?.let { data ->
+                            ManualCaptchaDialog(
+                                captchaRequest = data,
+                                clientManager = clientManager,
+                                onDismiss = { captchaManager.clearCaptcha() },
+                                onSuccess = {
+                                    captchaManager.clearCaptcha()
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "手动过码成功，登录完成",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
+                        }
+
+                        // 更新提醒对话框
+                        UpdateDialog()
+                    }
                 }
             }
         }
     }
 
+    /** 状态栏 / 导航栏跟随应用内主题，避免「强制夜间 + 系统浅色」时留下白条 */
+    @Suppress("DEPRECATION")
+    private fun applySystemBarStyle(dark: Boolean) {
+        val color = if (dark) 0xFF05070F.toInt() else 0xFFF5F7FE.toInt()
+        window.statusBarColor = color
+        window.navigationBarColor = color
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
+    }
+
     @Composable
-    private fun UpdateDialog() {
-        val context = LocalContext.current
+    private fun UpdateDialog() {        val context = LocalContext.current
         val scope = rememberCoroutineScope()
         var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
         var isDownloading by remember { mutableStateOf(false) }

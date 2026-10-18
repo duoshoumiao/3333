@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.room  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.ExperimentalFoundationApi  
 import androidx.compose.foundation.layout.*  
@@ -98,7 +100,7 @@ private fun ChatPageContent(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = {  
                     Column {  
                         Text(uiState.roomName.ifBlank { "聊天" })  

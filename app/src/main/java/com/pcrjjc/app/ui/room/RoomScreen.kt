@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.room  
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.clickable  
 import androidx.compose.foundation.layout.*  
@@ -33,7 +35,7 @@ fun RoomScreen(
   
     Scaffold(  
         topBar = {  
-            TopAppBar(  
+            CyberTopAppBar(
                 title = { Text("房间") },  
                 navigationIcon = {  
                     IconButton(onClick = onNavigateBack) {  

@@ -63,7 +63,9 @@ data class SettingsUiState(
     val emailTestMessage: String? = null,
     // ==================== 半月刊新活动推送 ====================
     val fortnightlyPushEnabled: Boolean = true,
-    val fortnightlySubscriptions: Set<String> = emptySet()
+    val fortnightlySubscriptions: Set<String> = emptySet(),
+    // ==================== 外观 ====================
+    val themeMode: String = "night"
 )    
   
 @HiltViewModel    
@@ -124,7 +126,21 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(fortnightlySubscriptions = subscribed)
             }
         }
+        // 外观模式
+        viewModelScope.launch {
+            settingsDataStore.themeModeFlow.collect { mode ->
+                _uiState.value = _uiState.value.copy(themeMode = mode)
+            }
+        }
 	}
+
+    /** 外观模式：night / system / day */
+    fun onThemeModeChanged(mode: String) {
+        viewModelScope.launch {
+            settingsDataStore.setThemeMode(mode)
+            _uiState.value = _uiState.value.copy(themeMode = mode)
+        }
+    }
 
     /** 半月刊新活动推送开关 */
     fun setFortnightlyPushEnabled(enabled: Boolean) {

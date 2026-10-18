@@ -56,6 +56,29 @@ https://github.com/duoshoumiao/priconne
 - **序列化**: msgpack-java
 - **加密**: AES-CBC + RSA (与游戏服务器通信)
 
+## 界面风格：轻赛博（Light Cyber）
+
+整体按「冰蓝全息」方向定制，与应用图标 / 启动图一致；**默认就是夜景**，可在「设置 → 外观」切换夜间 / 跟随系统 / 日间。
+
+| 元素 | 夜景（默认） | 日间 |
+| --- | --- | --- |
+| 底色 | 深空蓝紫渐变 `#05070F → #0B1024 → #140A28`，叠加极光光晕、星点、暗角 | 冰白冷底 `#F5F7FE` + 细网格 |
+| 主色 | 霓虹紫 `#B7A5FF` | 全息紫 `#5B3DF5` |
+| 辅色 | 电光青 `#5CF0FF`（图标/次级信息） | 深青 `#007287` |
+| 强调 | 霓虹洋红 `#FF8AD4`（发丝线/告警） | 洋红 `#C2187A` |
+| 顶栏 | `CyberTopAppBar`：深空底 + 紫青光晕 + 电路网格 + 扫描线 + 发光发丝线 | 雾面冷白 + 全息渐变 + 发丝线 |
+| 背景 | `CyberBackdrop` 铺在导航容器下层，所有页面透明后共用同一层夜色 | 仅首页透出背景，子页面保持纯净 |
+| 形态 | 16dp 圆角，标题半粗、字距 +0.4sp | 同左 |
+
+实现要点：
+
+- `MaterialTheme.colorScheme.background` 在夜间为透明，各页 `Scaffold` 直接透出 `CyberBackdrop`，不需要逐页写背景
+- 动态取色默认关闭，避免系统壁纸色覆盖定制风格
+- 自定义顶栏背景图仍可在「设置」中更换，夜间会自动加重雾面蒙层
+
+自定义入口：色板、字体层级与圆角在 `ui/theme/Theme.kt`（`CyberAccent` 为强调色常量），
+顶栏与背景组件在 `ui/components/CyberTopAppBar.kt`、`ui/components/CyberBackdrop.kt`。
+
 ## 项目结构
 
 ```
@@ -110,9 +133,9 @@ app/src/main/java/com/pcrjjc/app/
 │   ├── RankCheckWorker.kt     # WorkManager 定期轮询  
 │   └── FortnightlyCheckWorker.kt # 半月刊新活动定时检查（15 分钟）  
 ├── ui/  
-│   ├── theme/                 # Material 3 主题  
+│   ├── theme/                 # 轻赛博主题（配色/字体/圆角）  
 │   ├── navigation/            # 导航  
-│   ├── components/            # 通用组件  
+│   ├── components/            # 通用组件（CyberTopAppBar / CyberBackdrop）  
 │   ├── home/                  # 主页 (绑定列表)  
 │   ├── bind/                  # 添加绑定  
 │   ├── query/                 # 排名查询  

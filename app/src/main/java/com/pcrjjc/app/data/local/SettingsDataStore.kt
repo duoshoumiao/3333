@@ -53,6 +53,10 @@ class SettingsDataStore(private val context: Context) {
 		private val KEY_NO_CONFIG_WARN_AT = longPreferencesKey("no_config_warn_at")
 		private val KEY_PCR_SERVER_URL = stringPreferencesKey("pcr_server_url")
 
+		// ==================== 外观 ====================
+		/** 主题模式：night（默认）/ system / day */
+		private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+
 		// ==================== 半月刊订阅 / 推送 ====================
 		/** 已订阅的活动类别（JSON 数组字符串） */
 		private val KEY_FN_SUBSCRIBED = stringPreferencesKey("fn_subscribed_categories")
@@ -109,6 +113,11 @@ class SettingsDataStore(private val context: Context) {
 	val emailPushEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->  
         prefs[KEY_EMAIL_PUSH_ENABLED] ?: false  
     }
+
+	/** 外观模式，默认夜间（night） */
+	val themeModeFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_THEME_MODE] ?: "night"
+    }
   
     suspend fun setPollingInterval(seconds: Long) {    
         context.dataStore.edit { prefs ->    
@@ -159,6 +168,14 @@ class SettingsDataStore(private val context: Context) {
     }  
     suspend fun setEmailPushEnabled(enabled: Boolean) {  
         context.dataStore.edit { it[KEY_EMAIL_PUSH_ENABLED] = enabled }  
+    }
+
+    suspend fun getThemeMode(): String {
+        return context.dataStore.data.first()[KEY_THEME_MODE] ?: "night"
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { it[KEY_THEME_MODE] = mode }
     }
     
 	suspend fun getPollingIntervalSync(): Long {    

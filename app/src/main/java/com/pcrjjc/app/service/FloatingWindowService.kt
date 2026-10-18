@@ -94,7 +94,7 @@ class FloatingWindowService : Service() {
             textSize = 18f  
             setTextColor(Color.WHITE)  
             gravity = Gravity.CENTER  
-            setBackgroundColor(0xDD3F51B5.toInt())  
+            setBackgroundColor(0xDD5B3DF5.toInt())  
             setPadding(dp(4), dp(4), dp(4), dp(4))  
         }  
   
@@ -172,7 +172,7 @@ class FloatingWindowService : Service() {
 		val ctx: Context = this  
 		val root = LinearLayout(ctx).apply {  
 			orientation = LinearLayout.VERTICAL  
-			setBackgroundColor(0xF0222222.toInt())  
+			setBackgroundColor(0xF0060A16.toInt())  
 			setPadding(dp(12), dp(10), dp(12), dp(10))  
 		}  
 	  
@@ -184,7 +184,7 @@ class FloatingWindowService : Service() {
 			hint = "例：佩可莉姆,凯露,真琴"  
 			setTextColor(Color.WHITE)  
 			setHintTextColor(Color.GRAY)  
-			setBackgroundColor(0xFF444444.toInt())  
+			setBackgroundColor(0xFF1B2440.toInt())  
 			setPadding(dp(8), dp(6), dp(8), dp(6))  
 			textSize = 13f  
 			layoutParams = LinearLayout.LayoutParams(  
@@ -194,7 +194,7 @@ class FloatingWindowService : Service() {
 		}  
 		val confirmBtn = TextView(ctx).apply {  
 			text = "查询"  
-			setTextColor(0xFF90CAF9.toInt()); textSize = 14f  
+			setTextColor(0xFF5FE9F7.toInt()); textSize = 14f  
 			gravity = Gravity.CENTER  
 			setPadding(dp(16), dp(8), dp(16), dp(8))  
 		}  
@@ -245,7 +245,7 @@ class FloatingWindowService : Service() {
 		// 一个竖排小浮窗，两个选项  
 		val menu = LinearLayout(this).apply {  
 			orientation = LinearLayout.VERTICAL  
-			setBackgroundColor(0xEE333333.toInt())  
+			setBackgroundColor(0xEE101728.toInt())  
 			setPadding(dp(8), dp(8), dp(8), dp(8))  
 		}  
 		val screenshotBtn = TextView(this).apply {  
@@ -489,7 +489,7 @@ class FloatingWindowService : Service() {
   
 		val root = LinearLayout(ctx).apply {  
 			orientation = LinearLayout.VERTICAL  
-			setBackgroundColor(0xF0222222.toInt())  
+			setBackgroundColor(0xF0060A16.toInt())  
 			setPadding(dp(8), dp(6), dp(8), dp(6))  
 		}  
   
@@ -534,7 +534,7 @@ class FloatingWindowService : Service() {
 						setMargins(dp(2), 0, dp(2), 0)  
 					}  
 					scaleType = ImageView.ScaleType.CENTER_CROP  
-					setBackgroundColor(0xFF90CAF9.toInt())  
+					setBackgroundColor(0xFF5FE9F7.toInt())  
 				}  
 				val path = IconStorage.getIconPath(ctx, id, 6)  
 					?: IconStorage.getIconPath(ctx, id, 3)  
@@ -562,7 +562,7 @@ class FloatingWindowService : Service() {
 				}  
 				fun refreshBg() {  
 					iv.setBackgroundColor(  
-						if (selected.contains(id)) 0xFF90CAF9.toInt() else 0xFF333333.toInt()  
+						if (selected.contains(id)) 0xFF5FE9F7.toInt() else 0xFF0E1526.toInt()  
 					)  
 				}  
 				refreshBg()  
@@ -592,11 +592,11 @@ class FloatingWindowService : Service() {
 			tab.setOnClickListener {  
 				for (i in 0 until tabRow.childCount)  
 					tabRow.getChildAt(i).setBackgroundColor(0)  
-				tab.setBackgroundColor(0xFF3F51B5.toInt())  
+				tab.setBackgroundColor(0xFF5B3DF5.toInt())  
 				loadGrid(ids)  
 			}  
 			tabRow.addView(tab)  
-			if (index == 0) { tab.setBackgroundColor(0xFF3F51B5.toInt()); loadGrid(ids) }  
+			if (index == 0) { tab.setBackgroundColor(0xFF5B3DF5.toInt()); loadGrid(ids) }  
 		}  
   
 		// 底部按钮  
@@ -607,7 +607,7 @@ class FloatingWindowService : Service() {
 		}  
 		val confirmBtn = TextView(ctx).apply {  
 			text = "查询"  
-			setTextColor(0xFF90CAF9.toInt()); textSize = 14f  
+			setTextColor(0xFF5FE9F7.toInt()); textSize = 14f  
 			setPadding(dp(20), dp(6), dp(20), dp(6))  
 		}  
 		val cancelBtn2 = TextView(ctx).apply {  
@@ -666,7 +666,7 @@ class FloatingWindowService : Service() {
     private fun showLoadingPanel() {  
         val panel = LinearLayout(this).apply {  
             orientation = LinearLayout.VERTICAL  
-            setBackgroundColor(0xEE222222.toInt())  
+            setBackgroundColor(0xEE070C1A.toInt())  
             setPadding(dp(16), dp(12), dp(16), dp(12))  
             gravity = Gravity.CENTER  
         }  
@@ -716,7 +716,7 @@ class FloatingWindowService : Service() {
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
-            setBackgroundColor(0xF0222222.toInt())  
+            setBackgroundColor(0xF0060A16.toInt())  
             setPadding(dp(8), dp(8), dp(8), dp(8))  
         }  
   
@@ -822,7 +822,7 @@ class FloatingWindowService : Service() {
 			contentLayout.addView(divider)  
 			val resultLabel = TextView(ctx).apply {  
 				text = "推荐进攻阵容"  
-				setTextColor(0xFF90CAF9.toInt())  
+				setTextColor(0xFF5FE9F7.toInt())  
 				textSize = 11f  
 				setPadding(0, 0, 0, dp(2))  
 			}  
@@ -886,7 +886,7 @@ class FloatingWindowService : Service() {
         }  
         val retryBtn = TextView(ctx).apply {  
             text = "重新截图"  
-            setTextColor(0xFF90CAF9.toInt())  
+            setTextColor(0xFF5FE9F7.toInt())  
             textSize = 13f  
             setPadding(dp(16), dp(6), dp(16), dp(6))  
             setOnClickListener {  
@@ -931,7 +931,7 @@ class FloatingWindowService : Service() {
   
         val root = LinearLayout(ctx).apply {  
             orientation = LinearLayout.VERTICAL  
-            setBackgroundColor(0xF0222222.toInt())  
+            setBackgroundColor(0xF0060A16.toInt())  
             setPadding(dp(12), dp(8), dp(12), dp(8))  
         }  
   
@@ -998,7 +998,7 @@ class FloatingWindowService : Service() {
   
             if (i < maxResults - 1) {  
                 val itemDivider = View(ctx).apply {  
-                    setBackgroundColor(0xFF444444.toInt())  
+                    setBackgroundColor(0xFF1B2440.toInt())  
                     layoutParams = LinearLayout.LayoutParams(  
                         ViewGroup.LayoutParams.MATCH_PARENT, 1  
                     ).apply { setMargins(0, dp(4), 0, 0) }  
@@ -1019,7 +1019,7 @@ class FloatingWindowService : Service() {
         }  
         val retryBtn = TextView(ctx).apply {  
             text = "重新截图"  
-            setTextColor(0xFF90CAF9.toInt())  
+            setTextColor(0xFF5FE9F7.toInt())  
             textSize = 13f  
             setPadding(dp(16), dp(6), dp(16), dp(6))  
             setOnClickListener {  
@@ -1072,7 +1072,7 @@ class FloatingWindowService : Service() {
                     setMargins(dp(2), 0, dp(2), 0)  
                 }  
                 scaleType = ImageView.ScaleType.CENTER_CROP  
-                setBackgroundColor(0xFF333333.toInt())  
+                setBackgroundColor(0xFF0E1526.toInt())  
             }  
   
             val iconPath = IconStorage.getIconPath(ctx, id, 6)  
@@ -1097,7 +1097,7 @@ class FloatingWindowService : Service() {
   
     private fun setPlaceholderText(iv: ImageView, baseId: Int) {  
         iv.setImageDrawable(null)  
-        iv.setBackgroundColor(0xFF555555.toInt())  
+        iv.setBackgroundColor(0xFF243050.toInt())  
         iv.contentDescription = baseId.toString()  
     }  
   

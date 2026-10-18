@@ -39,7 +39,7 @@ class CropSelectionOverlay(
         style = Paint.Style.FILL  
     }  
     private val borderPaint = Paint().apply {  
-        color = 0xFF4CAF50.toInt()  
+        color = 0xFF00D2E6.toInt()  
         style = Paint.Style.STROKE  
         strokeWidth = dp(3f)  
         isAntiAlias = true  
@@ -67,7 +67,7 @@ class CropSelectionOverlay(
         buttonsLayout = LinearLayout(context).apply {  
             orientation = LinearLayout.HORIZONTAL  
             gravity = Gravity.CENTER  
-            setBackgroundColor(0xCC222222.toInt())  
+            setBackgroundColor(0xCC050912.toInt())  
             setPadding(dp(16f).toInt(), dp(10f).toInt(), dp(16f).toInt(), dp(10f).toInt())  
         }  
   
@@ -88,7 +88,7 @@ class CropSelectionOverlay(
   
         val confirmBtn = TextView(context).apply {  
             text = "确认"  
-            setTextColor(0xFF90CAF9.toInt())  
+            setTextColor(0xFF5FE9F7.toInt())  
             textSize = 15f  
             setPadding(dp(16f).toInt(), dp(8f).toInt(), dp(16f).toInt(), dp(8f).toInt())
             setOnClickListener {  

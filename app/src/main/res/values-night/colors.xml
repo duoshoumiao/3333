@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 夜间：轻赛博深空夜景 -->
+    <color name="cyber_bg">#FF05070F</color>
+    <color name="cyber_surface">#FF0A0E1D</color>
+</resources>

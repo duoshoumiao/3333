@@ -1,4 +1,6 @@
 package com.pcrjjc.app.ui.settings    
+
+import com.pcrjjc.app.ui.components.CyberTopAppBar
   
 import androidx.compose.foundation.layout.Arrangement    
 import androidx.compose.foundation.layout.Column    
@@ -21,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox    
 import androidx.compose.material3.CircularProgressIndicator    
 import androidx.compose.material3.ExperimentalMaterial3Api    
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon    
 import androidx.compose.material3.IconButton    
 import androidx.compose.material3.LinearProgressIndicator    
@@ -56,7 +59,7 @@ fun SettingsScreen(
   
     Scaffold(    
         topBar = {    
-            TopAppBar(    
+            CyberTopAppBar(
                 title = { Text("设置") },    
                 navigationIcon = {    
                     IconButton(onClick = onNavigateBack) {    
@@ -74,6 +77,36 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),    
             verticalArrangement = Arrangement.spacedBy(16.dp)    
         ) {    
+            // ========== 外观 Card ==========
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("外观", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "夜间是轻赛博主打风格：深空极光 + 霓虹发丝线",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            "night" to "夜间",
+                            "system" to "跟随系统",
+                            "day" to "日间"
+                        ).forEach { (mode, label) ->
+                            FilterChip(
+                                selected = uiState.themeMode == mode,
+                                onClick = { viewModel.onThemeModeChanged(mode) },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+                }
+            }
+
             // ========== 检查更新 / 关于 Card ==========
             Card(
                 modifier = Modifier.fillMaxWidth(),

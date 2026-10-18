@@ -1,5 +1,7 @@
 package com.pcrjjc.app.ui.master    
 
+import com.pcrjjc.app.ui.components.CyberTopAppBar
+
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow    
@@ -88,7 +90,7 @@ fun MasterScreen(
     
     Scaffold(    
         topBar = {    
-            TopAppBar(    
+            CyberTopAppBar(
                 title = { Text("我的账号") },    
                 navigationIcon = {    
                     IconButton(onClick = onNavigateBack) {    
