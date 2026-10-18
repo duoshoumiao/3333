@@ -3,6 +3,7 @@
 build/
 app/build/
 local.properties
+temp/
 *.iml
 .idea/
 captures/
@@ -11,3 +12,9 @@ captures/
 *.apk
 *.ap_
 *.aab
+
+# 本地签名与构建工具
+keystore/
+.android-sdk/
+.tools/
+.gradle-home/
